@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Low-Poly Gear Generator</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    #canvas-container { flex: 1 1 auto; min-width: 0; height: 100vh; position: relative; }
+    #canvas-container canvas { display: block; }
+
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+    #show-panel { display: none; }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .item-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    select { width: 100%; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .val-display { color: #fff; font-weight: bold; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+  <script src="icons.js"></script>
+  <script src="camkeys.js"></script>
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Gear Generator</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="item-grid" id="itemButtons"></div>
+    <div class="action-row">
+      <button id="randomizeColors"><i data-icon="palette"></i>Randomize Colors</button>
+      <button id="resetColors"><i data-icon="reset"></i>Default Colors</button>
+    </div>
+
+    <!-- STYLE -->
+    <details open>
+      <summary id="styleTitle">Style</summary>
+      <div class="details-content">
+        <div class="control-group" id="variantGroup"><label>Variant</label><select id="variant"></select></div>
+        <div class="color-grid" id="colorGrid"></div>
+        <div class="control-group" id="glowGroup"><label class="check"><input type="checkbox" id="glow" checked> Light on (glows)</label></div>
+        <div class="control-group" id="steamGroup"><label class="check"><input type="checkbox" id="steam" checked> Steam</label></div>
+      </div>
+    </details>
+
+    <!-- DISPLAY -->
+    <details open>
+      <summary>Display</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="snowBase"> Sitting in a snow drift</label></div>
+        <div class="control-group"><label>Turn <span class="val-display" id="turn-val">0</span></label><input type="range" id="turn" min="-180" max="180" step="1" value="0"></div>
+      </div>
+    </details>
+
+    <!-- SCENE & LIGHTING -->
+    <details>
+      <summary>Background & Sun</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>
+        <div class="control-group"><label>Sun Direction <span class="val-display" id="sunAz-val">45</span></label><input type="range" id="sunAz" min="0" max="360" step="1" value="45"></div>
+        <div class="control-group"><label>Sun Height <span class="val-display" id="sunEl-val">55</span></label><input type="range" id="sunEl" min="-20" max="90" step="1" value="55"></div>
+        <div class="control-group"><label>Sun Color</label><input type="color" id="sunColor" value="#FFF5E6"></div>
+        <div class="control-group"><label>Sun Strength <span class="val-display" id="sunInt-val">0.90</span></label><input type="range" id="sunInt" min="0" max="2.5" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Ambient Light <span class="val-display" id="ambInt-val">0.60</span></label><input type="range" id="ambInt" min="0" max="1.5" step="0.05" value="0.6"></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="view-col">
+    <div class="topbar">
+      <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+      <label>Name <input type="text" id="charName" value="Gear" maxlength="40" size="12" title="Used for saved file names"></label>
+      <button id="loadChar" title="Open a saved gear item (.json)"><i data-icon="folder"></i>Load</button>
+      <button id="saveChar" title="Save this gear item (.json)"><i data-icon="download"></i>Save</button>
+      <span class="sep"></span>
+      <button id="savePng" title="Transparent PNG of just the item"><i data-icon="image"></i>Save PNG</button>
+      <select id="exportScale" title="PNG size">
+        <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
+      </select>
+      <button id="export3d" title="3D model for the scene tool or Blender (.glb)"><i data-icon="cube"></i>Export 3D</button>
+      <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
+    </div>
+    <div id="canvas-container">
+      <div class="viewbar">
+        <button id="centerCam" title="Frame the item in the view"><i data-icon="target"></i>Center</button>
+        <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan</span>
+      </div>
+      <button class="primary float-br" id="sendToScene" style="display: none;"><i data-icon="send"></i>Send to Scene</button>
+    </div>
+  </div>
+
+  <script>
+    // --- SCENE SETUP ---
+    const $ = id => document.getElementById(id);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8ba6b5);
+
+    const canvasContainer = $('canvas-container');
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.005, 50);
+    camera.position.set(0.6, 0.45, 0.8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha so PNGs export without a background
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    canvasContainer.appendChild(renderer.domElement);
+
+    function fitRenderer() {
+      const w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    fitRenderer();
+    new ResizeObserver(fitRenderer).observe(canvasContainer);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 0.6 }); // WASD + Q/E
+    enableClickOrbit(camera, controls, () => [itemGroup]); // drag turns around the point you clicked
+    controls.target.set(0, 0.1, 0);
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    Object.assign(keyLight.shadow.camera, { left: -1.6, right: 1.6, top: 1.6, bottom: -1.6, near: 0.1, far: 30 });
+    keyLight.shadow.bias = -0.0005;
+    keyLight.shadow.normalBias = 0.004;
+    keyLight.target.position.set(0, 0.1, 0);
+    scene.add(keyLight, keyLight.target);
+    const fillLight = new THREE.DirectionalLight(0xaaccff, 0.6);
+    fillLight.position.set(-8, 3, -8);
+    scene.add(fillLight);
+
+    function updateScene() {
+      const az = THREE.MathUtils.degToRad(+$('sunAz').value), el = THREE.MathUtils.degToRad(+$('sunEl').value);
+      keyLight.position.set(6 * Math.cos(el) * Math.sin(az), 0.1 + 6 * Math.sin(el), 6 * Math.cos(el) * Math.cos(az));
+      keyLight.color.set($('sunColor').value);
+      keyLight.intensity = +$('sunInt').value;
+      ambientLight.intensity = +$('ambInt').value;
+      scene.background.set($('bgColor').value);
+      ['sunAz', 'sunEl'].forEach(id => $(id + '-val').innerText = $(id).value);
+      ['sunInt', 'ambInt'].forEach(id => $(id + '-val').innerText = (+$(id).value).toFixed(2));
+    }
+
+    // --- BUILDING BLOCKS (units are meters) ---
+    const itemGroup = new THREE.Group();
+    scene.add(itemGroup);
+
+    const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, ...opts });
+    // part-metal: with no surroundings to reflect, fully metallic surfaces render nearly black
+    const metal = (color, opts = {}) => mat(color, { metalness: 0.4, roughness: 0.38, ...opts });
+
+    function add(parent, geo, material, pos = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1]) {
+      const m = new THREE.Mesh(geo, material);
+      m.position.set(...pos);
+      m.rotation.set(...rot);
+      m.scale.set(...scale);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      parent.add(m);
+      return m;
+    }
+    const box = (w, h, d, sx = 1, sy = 1, sz = 1) => new THREE.BoxGeometry(w, h, d, sx, sy, sz);
+    const cyl = (rt, rb, h, seg = 8, open = false) => new THREE.CylinderGeometry(rt, rb, h, seg, 1, open);
+    const ico = (r, detail = 1) => new THREE.IcosahedronGeometry(r, detail);
+    const lathe = (pts, seg = 12) => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg);
+    const torus = (R, r, arc = Math.PI * 2, tubular = 14) => new THREE.TorusGeometry(R, r, 4, tubular, arc);
+    const tube = (pts, r, seg = 24, radial = 5) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))), seg, r, radial, false);
+
+    // Flat strap (webbing) following points on the ground plane: a row of thin boxes
+    function strap(parent, material, pts, width, thick = 0.012, y = 0.007) {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [x1, z1] = pts[i], [x2, z2] = pts[i + 1];
+        const len = Math.hypot(x2 - x1, z2 - z1);
+        add(parent, box(len + width * 0.6, thick, width), material, [(x1 + x2) / 2, y, (z1 + z2) / 2], [0, -Math.atan2(z2 - z1, x2 - x1), 0]);
+      }
+    }
+
+    // Seeded randomness so an item looks the same every time it's rebuilt
+    function rng(seed) {
+      let a = seed;
+      return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    }
+
+    // --- THE ITEMS ---
+    // Each item: label, colors ({ key: [label, default] }), variants, optional glow/steam, and build(group, colors, variant, opts)
+    const ITEMS = {
+      snack: {
+        label: 'Snack', colors: { wrapper: ['Wrapper', '#D9482B'], label: ['Label', '#F2C12E'], food: ['Food', '#7A4A24'] },
+        variants: ['Trail bar', 'Jerky', 'Trail mix bag'],
+        build(g, c, v) {
+          if (v === 'Trail bar') {
+            add(g, box(0.13, 0.028, 0.045), mat(c.wrapper, { roughness: 0.45 }), [0, 0.014, 0]);
+            add(g, box(0.06, 0.03, 0.047), mat(c.label, { roughness: 0.5 }), [0.005, 0.014, 0]);
+            [-1, 1].forEach(s => add(g, box(0.016, 0.006, 0.05, 1, 1, 4), mat(c.wrapper, { roughness: 0.45 }), [s * 0.072, 0.014, 0], [0, 0, s * 0.15]));
+            // a bitten-off corner shows the bar inside
+            add(g, box(0.03, 0.024, 0.04), mat(c.food), [-0.05, 0.03, 0.006], [0, 0.4, 0.2]);
+          } else if (v === 'Jerky') {
+            const r = rng(4);
+            for (let k = 0; k < 4; k++) {
+              const geo = box(0.12, 0.006, 0.028, 7, 1, 1), p = geo.attributes.position;
+              for (let i = 0; i < p.count; i++) p.setY(i, p.getY(i) + Math.sin(p.getX(i) * 45 + k) * 0.006 + (r() - 0.5) * 0.002);
+              geo.computeVertexNormals();
+              add(g, geo, mat(new THREE.Color(c.food).multiplyScalar(0.85 + 0.25 * r())), [(r() - 0.5) * 0.05, 0.008 + k * 0.007, (r() - 0.5) * 0.06], [0, r() * 3, 0]);
+            }
+          } else {
+            add(g, ico(1, 1), mat(c.wrapper, { roughness: 0.4 }), [0, 0.085, 0], [0, 0, 0], [0.07, 0.085, 0.03]);
+            add(g, box(0.1, 0.018, 0.014), mat(c.label), [0, 0.165, 0]);
+            add(g, box(0.06, 0.045, 0.004), mat(c.label), [0, 0.085, 0.028]);
+            const r = rng(9);
+            for (let k = 0; k < 9; k++) add(g, ico(0.008 + r() * 0.005, 0), mat(new THREE.Color(c.food).multiplyScalar(0.8 + 0.5 * r())), [0.07 + r() * 0.08, 0.006, (r() - 0.5) * 0.09], [r() * 3, r() * 3, 0]);
+          }
+        }
+      },
+
+      booties: {
+        label: 'Booties', colors: { fabric: ['Fabric', '#2F6FD6'], strap: ['Strap', '#1D1F26'], sole: ['Sole patch', '#3A3A3F'] },
+        variants: ['Pair', 'Set of four', 'Single'],
+        build(g, c, v) {
+          const bootie = (pos, rot) => {
+            const b = new THREE.Group();
+            b.position.set(...pos); b.rotation.set(...rot);
+            add(b, cyl(0.032, 0.034, 0.1, 8), mat(c.fabric), [0, 0.07, 0]);
+            add(b, ico(1, 1), mat(c.fabric), [0, 0.025, 0.018], [0, 0, 0], [0.036, 0.03, 0.052]);
+            add(b, cyl(0.037, 0.037, 0.02, 8), mat(c.strap), [0, 0.1, 0]);
+            add(b, box(0.012, 0.022, 0.006), mat(c.strap), [0.03, 0.1, 0.02], [0, 0.6, 0]); // strap tab
+            add(b, box(0.05, 0.006, 0.068), mat(c.sole, { roughness: 1 }), [0, 0.002, 0.016]);
+            g.add(b);
+          };
+          if (v === 'Single') bootie([0, 0, 0], [0, 0.3, 0]);
+          else if (v === 'Pair') { bootie([-0.05, 0, 0], [0, 0.4, 0]); bootie([0.06, 0.035, 0.01], [0, -0.5, 1.45]); }
+          else [[-0.13, 0, 0, 0.3, 0], [-0.04, 0, -0.03, -0.2, 0], [0.05, 0.035, 0.02, 0.6, 1.45], [0.15, 0.035, -0.05, -0.4, 1.5]]
+                 .forEach(([x, y, z, ry, rz]) => bootie([x, y, z], [0, ry, rz]));
+        }
+      },
+
+      dogFood: {
+        label: 'Dog Food', colors: { container: ['Bowl / sack', '#B8BEC6'], label: ['Label', '#C0392B'], kibble: ['Kibble', '#8C5A35'] },
+        variants: ['Bowl', 'Kibble sack'],
+        build(g, c, v) {
+          const r = rng(11), kib = () => mat(new THREE.Color(c.kibble).multiplyScalar(0.8 + 0.4 * r()));
+          if (v === 'Bowl') {
+            add(g, lathe([[0, 0], [0.07, 0], [0.085, 0.004], [0.112, 0.056], [0.117, 0.062], [0.108, 0.062], [0.096, 0.012], [0, 0.012]], 14), metal(c.container, { side: THREE.DoubleSide }));
+            for (let k = 0; k < 70; k++) {
+              const a = r() * Math.PI * 2, rr = Math.sqrt(r()) * 0.088;
+              add(g, ico(0.009 + r() * 0.003, 0), kib(), [Math.cos(a) * rr, 0.018 + 0.03 * (1 - (rr / 0.09) ** 2) + r() * 0.008, Math.sin(a) * rr], [r() * 3, r() * 3, 0]);
+            }
+          } else {
+            const geo = box(0.22, 0.3, 0.12, 3, 4, 2), p = geo.attributes.position;
+            for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setX(i, p.getX(i) * (1.06 - 0.25 * Math.max(0, y / 0.15) ** 2)); p.setZ(i, p.getZ(i) * (1.15 - 0.6 * Math.max(0, y / 0.15) ** 2)); }
+            geo.computeVertexNormals();
+            add(g, geo, mat(c.container, { roughness: 0.9 }), [0, 0.15, 0]);
+            add(g, box(0.2, 0.04, 0.05), mat(new THREE.Color(c.container).multiplyScalar(0.8)), [0, 0.31, 0], [0.25, 0, 0]);
+            add(g, box(0.15, 0.12, 0.004), mat(c.label), [0, 0.15, 0.067]);
+            add(g, ico(0.03, 0), mat('#ffffff'), [0, 0.15, 0.07], [0, 0, 0], [1, 1, 0.15]); // paw-print badge
+            for (let k = 0; k < 10; k++) add(g, ico(0.01, 0), kib(), [(r() - 0.5) * 0.2, 0.008, 0.1 + r() * 0.1], [r() * 3, r() * 3, 0]);
+          }
+        }
+      },
+
+      snowHook: {
+        label: 'Snow Hook', colors: { metal: ['Metal', '#5D6574'], rope: ['Rope', '#E5482F'] },
+        variants: ['Hook', 'Set in the snow'],
+        build(g, c, v) {
+          const h = new THREE.Group(), m = metal(c.metal);
+          add(h, box(0.16, 0.025, 0.03), m, [0, 0.25, 0]);
+          [-0.06, 0.06].forEach(x => {
+            add(h, tube([[x, 0.25, 0], [x, 0.14, 0], [x, 0.05, 0.035], [x, 0.02, 0.085]], 0.011, 16), m);
+            add(h, new THREE.ConeGeometry(0.011, 0.03, 5), m, [x, 0.012, 0.098], [Math.PI / 2 + 0.35, 0, 0]);
+          });
+          add(h, tube([[-0.05, 0.26, 0], [-0.045, 0.34, 0], [0, 0.38, 0], [0.045, 0.34, 0], [0.05, 0.26, 0]], 0.011, 16), m);
+          add(h, tube([[0, 0.38, 0], [0.08, 0.36, -0.06], [0.2, 0.2, -0.15], [0.32, 0.05, -0.2], [0.45, 0.02, -0.18]], 0.008, 30), mat(c.rope));
+          if (v === 'Set in the snow') {
+            h.rotation.x = 0.55;
+            h.position.y = -0.09;
+            add(g, ico(1, 2), mat('#F2F6FA', { roughness: 1 }), [0, 0, 0.03], [0, 0, 0], [0.16, 0.06, 0.14]);
+          }
+          g.add(h);
+        }
+      },
+
+      headlamp: {
+        label: 'Headlamp', colors: { strap: ['Strap', '#1D1F26'], housing: ['Housing', '#F2C12E'], light: ['Light', '#FFF3C4'] },
+        variants: ['Upright', 'Lying on its side'], glow: true,
+        build(g, c, v, o) {
+          const h = new THREE.Group();
+          add(h, cyl(0.085, 0.085, 0.032, 16, true), mat(c.strap, { side: THREE.DoubleSide, roughness: 0.9 }));
+          add(h, torus(0.085, 0.006, Math.PI, 12), mat(c.strap), [0, 0, 0], [0, Math.PI / 2, 0]);           // over-the-top strap
+          add(h, box(0.064, 0.046, 0.036), mat(c.housing, { roughness: 0.5 }), [0, 0, 0.1]);
+          add(h, box(0.054, 0.006, 0.03), mat(c.strap), [0, 0.02, 0.098]);
+          const lens = mat(c.light, { emissive: o.glow ? c.light : '#000000', emissiveIntensity: o.glow ? 1.4 : 0, roughness: 0.2 });
+          add(h, cyl(0.018, 0.018, 0.008, 10), lens, [0, 0, 0.12], [Math.PI / 2, 0, 0]);
+          if (o.glow) {
+            const beam = add(h, new THREE.ConeGeometry(0.075, 0.3, 14, 1, true), new THREE.MeshBasicMaterial({ color: c.light, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }), [0, 0, 0.275], [-Math.PI / 2, 0, 0]);
+            beam.castShadow = false;
+            const light = new THREE.PointLight(c.light, 0.9, 1.5);
+            light.position.set(0, 0, 0.16);
+            h.add(light);
+          }
+          if (v === 'Lying on its side') { h.rotation.set(0.15, 0.6, Math.PI / 2 - 0.25); }
+          g.add(h);
+        }
+      },
+
+      sledBasket: {
+        label: 'Sled Basket', colors: { wood: ['Wood', '#B07A45'], runners: ['Runners', '#2B2B30'], bag: ['Sled bag', '#B8322A'] },
+        variants: ['Loaded bag', 'Bag open with gear', 'Empty basket'],
+        build(g, c, v) {
+          const wood = mat(c.wood), run = metal(c.runners, { metalness: 0.3, roughness: 0.6 });
+          [1, -1].forEach(s => {
+            add(g, box(0.03, 0.03, 1.4), run, [s * 0.2, 0.015, 0]);
+            add(g, box(0.03, 0.03, 0.26), run, [s * 0.2, 0.08, 0.78], [-0.55, 0, 0]);
+            [-0.5, 0, 0.5].forEach(z => add(g, box(0.025, 0.28, 0.025), wood, [s * 0.2, 0.17, z]));
+            add(g, box(0.022, 0.022, 1.15), wood, [s * 0.21, 0.4, 0]);
+          });
+          add(g, torus(0.2, 0.014, Math.PI, 10), run, [0, 0.13, 0.84], [-Math.PI / 2, 0, 0]);
+          for (let k = 0; k < 7; k++) add(g, box(0.42, 0.016, 0.1), wood, [0, 0.29, -0.54 + k * 0.18]);
+          if (v === 'Loaded bag') {
+            add(g, box(0.38, 0.24, 1.0), mat(c.bag), [0, 0.42, 0]);
+            add(g, ico(1, 1), mat(c.bag), [0, 0.55, 0], [0, 0, 0], [0.19, 0.05, 0.5]);
+          } else if (v === 'Bag open with gear') {
+            add(g, box(0.38, 0.16, 1.0), mat(c.bag), [0, 0.38, 0]);
+            add(g, box(0.38, 0.02, 1.0), mat(new THREE.Color(c.bag).multiplyScalar(0.8)), [0.27, 0.47, 0], [0, 0, -1.1]); // flap folded open
+            add(g, cyl(0.07, 0.07, 0.34, 9), mat('#3F4F3A'), [-0.06, 0.5, -0.25], [0, 0, Math.PI / 2]);          // rolled bivy
+            add(g, cyl(0.035, 0.035, 0.2, 9), metal('#C9CCD1'), [0.08, 0.55, 0.15]);                              // thermos
+            add(g, box(0.16, 0.1, 0.2), mat('#F2C12E'), [-0.05, 0.5, 0.3]);                                        // dog food sack
+          }
+        }
+      },
+
+      bivySack: {
+        label: 'Bivy Sack', colors: { shell: ['Shell', '#3F4F3A'], lining: ['Lining', '#E5482F'], straps: ['Straps', '#1D1F26'] },
+        variants: ['Rolled', 'Laid out'],
+        build(g, c, v) {
+          if (v === 'Rolled') {
+            add(g, cyl(0.11, 0.11, 0.45, 10), mat(c.shell, { roughness: 0.6 }), [0, 0.11, 0], [0, 0, Math.PI / 2]);
+            [-1, 1].forEach(s => {
+              add(g, torus(0.06, 0.018, Math.PI * 2, 12), mat(c.lining), [s * 0.226, 0.11, 0], [0, Math.PI / 2, 0]);
+              add(g, cyl(0.115, 0.115, 0.03, 10), mat(c.straps), [s * 0.12, 0.11, 0], [0, 0, Math.PI / 2]);
+              add(g, box(0.03, 0.04, 0.02), metal('#8A8F98'), [s * 0.12, 0.225, 0]);
+            });
+          } else {
+            const geo = box(0.75, 0.12, 2.0, 3, 1, 8), p = geo.attributes.position;
+            for (let i = 0; i < p.count; i++) {
+              const t = (p.getZ(i) + 1) / 2; // 0 = foot, 1 = head
+              p.setX(i, p.getX(i) * (0.62 + 0.38 * t));
+              if (p.getY(i) > 0) p.setY(i, p.getY(i) * (1 + 0.35 * Math.sin(t * Math.PI)));
+            }
+            geo.computeVertexNormals();
+            add(g, geo, mat(c.shell, { roughness: 0.6 }), [0, 0.06, 0]);
+            add(g, ico(1, 1), mat(c.lining), [0, 0.1, 0.92], [0, 0, 0], [0.24, 0.07, 0.12]);   // hood opening
+            add(g, ico(1, 1), mat(c.shell), [0, 0.12, 1.0], [0, 0, 0], [0.34, 0.1, 0.12]);
+            add(g, box(0.02, 0.01, 1.6), mat(c.straps), [0.18, 0.14, -0.05], [0, 0.04, 0]);  // zipper line
+          }
+        }
+      },
+
+      wax: {
+        label: 'Wax the Runners', colors: { wax: ['Wax', '#4FA3D9'], label: ['Label', '#F2F2F2'], base: ['Runner', '#1D1F26'] },
+        variants: ['Wax on a runner', 'Wax bar only'],
+        build(g, c, v) {
+          const waxBar = parent => {
+            const w = new THREE.Group();
+            add(w, box(0.085, 0.034, 0.05), mat(c.wax, { roughness: 0.35 }), [0, 0.017, 0]);
+            add(w, box(0.05, 0.035, 0.052), mat(c.label, { roughness: 0.6 }), [0.006, 0.017, 0]);
+            add(w, box(0.03, 0.02, 0.04), mat(c.wax, { roughness: 0.35 }), [-0.05, 0.012, 0], [0, 0, 0.3]); // worn end
+            parent.add(w);
+            return w;
+          };
+          if (v === 'Wax bar only') { waxBar(g).rotation.y = 0.4; return; }
+          add(g, box(0.6, 0.025, 0.065), mat(c.base, { roughness: 0.7 }), [0, 0.0125, 0]);
+          add(g, box(0.36, 0.004, 0.055), mat(new THREE.Color(c.wax).lerp(new THREE.Color('#ffffff'), 0.4), { roughness: 0.1, metalness: 0.2 }), [0.1, 0.027, 0]); // freshly waxed strip
+          const w = waxBar(g);
+          w.position.set(-0.14, 0.025, 0);
+          w.rotation.set(0, 0.25, -0.12);
+          add(g, box(0.06, 0.03, 0.04), mat('#C9A97A', { roughness: 1 }), [-0.33, 0.015, 0.09], [0, -0.4, 0]); // cork
+        }
+      },
+
+      whistle: {
+        label: 'Whistle', colors: { body: ['Whistle', '#D4A837'], lanyard: ['Lanyard', '#C0392B'] },
+        variants: ['Brass', 'Plastic'],
+        build(g, c, v) {
+          const m = v === 'Brass' ? metal(c.body, { metalness: 0.5, roughness: 0.3 }) : mat(c.body, { roughness: 0.45 });
+          const w = new THREE.Group();
+          add(w, cyl(0.017, 0.017, 0.026, 12), m, [0, 0.017, 0], [Math.PI / 2, 0, 0]);
+          add(w, box(0.05, 0.013, 0.022), m, [0.035, 0.024, 0]);
+          add(w, box(0.012, 0.006, 0.02), mat('#111111'), [0.006, 0.033, 0]);
+          add(w, torus(0.009, 0.0025, Math.PI * 2, 10), metal('#9AA0A8'), [-0.022, 0.02, 0], [Math.PI / 2, 0, 0]);
+          w.rotation.y = 0.5;
+          g.add(w);
+          const pts = [];
+          for (let k = 0; k <= 16; k++) { const a = k / 16 * Math.PI * 2; pts.push([-0.03 - 0.12 * (1 - Math.cos(a)) * 0.9, 0.004, 0.14 * Math.sin(a) * 0.9 + 0.02]); }
+          add(g, tube(pts, 0.004, 48, 4), mat(c.lanyard));
+        }
+      },
+
+      hotBroth: {
+        label: 'Hot Broth', colors: { container: ['Mug / thermos', '#F2F2F2'], accent: ['Rim', '#1D3A6B'], broth: ['Broth', '#B5762F'] },
+        variants: ['Enamel mug', 'Thermos and cup'], steam: true,
+        build(g, c, v, o) {
+          let top = [0, 0.09, 0];
+          if (v === 'Enamel mug') {
+            add(g, lathe([[0, 0], [0.045, 0], [0.047, 0.003], [0.047, 0.09], [0.042, 0.09], [0.042, 0.006], [0, 0.006]], 14), mat(c.container, { roughness: 0.3, side: THREE.DoubleSide }));
+            add(g, torus(0.0445, 0.003, Math.PI * 2, 16), mat(c.accent), [0, 0.09, 0], [Math.PI / 2, 0, 0]);
+            add(g, torus(0.026, 0.006, Math.PI, 10), mat(c.container, { roughness: 0.3 }), [0.047, 0.048, 0], [0, 0, -Math.PI / 2]);
+            add(g, cyl(0.042, 0.042, 0.003, 14), mat(c.broth, { roughness: 0.2 }), [0, 0.074, 0]);
+          } else {
+            add(g, cyl(0.04, 0.04, 0.22, 12), metal(c.container), [0, 0.11, 0]);
+            add(g, cyl(0.03, 0.04, 0.025, 12), metal(c.container), [0, 0.232, 0]);
+            add(g, cyl(0.041, 0.041, 0.03, 12), mat(c.accent), [0, 0.06, 0]);
+            add(g, lathe([[0, 0], [0.04, 0], [0.045, 0.06], [0.041, 0.06], [0.036, 0.006], [0, 0.006]], 12), mat(c.accent, { side: THREE.DoubleSide }), [0.11, 0, 0.03]);
+            add(g, cyl(0.038, 0.038, 0.003, 12), mat(c.broth, { roughness: 0.2 }), [0.11, 0.05, 0.03]);
+            top = [0.11, 0.06, 0.03];
+          }
+          if (o.steam) {
+            const puff = new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.45, roughness: 1, flatShading: true, depthWrite: false });
+            [[0, 0.02, 0, 0.022], [0.012, 0.055, 0.005, 0.03], [-0.006, 0.095, -0.004, 0.036], [0.018, 0.14, 0.006, 0.03]].forEach(([x, y, z, r]) => {
+              const p = add(g, ico(r, 1), puff, [top[0] + x, top[1] + y, top[2] + z]);
+              p.castShadow = false;
+            });
+          }
+        }
+      },
+
+      redLantern: {
+        label: 'Red Lantern', colors: { metal: ['Lantern', '#B8322A'], glow: ['Flame', '#FFB347'] },
+        variants: ['Standing', 'Hanging from a post'], glow: true,
+        build(g, c, v, o) {
+          const L = new THREE.Group(), m = metal(c.metal, { metalness: 0.4, roughness: 0.5 });
+          add(L, cyl(0.07, 0.075, 0.03, 10), m, [0, 0.015, 0]);
+          add(L, cyl(0.064, 0.07, 0.045, 10), m, [0, 0.052, 0]);
+          const glass = new THREE.MeshStandardMaterial({ color: c.glow, transparent: true, opacity: 0.55, roughness: 0.1, flatShading: true,
+                                                         emissive: o.glow ? c.glow : '#000000', emissiveIntensity: o.glow ? 0.9 : 0 });
+          add(L, lathe([[0, 0], [0.045, 0], [0.058, 0.05], [0.055, 0.1], [0.04, 0.13], [0, 0.13]], 12), glass, [0, 0.075, 0]).castShadow = false;
+          if (o.glow) add(L, new THREE.ConeGeometry(0.012, 0.04, 6), mat('#FFE08A', { emissive: '#FFB347', emissiveIntensity: 2 }), [0, 0.11, 0]);
+          for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4; add(L, cyl(0.004, 0.004, 0.14, 4), m, [Math.cos(a) * 0.066, 0.14, Math.sin(a) * 0.066]); }
+          add(L, cyl(0.03, 0.06, 0.05, 10), m, [0, 0.23, 0]);
+          add(L, cyl(0.035, 0.035, 0.012, 10), m, [0, 0.26, 0]);
+          add(L, torus(0.075, 0.004, Math.PI, 14), metal('#3A3A3F'), [0, 0.2, 0]);
+          if (o.glow) { const light = new THREE.PointLight(c.glow, 1.4, 2.5); light.position.set(0, 0.13, 0); L.add(light); }
+          if (v === 'Hanging from a post') {
+            const wood = mat('#6B4A2B');
+            add(g, cyl(0.035, 0.04, 1.1, 7), wood, [-0.2, 0.55, 0]);
+            add(g, box(0.32, 0.04, 0.04), wood, [-0.06, 1.06, 0]);
+            add(g, tube([[0.07, 1.04, 0], [0.07, 0.98, 0], [0, 0.96, 0]], 0.003, 8, 4), metal('#3A3A3F'));
+            L.position.set(0, 0.68, 0);
+          }
+          g.add(L);
+        }
+      },
+
+      goldenHarness: {
+        label: 'Golden Harness', colors: { webbing: ['Webbing', '#D4A837'], padding: ['Padding', '#1D1F26'], hardware: ['Hardware', '#C9CCD1'] },
+        variants: ['Laid out', 'Hanging on a peg'],
+        build(g, c, v) {
+          const H = new THREE.Group(), gold = metal(c.webbing, { metalness: 0.5, roughness: 0.3, emissive: c.webbing, emissiveIntensity: 0.08 });
+          // X-back harness seen from above: neck loop, two sides that cross over the back, tail loop
+          const neck = [];
+          for (let k = 0; k <= 14; k++) { const a = k / 14 * Math.PI * 2; neck.push([Math.sin(a) * 0.1, 0.42 + Math.cos(a) * 0.12]); }
+          strap(H, gold, neck, 0.05);
+          add(H, box(0.2, 0.026, 0.07), mat(c.padding, { roughness: 1 }), [0, 0.018, 0.545]);
+          [-1, 1].forEach(s => {
+            strap(H, gold, [[s * 0.1, 0.42], [s * 0.18, 0.25], [s * 0.2, 0.05], [s * 0.08, -0.15], [-s * 0.06, -0.3], [-s * 0.03, -0.45]], 0.045);
+            add(H, box(0.06, 0.026, 0.16), mat(c.padding, { roughness: 1 }), [s * 0.18, 0.018, 0.22], [0, s * 0.35, 0]);
+          });
+          const tail = [];
+          for (let k = 0; k <= 10; k++) { const a = k / 10 * Math.PI * 2; tail.push([Math.sin(a) * 0.045, -0.5 + Math.cos(a) * 0.05]); }
+          strap(H, gold, tail, 0.038);
+          add(H, torus(0.03, 0.008, Math.PI * 2, 10), metal(c.hardware), [0, 0.014, -0.585], [Math.PI / 2, 0, 0]);
+          if (v === 'Hanging on a peg') {
+            const wood = mat('#6B4A2B');
+            add(g, box(0.5, 0.06, 0.05), wood, [0, 1.25, -0.04]);
+            add(g, cyl(0.012, 0.012, 0.08, 6), wood, [0, 1.2, 0.0], [Math.PI / 2, 0, 0]);
+            H.rotation.x = -Math.PI / 2 + 0.08;
+            H.position.set(0, 0.68, 0.02);
+          }
+          g.add(H);
+        }
+      }
+    };
+
+    // --- STATE: each item remembers its own variant and colors ---
+    let currentItem = 'redLantern';
+    const itemState = {};
+    function stateOf(key) {
+      if (!itemState[key]) {
+        const def = ITEMS[key], colors = {};
+        for (const k in def.colors) colors[k] = def.colors[k][1];
+        itemState[key] = { variant: def.variants[0], colors };
+      }
+      return itemState[key];
+    }
+
+    function buildItem() {
+      while (itemGroup.children.length) itemGroup.remove(itemGroup.children[0]);
+      const def = ITEMS[currentItem], st = stateOf(currentItem);
+      const holder = new THREE.Group();
+      def.build(holder, st.colors, st.variant, { glow: $('glow').checked, steam: $('steam').checked });
+      holder.rotation.y = THREE.MathUtils.degToRad(+$('turn').value);
+      itemGroup.add(holder);
+
+      // stand it on the ground (y = 0)
+      itemGroup.updateMatrixWorld(true);
+      const box3 = new THREE.Box3().setFromObject(holder);
+      holder.position.y -= box3.min.y;
+      if ($('snowBase').checked) {
+        const size = box3.getSize(new THREE.Vector3()), R = Math.max(size.x, size.z) * 0.75 + 0.05;
+        const drift = add(itemGroup, ico(1, 2), mat('#F2F6FA', { roughness: 1 }), [0, -R * 0.12, 0], [0, 0.5, 0], [R, R * 0.2, R * 0.85]);
+        const r = rng(5);
+        for (let k = 0; k < 5; k++) add(itemGroup, ico(1, 1), drift.material, [(r() - 0.5) * R * 1.6, 0, (r() - 0.5) * R * 1.4], [0, r() * 3, 0], [R * 0.15, R * 0.07, R * 0.12]);
+      }
+    }
+
+    // --- UI ---
+    function refreshStyleUI() {
+      const def = ITEMS[currentItem], st = stateOf(currentItem);
+      $('styleTitle').textContent = def.label;
+      const sel = $('variant');
+      sel.innerHTML = '';
+      def.variants.forEach(vn => sel.add(new Option(vn, vn)));
+      sel.value = st.variant;
+      $('variantGroup').style.display = def.variants.length > 1 ? '' : 'none';
+      $('glowGroup').style.display = def.glow ? '' : 'none';
+      $('steamGroup').style.display = def.steam ? '' : 'none';
+      const grid = $('colorGrid');
+      grid.innerHTML = '';
+      for (const k in def.colors) {
+        const wrap = document.createElement('div');
+        wrap.className = 'control-group';
+        wrap.innerHTML = `<label>${def.colors[k][0]}</label><input type="color" data-color="${k}" value="${st.colors[k]}">`;
+        grid.appendChild(wrap);
+      }
+      grid.querySelectorAll('input[type=color]').forEach(inp => inp.addEventListener('input', () => { st.colors[inp.dataset.color] = inp.value; buildItem(); }));
+      document.querySelectorAll('[data-item]').forEach(b => b.classList.toggle('active', b.dataset.item === currentItem));
+    }
+
+    function selectItem(key, frame = true) {
+      currentItem = key;
+      if ($('charName').value === 'Gear' || Object.values(ITEMS).some(d => d.label === $('charName').value)) $('charName').value = ITEMS[key].label;
+      refreshStyleUI();
+      buildItem();
+      if (frame) centerCamera();
+    }
+
+    function centerCamera() {
+      itemGroup.updateMatrixWorld(true);
+      const sphere = new THREE.Box3().setFromObject(itemGroup).getBoundingSphere(new THREE.Sphere());
+      const dir = new THREE.Vector3(0.62, 0.48, 0.62).normalize();
+      const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2, fit = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
+      controls.target.copy(sphere.center);
+      camera.position.copy(sphere.center).addScaledVector(dir, sphere.radius / Math.sin(fit) * 1.25);
+      controls.update();
+    }
+
+    for (const key in ITEMS) {
+      const b = document.createElement('button');
+      b.textContent = ITEMS[key].label;
+      b.dataset.item = key;
+      b.addEventListener('click', () => selectItem(key));
+      $('itemButtons').appendChild(b);
+    }
+    $('variant').addEventListener('change', () => { stateOf(currentItem).variant = $('variant').value; buildItem(); centerCamera(); });
+    ['glow', 'steam', 'snowBase'].forEach(id => $(id).addEventListener('change', buildItem));
+    $('turn').addEventListener('input', () => { $('turn-val').innerText = $('turn').value; buildItem(); });
+    ['bgColor', 'sunAz', 'sunEl', 'sunColor', 'sunInt', 'ambInt'].forEach(id => $(id).addEventListener('input', updateScene));
+    $('centerCam').addEventListener('click', centerCamera);
+
+    // Random colors that still read as gear: a bright main color, dark or light trim
+    const brights = ['#D9482B', '#E5482F', '#2F6FD6', '#F2C12E', '#2E8B57', '#6A3D9A', '#0E7C86', '#C46A1A', '#B8322A', '#4FA3D9', '#D4A837'];
+    const neutrals = ['#1D1F26', '#2B2B30', '#F2F2F2', '#E8DCC4', '#5D6574', '#8C5A35', '#3A2A1E', '#C9CCD1'];
+    const pick = a => a[Math.floor(Math.random() * a.length)];
+    $('randomizeColors').addEventListener('click', () => {
+      const st = stateOf(currentItem), keys = Object.keys(ITEMS[currentItem].colors);
+      keys.forEach((k, i) => { st.colors[k] = i === 0 ? pick(brights) : pick(Math.random() < 0.6 ? neutrals : brights); });
+      refreshStyleUI(); buildItem();
+    });
+    $('resetColors').addEventListener('click', () => { delete itemState[currentItem]; refreshStyleUI(); buildItem(); });
+
+    function setPanelVisible(visible) {
+      $('ui-panel').classList.toggle('hidden', !visible);
+      $('show-panel').style.display = visible ? 'none' : 'block';
+    }
+    $('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    $('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
+    });
+
+    // --- SAVE PNG (transparent, cropped, whole item in frame) ---
+    function exportPNG(filename) {
+      const scale = parseFloat($('exportScale').value);
+      const oldBg = scene.background, oldRatio = renderer.getPixelRatio();
+      const oldPos = camera.position.clone(), oldQuat = camera.quaternion.clone();
+      itemGroup.updateMatrixWorld(true);
+      const sphere = new THREE.Box3().setFromObject(itemGroup).getBoundingSphere(new THREE.Sphere());
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+      const fitFov = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
+      camera.position.copy(sphere.center).addScaledVector(dir, -sphere.radius / Math.sin(fitFov) * 1.05);
+      camera.lookAt(sphere.center);
+      scene.background = null;
+      renderer.setPixelRatio(oldRatio * scale);
+      renderer.render(scene, camera);
+      const url = cropToContent(renderer.domElement).toDataURL('image/png');
+      scene.background = oldBg;
+      renderer.setPixelRatio(oldRatio);
+      camera.position.copy(oldPos);
+      camera.quaternion.copy(oldQuat);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+    }
+
+    function cropToContent(src) {
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d');
+      g.drawImage(src, 0, 0);
+      const { data, width, height } = g.getImageData(0, 0, c.width, c.height);
+      let x0 = width, y0 = height, x1 = -1, y1 = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (data[(y * width + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+      }
+      if (x1 < 0) return c;
+      const pad = 6;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+      x1 = Math.min(width - 1, x1 + pad); y1 = Math.min(height - 1, y1 + pad);
+      const out = document.createElement('canvas');
+      out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+      out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+      return out;
+    }
+
+    // --- SAVE / LOAD & 3D EXPORT ---
+    const fileBase = () => ($('charName').value.trim() || 'gear').replace(/[^\w\- ]+/g, '');
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }
+
+    function gearState() {
+      const values = {};
+      document.querySelectorAll('#ui-panel input, #ui-panel select, .topbar input, .topbar select').forEach(el => {
+        if (!el.id || el.type === 'file') return;
+        values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return { type: 'gear', version: 1, item: currentItem, itemSettings: stateOf(currentItem), values };
+    }
+
+    function applyGearState(state) {
+      if (state.type !== 'gear' || !ITEMS[state.item]) { alert(`That file is a ${state.type || 'different'} file, not a gear item.`); return; }
+      for (const id in state.values) {
+        const el = $(id);
+        if (!el || el.type === 'file') continue;
+        if (el.type === 'checkbox') el.checked = state.values[id];
+        else el.value = state.values[id];
+      }
+      itemState[state.item] = JSON.parse(JSON.stringify(state.itemSettings));
+      $('turn-val').innerText = $('turn').value;
+      updateScene();
+      currentItem = state.item;
+      refreshStyleUI();
+      buildItem();
+      centerCamera();
+    }
+
+    $('saveChar').addEventListener('click', () => downloadBlob(new Blob([JSON.stringify(gearState(), null, 2)], { type: 'application/json' }), `${fileBase()}.json`));
+    $('loadChar').addEventListener('click', () => $('loadCharFile').click());
+    $('loadCharFile').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try { applyGearState(JSON.parse(await file.text())); }
+      catch (err) { alert('Could not read that gear file.'); }
+    });
+
+    // Real-world size (meters), standing on y = 0 and centered, for the scene tool or Blender
+    function export3D(deliver = (buffer, name) => downloadBlob(new Blob([buffer], { type: 'model/gltf-binary' }), `${name}.glb`)) {
+      const target = itemGroup, name = fileBase();
+      target.updateMatrixWorld(true);
+      const box3 = new THREE.Box3().setFromObject(target), center = box3.getCenter(new THREE.Vector3());
+      const savedPos = target.position.clone();
+      target.position.x -= center.x;
+      target.position.z -= center.z;
+      target.position.y -= box3.min.y;
+      const savedUD = target.userData;
+      target.userData = { longTrail: { type: 'gear', unitScale: 1, name } };
+      target.updateMatrixWorld(true);
+      new THREE.GLTFExporter().parse(target, result => {
+        target.userData = savedUD;
+        target.position.copy(savedPos);
+        target.updateMatrixWorld(true);
+        deliver(result, name);
+      }, { binary: true });
+    }
+    $('export3d').addEventListener('click', () => export3D());
+    $('savePng').addEventListener('click', () => exportPNG(`${fileBase()}.png`));
+
+    // Inside the Art Studio the item can go straight to the Scenes tab (no file needed)
+    const studio = (() => { try { return window.parent !== window && window.parent.studio ? window.parent.studio : null; } catch (e) { return null; } })();
+    if (studio) {
+      const sendBtn = $('sendToScene');
+      sendBtn.style.display = '';
+      sendBtn.addEventListener('click', () => export3D((buffer, name) => studio.sendModel(buffer, name)));
+    }
+
+    updateScene();
+    selectItem(currentItem);
+
+    // --- RENDER LOOP ---
+    function animate() {
+      requestAnimationFrame(animate);
+      if (window.studioPaused) return; // hidden tab in the Art Studio
+      cameraKeys();
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

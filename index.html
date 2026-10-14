@@ -43,6 +43,7 @@
     <nav>
       <button data-tab="dog"><i data-icon="dog"></i>Dogs</button>
       <button data-tab="musher"><i data-icon="person"></i>Mushers</button>
+      <button data-tab="gear"><i data-icon="lantern"></i>Gear</button>
       <button data-tab="scene"><i data-icon="mountain"></i>Scenes</button>
     </nav>
   </header>
@@ -51,12 +52,13 @@
   <main>
     <iframe id="tool-dog" src="dog_generator.html" title="Dog generator"></iframe>
     <iframe id="tool-musher" src="musher_generator.html" title="Musher generator"></iframe>
+    <iframe id="tool-gear" src="gear_generator.html" title="Gear generator"></iframe>
     <iframe id="tool-scene" src="environment_generator.html" title="Scene generator"></iframe>
   </main>
 
   <script>
     // The tools are separate pages; this shell shows one at a time and passes 3D models between them.
-    const frames = { dog: 'tool-dog', musher: 'tool-musher', scene: 'tool-scene' };
+    const frames = { dog: 'tool-dog', musher: 'tool-musher', gear: 'tool-gear', scene: 'tool-scene' };
     let currentTab = frames[location.hash.slice(1)] ? location.hash.slice(1) : 'dog';
 
     function showTab(name) {
@@ -83,7 +85,7 @@
       toast.timer = setTimeout(() => { t.style.display = 'none'; }, 2600);
     }
 
-    // Called by the dog and musher tools ("Send to Scene")
+    // Called by the dog, musher and gear tools ("Send to Scene")
     window.studio = {
       sendModel(buffer, name) {
         const scene = document.getElementById('tool-scene').contentWindow;
