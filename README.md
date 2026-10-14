@@ -9,7 +9,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 | **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
 | **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
 | **Gear** | Items: Snack, Booties, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
-| **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) and card-frame export |
+| **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, and card-frame export |
 
 ## Making a card
 
@@ -19,7 +19,10 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
    Line up the shot with **W A S D** (move), **E / Q** (up / down), **arrow keys** (look around) and **Shift** (faster).
    Drag to turn the view around the point you clicked, right-drag to pan, scroll to zoom. The camera bar under the
    view has **Reset View**, the preset viewpoints and the lens.
-4. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
+4. To make a model stand out, use **Outline & effects** under the model sliders: an outline in any color, plus glow,
+   focus lines, sunburst and rings behind the model and sparkles around it. Each model has its own settings; the looks
+   (Sticker, Sparkle, Action, Legendary, Night) match the Gear tab's card styles, and **Use on all models** copies them.
+5. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
 
 ## Making a gear card
 
