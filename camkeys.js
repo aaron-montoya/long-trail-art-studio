@@ -19,15 +19,31 @@ function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {})
     if (e.key === 'Shift') { held.add('shift'); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (KEYS.includes(k) && !typing(e.target)) { held.add(k); e.preventDefault(); }
+    // a focused menu would jump to an option starting with that letter ("W" -> "Wide"); let it go instead
+    if (KEYS.includes(k) && e.target.tagName === 'SELECT') e.target.blur();
+    if (KEYS.includes(k) && (!typing(e.target) || e.target.tagName === 'SELECT')) { held.add(k); e.preventDefault(); }
     if (ARROWS.includes(k) && !usesArrows(e.target)) { held.add(k); e.preventDefault(); }
   });
   window.addEventListener('keyup', e => held.delete(e.key === 'Shift' ? 'shift' : e.key.toLowerCase()));
   window.addEventListener('blur', () => held.clear());
 
-  // Clicking the 3D view must give this page the keyboard. Inside the Art Studio each tool is a frame,
-  // and OrbitControls' preventDefault would otherwise leave the keys going to the studio page.
-  controls.domElement.addEventListener('pointerdown', () => window.focus(), true);
+  // Hand the keyboard back to the camera:
+  //  - clicking anywhere in the 3D view takes it from whatever menu or field had it, and gives this page
+  //    the keyboard inside the Art Studio (OrbitControls' preventDefault would otherwise leave it elsewhere).
+  //    Listening on the document in the capture phase means it still happens when a click lands on a
+  //    character being dragged, which stops the event before it reaches the canvas.
+  //  - picking from a menu, ticking a box or entering a number lets go right after the change.
+  const view = controls.domElement.parentElement;
+  const isField = el => el && ['INPUT', 'SELECT', 'TEXTAREA'].includes(el.tagName);
+  document.addEventListener('pointerdown', e => {
+    if (!view.contains(e.target) || isField(e.target)) return;
+    if (isField(document.activeElement)) document.activeElement.blur();
+    window.focus();
+  }, true);
+  document.addEventListener('change', e => {
+    const el = e.target;
+    if (el.tagName === 'SELECT' || (el.tagName === 'INPUT' && ['checkbox', 'number', 'color'].includes(el.type))) el.blur();
+  }, true);
 
   const fwd = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3();
   let last = performance.now();
