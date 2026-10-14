@@ -37,6 +37,7 @@
     input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
     select { width: 100%; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
     .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .group-label { grid-column: 1 / -1; font-size: 0.72rem; color: #8a8aa0; text-transform: uppercase; letter-spacing: 0.04em; margin: 6px 0 0; }
     .val-display { color: #fff; font-weight: bold; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -197,6 +198,14 @@
     const ico = (r, detail = 1) => new THREE.IcosahedronGeometry(r, detail);
     const lathe = (pts, seg = 12) => new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(x, y)), seg);
     const torus = (R, r, arc = Math.PI * 2, tubular = 14) => new THREE.TorusGeometry(R, r, 4, tubular, arc);
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    // tapered cylinder from a (wide end) to b, for legs and necks
+    function limb(parent, material, a, b, r) {
+      const dir = new THREE.Vector3().subVectors(a, b);
+      const m = add(parent, cyl(r, r * 0.8, dir.length(), 7), material, [(a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2]);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+      return m;
+    }
     const tube = (pts, r, seg = 24, radial = 5) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))), seg, r, radial, false);
 
     // Flat strap (webbing) following points on the ground plane: a row of thin boxes
@@ -247,7 +256,7 @@
 
       booties: {
         label: 'Booties', colors: { fabric: ['Fabric', '#2F6FD6'], strap: ['Strap', '#1D1F26'], sole: ['Sole patch', '#3A3A3F'] },
-        variants: ['Pair', 'Set of four', 'Single'],
+        variants: ['Pair', 'Set of four', 'Single', 'Lost in the snow'],
         build(g, c, v) {
           const bootie = (pos, rot) => {
             const b = new THREE.Group();
@@ -260,8 +269,14 @@
             g.add(b);
           };
           if (v === 'Single') bootie([0, 0, 0], [0, 0.3, 0]);
+          else if (v === 'Lost in the snow') {   // dropped on its side, half buried
+            bootie([0, -0.012, 0], [0.35, 0.5, 1.2]);
+            const snowM = mat('#F2F6FA', { roughness: 1 });
+            add(g, ico(1, 1), snowM, [0.03, -0.01, -0.03], [0, 0.4, 0], [0.07, 0.035, 0.06]);
+            add(g, ico(1, 1), snowM, [-0.05, -0.015, 0.03], [0, 1.1, 0], [0.05, 0.025, 0.05]);
+          }
           else if (v === 'Pair') { bootie([-0.05, 0, 0], [0, 0.4, 0]); bootie([0.06, 0.035, 0.01], [0, -0.5, 1.45]); }
-          else [[-0.13, 0, 0, 0.3, 0], [-0.04, 0, -0.03, -0.2, 0], [0.05, 0.035, 0.02, 0.6, 1.45], [0.15, 0.035, -0.05, -0.4, 1.5]]
+          else if (v === 'Set of four') [[-0.13, 0, 0, 0.3, 0], [-0.04, 0, -0.03, -0.2, 0], [0.05, 0.035, 0.02, 0.6, 1.45], [0.15, 0.035, -0.05, -0.4, 1.5]]
                  .forEach(([x, y, z, ry, rz]) => bootie([x, y, z], [0, ry, rz]));
         }
       },
@@ -509,6 +524,145 @@
           }
           g.add(H);
         }
+      },
+
+      gangline: {
+        label: 'Gangline', colors: { rope: ['Main line', '#E5482F'], tug: ['Tug & neck lines', '#2F6FD6'], snaps: ['Snaps', '#C9CCD1'] },
+        variants: ['Laid out (4 dogs)', 'Tangled'],
+        build(g, c, v) {
+          const rope = mat(c.rope), tugM = mat(c.tug), snapM = metal(c.snaps);
+          const snap = ([x, y, z], ang) => add(g, box(0.026, 0.018, 0.065), snapM, [x, y + 0.006, z], [0, ang, 0]);
+          if (v === 'Tangled') {
+            // a knot of main line and tuglines balled up together, with loose ends trailing out
+            const r = rng(21), knot = (n, spread, seed) => {
+              const rr = rng(seed), pts = [];
+              for (let k = 0; k < n; k++) { const a = rr() * Math.PI * 2, rad = 0.12 + rr() * spread; pts.push([Math.cos(a) * rad, 0.02 + rr() * 0.3 * (1 - rad / (spread + 0.12)), Math.sin(a) * rad]); }
+              return pts;
+            };
+            add(g, tube(knot(26, 0.45, 21), 0.015, 280, 5), rope);
+            add(g, tube(knot(16, 0.35, 34), 0.012, 170, 5), tugM);
+            add(g, tube([[0.3, 0.05, 0.1], [0.55, 0.015, 0.22], [0.85, 0.01, 0.3], [1.05, 0.01, 0.28]], 0.015, 30, 5), rope);
+            snap([1.07, 0.01, 0.28], 1.4);
+            add(g, tube([[-0.25, 0.04, -0.2], [-0.5, 0.012, -0.4], [-0.7, 0.01, -0.45]], 0.012, 24, 5), tugM);
+            snap([-0.72, 0.01, -0.45], -2.2);
+            add(g, tube([[0.1, 0.05, -0.3], [0.25, 0.012, -0.6], [0.2, 0.01, -0.85]], 0.012, 24, 5), tugM);
+            snap([0.2, 0.01, -0.87], 3.1);
+            r();
+          } else {
+            // main line from the sled (back, -z) up to the leaders (front, +z); a pair of dogs every 1.2 m
+            const main = [];
+            for (let k = 0; k <= 12; k++) main.push([Math.sin(k * 0.9) * 0.02, 0.012, -1.8 + k * 0.3]);
+            add(g, tube(main, 0.017, 60, 5), rope);
+            add(g, torus(0.05, 0.01, Math.PI * 2, 10), rope, [0, 0.012, -1.85], [Math.PI / 2, 0, 0]);   // bridle loop at the sled
+            [-1.2, 0].forEach(z0 => [-1, 1].forEach(sd => {
+              add(g, tube([[0, 0.012, z0], [sd * 0.15, 0.012, z0 + 0.2], [sd * 0.3, 0.012, z0 + 0.55]], 0.013, 16, 5), tugM);   // tugline
+              snap([sd * 0.3, 0.012, z0 + 0.57], sd * 0.5);
+              add(g, tube([[0, 0.012, z0 + 0.85], [sd * 0.17, 0.012, z0 + 0.93], [sd * 0.3, 0.012, z0 + 0.98]], 0.01, 12, 4), tugM); // neckline
+              snap([sd * 0.31, 0.012, z0 + 0.99], sd * 1.2);
+            }));
+            snap([0, 0.012, 1.8], 0);
+          }
+        }
+      },
+
+      moose: {
+        label: 'Moose', group: 'Wildlife', colors: { coat: ['Coat', '#4A3526'], legs: ['Lower legs', '#8C7B6A'], antlers: ['Antlers', '#C9B08A'] },
+        variants: ['Bull with antlers', 'Bull, head lowered', 'Cow'],
+        build(g, c, v) {
+          const coat = mat(c.coat, { roughness: 0.95 }), dark = mat(new THREE.Color(c.coat).multiplyScalar(0.7), { roughness: 0.95 });
+          const legM = mat(c.legs), antM = mat(c.antlers, { roughness: 0.7 }), black = mat('#141010', { roughness: 0.4 });
+          // deep chest with a shoulder hump, narrower hindquarters
+          add(g, ico(1, 1), coat, [0, 1.55, 0.35], [0, 0, 0], [0.48, 0.6, 0.72]);
+          add(g, ico(1, 1), dark, [0, 1.95, 0.45], [0.3, 0, 0], [0.36, 0.4, 0.55]);
+          add(g, ico(1, 1), coat, [0, 1.5, -0.6], [0, 0, 0], [0.42, 0.52, 0.58]);
+          add(g, cyl(0.4, 0.38, 0.9, 8), coat, [0, 1.5, -0.12], [Math.PI / 2, 0, 0]);
+          add(g, new THREE.ConeGeometry(0.06, 0.12, 5), dark, [0, 1.75, -1.15], [-2.2, 0, 0]);   // stubby tail
+          // long legs, pale below the knee
+          [[0.22, 0.72, true], [-0.22, 0.72, true], [0.21, -0.72, false], [-0.21, -0.72, false]].forEach(([x, z, front]) => {
+            const hip = V(x, 1.4, z);
+            const knee = front ? V(x, 0.78, z + 0.04) : V(x, 0.98, z + 0.2);
+            const ankle = front ? V(x, 0.3, z) : V(x, 0.55, z - 0.14);
+            const foot = V(x, 0.05, z + 0.03);
+            limb(g, coat, hip, knee, 0.13);
+            limb(g, legM, knee, ankle, 0.075);
+            limb(g, legM, ankle, foot, 0.06);
+            add(g, ico(0.075, 0), black, [x, 0.04, z + 0.06], [0, 0, 0], [0.9, 0.6, 1.25]);   // hoof
+          });
+          // neck and long-nosed head
+          const lowered = v === 'Bull, head lowered';
+          const head = new THREE.Group();
+          head.position.set(0, lowered ? 1.45 : 2.0, lowered ? 1.2 : 1.12);
+          head.rotation.x = lowered ? 1.0 : 0.4;
+          g.add(head);
+          limb(g, coat, V(0, 1.85, 0.7), head.position.clone(), 0.27);
+          add(head, ico(1, 1), coat, [0, 0, 0.22], [0, 0, 0], [0.2, 0.24, 0.42]);
+          add(head, ico(1, 1), dark, [0, -0.04, 0.6], [0, 0, 0], [0.17, 0.2, 0.23]);   // bulbous muzzle
+          [1, -1].forEach(sd => {
+            add(head, box(0.03, 0.02, 0.03), black, [sd * 0.06, -0.02, 0.81]);          // nostrils
+            add(head, ico(0.028, 1), black, [sd * 0.16, 0.08, 0.2]);                      // eyes
+            add(head, new THREE.ConeGeometry(0.06, 0.2, 5), coat, [sd * 0.17, 0.2, -0.08], [-0.3, 0, -sd * 0.9], [1, 1, 0.45]); // ears
+          });
+          add(head, ico(1, 1), dark, [0, -0.3, 0.12], [0, 0, 0], [0.05, 0.2, 0.1]);   // the "bell" under the throat
+          if (v !== 'Cow') {
+            // palmate antlers: a broad flat palm on each side with tines along its outer edge
+            [1, -1].forEach(sd => {
+              const A = new THREE.Group();
+              A.position.set(sd * 0.13, 0.2, -0.02);
+              A.rotation.set(-0.5, 0, 0);           // undo the head's nod so the antlers sit up
+              head.add(A);
+              limb(A, antM, V(0, 0, 0), V(sd * 0.22, 0.1, 0), 0.05);   // short beam out of the skull
+              // the palm: a broad cupped plate tipped up and outward, like an open hand
+              const P = new THREE.Group();
+              P.position.set(sd * 0.22, 0.1, 0);
+              P.rotation.set(0, 0, sd * 0.85);
+              A.add(P);
+              add(P, ico(1, 1), antM, [sd * 0.26, 0, 0], [0, 0, 0], [0.3, 0.05, 0.23]);
+              for (let k = 0; k < 6; k++) {    // tines along the outer rim
+                const ang = -1.1 + k * 0.44;
+                add(P, new THREE.ConeGeometry(0.028, 0.15, 5), antM,
+                    [sd * (0.26 + Math.cos(ang) * 0.3), 0, Math.sin(ang) * 0.23], [Math.sin(ang) * 0.6, 0, -sd * Math.PI / 2 * 0.85]);
+              }
+            });
+          }
+        }
+      },
+
+      squirrel: {
+        label: 'Squirrel', group: 'Wildlife', colors: { fur: ['Fur', '#B5652A'], belly: ['Belly', '#F2E6D2'], stump: ['Stump', '#6B4A2B'] },
+        variants: ['On a stump', 'On the snow', 'With a pinecone'],
+        build(g, c, v) {
+          const S = new THREE.Group(), fur = mat(c.fur, { roughness: 0.95 }), belly = mat(c.belly), black = mat('#1a120b', { roughness: 0.3 });
+          // sitting up on its haunches, facing +z
+          add(S, ico(1, 1), fur, [0, 0.06, 0], [-0.5, 0, 0], [0.046, 0.066, 0.05]);
+          add(S, ico(1, 1), fur, [0, 0.12, 0.014], [-0.35, 0, 0], [0.038, 0.055, 0.04]);
+          add(S, ico(1, 1), belly, [0, 0.105, 0.036], [-0.35, 0, 0], [0.026, 0.045, 0.02]);
+          add(S, ico(1, 1), fur, [0, 0.185, 0.03], [0, 0, 0], [0.034, 0.032, 0.038]);
+          add(S, ico(1, 1), fur, [0, 0.177, 0.064], [0, 0, 0], [0.018, 0.016, 0.02]);
+          add(S, ico(0.006, 0), black, [0, 0.18, 0.083]);
+          [1, -1].forEach(sd => {
+            add(S, ico(0.0075, 1), black, [sd * 0.021, 0.193, 0.05]);
+            add(S, new THREE.ConeGeometry(0.01, 0.026, 4), fur, [sd * 0.018, 0.222, 0.018], [0, 0, -sd * 0.25]);
+            add(S, new THREE.ConeGeometry(0.004, 0.012, 4), black, [sd * 0.02, 0.24, 0.018], [0, 0, -sd * 0.25]);   // ear tufts
+            add(S, ico(1, 1), fur, [sd * 0.013, 0.135, 0.052], [0, 0, 0], [0.008, 0.012, 0.008]);                  // front paws
+            add(S, ico(1, 1), fur, [sd * 0.03, 0.007, 0.03], [0, 0, 0], [0.012, 0.008, 0.028]);                    // hind feet
+          });
+          // big bushy tail curling up behind
+          const curve = new THREE.CatmullRomCurve3([V(0, 0.03, -0.04), V(0, 0.09, -0.1), V(0, 0.18, -0.11), V(0, 0.25, -0.08), V(0, 0.28, -0.03)]);
+          for (let k = 0; k < 15; k++) {
+            const t = k / 14, p = curve.getPoint(t), r = 0.02 + 0.024 * Math.sin(Math.PI * Math.min(1, t * 1.15));
+            add(S, ico(r, 1), mat(new THREE.Color(c.fur).multiplyScalar(0.92 + 0.12 * ((k * 7) % 3) / 2), { roughness: 1 }), [p.x, p.y, p.z]);
+          }
+          if (v === 'With a pinecone') add(S, new THREE.ConeGeometry(0.02, 0.055, 7), mat('#6B4A2B'), [0, 0.15, 0.085], [0.6, 0, 0]);
+          if (v === 'On a stump') {
+            const wood = mat(c.stump, { roughness: 1 });
+            add(g, cyl(0.17, 0.2, 0.32, 9), wood, [0, 0.16, 0]);
+            add(g, cyl(0.165, 0.165, 0.006, 9), mat(new THREE.Color(c.stump).lerp(new THREE.Color('#E8D2A8'), 0.6)), [0, 0.322, 0]);
+            add(g, torus(0.1, 0.004, Math.PI * 2, 12), wood, [0, 0.326, 0], [Math.PI / 2, 0, 0]);   // growth ring
+            for (let k = 0; k < 4; k++) { const a = k * 1.6 + 0.3; add(g, ico(1, 1), wood, [Math.cos(a) * 0.2, 0.02, Math.sin(a) * 0.2], [0, -a, 0], [0.09, 0.04, 0.05]); }
+            S.position.y = 0.325;
+          }
+          g.add(S);
+        }
       }
     };
 
@@ -585,12 +739,20 @@
       controls.update();
     }
 
-    for (const key in ITEMS) {
-      const b = document.createElement('button');
-      b.textContent = ITEMS[key].label;
-      b.dataset.item = key;
-      b.addEventListener('click', () => selectItem(key));
-      $('itemButtons').appendChild(b);
+    const itemGroups = {};
+    for (const key in ITEMS) (itemGroups[ITEMS[key].group || 'Gear'] = itemGroups[ITEMS[key].group || 'Gear'] || []).push(key);
+    for (const groupName in itemGroups) {
+      const heading = document.createElement('div');
+      heading.className = 'group-label';
+      heading.textContent = groupName;
+      $('itemButtons').appendChild(heading);
+      itemGroups[groupName].forEach(key => {
+        const b = document.createElement('button');
+        b.textContent = ITEMS[key].label;
+        b.dataset.item = key;
+        b.addEventListener('click', () => selectItem(key));
+        $('itemButtons').appendChild(b);
+      });
     }
     $('variant').addEventListener('change', () => { stateOf(currentItem).variant = $('variant').value; buildItem(); centerCamera(); });
     ['glow', 'steam', 'snowBase'].forEach(id => $(id).addEventListener('change', buildItem));

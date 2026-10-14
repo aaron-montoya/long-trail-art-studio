@@ -6,9 +6,9 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 
 | Tab | What it makes |
 |---|---|
-| **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, poses |
+| **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
 | **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
-| **Gear** | Items: Snack, Booties, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, each with variants and colors |
+| **Gear** | Items: Snack, Booties, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
 | **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) and card-frame export |
 
 ## Making a card

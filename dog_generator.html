@@ -88,6 +88,8 @@
           <button data-pose="howl">Howl</button>
           <button data-pose="lie">Lie Down</button>
           <button data-pose="bow">Play Bow</button>
+          <button data-pose="sorePaw">Sore Paw</button>
+          <button data-pose="distracted">Distracted</button>
         </div>
         <div class="control-group"><label>Body Tilt <span class="val-display" id="posePitch-val">0.00</span></label><input type="range" id="posePitch" min="-0.8" max="1.0" step="0.05" value="0"></div>
         <div class="control-group"><label>Crouch <span class="val-display" id="poseDrop-val">0.00</span></label><input type="range" id="poseDrop" min="0" max="0.6" step="0.02" value="0"></div>
@@ -345,7 +347,13 @@
       lie:   { legs: [LIE_F, LIE_F, LIE_R, LIE_R],
                s: { posePitch: 0, poseDrop: 0, poseNeck: 0.75, poseHead: 0, poseTurn: 0.25, poseTilt: 0, poseJaw: 0.1, poseEars: 0.2, poseTail: -1.3 } },
       bow:   { legs: [LIE_F, LIE_F, { a: [0.25, -0.5, 0.15], paw: 0 }, { a: [0.25, -0.5, 0.15], paw: 0 }],
-               s: { posePitch: -0.45, poseDrop: 0, poseNeck: 0.9, poseHead: 0.5, poseTurn: 0.15, poseTilt: 0.2, poseJaw: 0.25, poseEars: -0.1, poseTail: 0.9 } }
+               s: { posePitch: -0.45, poseDrop: 0, poseNeck: 0.9, poseHead: 0.5, poseTurn: 0.15, poseTilt: 0.2, poseJaw: 0.25, poseEars: -0.1, poseTail: 0.9 } },
+      // lying down, licking a raised front paw (left paw up, head turned down to it)
+      sorePaw: { legs: [{ a: [0.9, 2.1, 2.6], paw: 1.6 }, LIE_F, LIE_R, LIE_R],
+               s: { posePitch: 0.15, poseDrop: 0, poseNeck: 0.95, poseHead: -0.85, poseTurn: 0.45, poseTilt: 0.3, poseJaw: 0.25, poseEars: 0.35, poseTail: -1.3 } },
+      // head whipped to the side, ears pricked, one paw lifted (Squirrel!)
+      distracted: { legs: [{ a: [0.55, -0.85, -0.45], paw: 0.9 }, { a: [-0.1, 0, 0.15], paw: 0, plant: true }, STAND_R, STAND_R],
+               s: { posePitch: 0.05, poseDrop: 0, poseNeck: 0.3, poseHead: 0.25, poseTurn: 0.9, poseTilt: 0.2, poseJaw: 0.1, poseEars: -0.35, poseTail: 0.7 } }
     };
     let currentPose = 'stand';
     const poseInputs = ['posePitch', 'poseDrop', 'poseNeck', 'poseHead', 'poseTurn', 'poseTilt', 'poseJaw', 'poseEars', 'poseTail'];
