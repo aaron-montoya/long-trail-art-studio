@@ -1,0 +1,34 @@
+# Long Trail Art Studio
+
+Low-poly art tools for **Long Trail**, a sled dog racing card game. Everything runs in the browser; there's nothing to install.
+
+Open `index.html` (or the GitHub Pages site) to use all three tools in one place:
+
+| Tab | What it makes |
+|---|---|
+| **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, poses |
+| **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
+| **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather and card-frame export |
+
+## Making a card
+
+1. Build a dog or musher and pose it.
+2. Click **Send to Scene**. The 3D model appears on the trail in the Scenes tab with the scene's lighting and shadows.
+3. Drag it into place (scroll over it to turn it), pick the scene, time of day and camera.
+4. Click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
+
+## Saving your work
+
+- **Save Character / Load Character** stores a dog or musher as a small `.json` file.
+- **Export 3D Model (.glb)** saves the posed model; add it to a scene later or open it in Blender.
+- **Save PNG** saves the dog or musher alone with a transparent background.
+
+Placed models and scene settings aren't saved between visits, so keep your `.json` and `.glb` files.
+
+## Files
+
+- `index.html`: the studio (tabs)
+- `dog_generator.html`, `musher_generator.html`, `environment_generator.html`: the tools; each also works on its own
+- `icons.js`: shared SVG icons
+
+Built with [three.js](https://threejs.org/) r128, loaded from a CDN.

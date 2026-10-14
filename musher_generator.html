@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Low-Poly Musher Generator</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    /* The 3D view fills whatever space the sidebar leaves, so the musher stays centered in it */
+    #canvas-container { flex: 1 1 auto; min-width: 0; height: 100vh; position: relative; }
+    #canvas-container canvas { display: block; }
+
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+
+    #show-panel {
+      position: absolute; top: 15px; left: 15px; display: none; z-index: 10;
+      background: rgba(20, 20, 28, 0.85); border-color: #445; padding: 8px 12px;
+    }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .preset-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .pose-btns { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+    .primary-btn { grid-column: span 2; background: #4f46e5; font-weight: bold; padding: 10px; border-color: #6366f1; }
+    .wide-btn { grid-column: 1 / -1; }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    input[type=text] { width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.9rem; }
+    select { width: 100%; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+
+    .val-display { color: #fff; font-weight: bold; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+  <script src="icons.js"></script>
+</head>
+<body>
+
+  <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Musher Generator</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="control-group"><label>Name (used for saved files)</label><input type="text" id="charName" value="Musher" maxlength="40"
+      style="width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.9rem;"></div>
+
+    <div class="preset-btns">
+      <button data-preset="veteran">The Veteran</button>
+      <button data-preset="rookie">The Rookie</button>
+      <button data-preset="vet">The Vet</button>
+      <button data-preset="sprinter">The Sprinter</button>
+      <button class="primary-btn" id="randomize"><i data-icon="dice"></i>Randomize Musher</button>
+      <button class="primary-btn" id="randomizeOutfit"><i data-icon="palette"></i>Randomize Outfit Only</button>
+      <button class="primary-btn" id="savePng"><i data-icon="image"></i>Save PNG</button>
+      <div class="primary-btn" style="display: flex; gap: 8px; align-items: center; background: none; border: none; padding: 0; font-weight: normal;">
+        <span style="font-size: 0.75rem; color: #aaa; white-space: nowrap;">PNG size (no background)</span>
+        <select id="exportScale" style="flex: 1; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px;">
+          <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
+        </select>
+      </div>
+      <button id="saveChar"><i data-icon="download"></i>Save Character</button>
+      <button id="loadChar"><i data-icon="folder"></i>Load Character</button>
+      <button class="primary-btn" id="sendToScene" style="display: none;"><i data-icon="send"></i>Send to Scene</button>
+      <button class="primary-btn" id="export3d"><i data-icon="cube"></i>Export 3D Model (.glb)</button>
+      <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
+    </div>
+
+    <!-- POSE -->
+    <details open>
+      <summary>Pose</summary>
+      <div class="details-content">
+        <div class="pose-btns">
+          <button data-pose="stand">Stand</button>
+          <button data-pose="wave">Wave</button>
+          <button data-pose="cheer">Cheer</button>
+          <button data-pose="point">Hike!</button>
+          <button data-pose="ride">Ride</button>
+          <button data-pose="kick">Kick</button>
+          <button data-pose="run">Run</button>
+          <button data-pose="kneel">Kneel</button>
+          <button class="wide-btn" id="centerCam"><i data-icon="target"></i>Center Camera on Musher</button>
+        </div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="showSled"> Show dog sled (pairs with Ride)</label></div>
+        <div class="control-group"><label>Lean <span class="val-display" id="poseLean-val">0.00</span></label><input type="range" id="poseLean" min="-0.5" max="0.8" step="0.05" value="0"></div>
+        <div class="control-group"><label>Body Twist <span class="val-display" id="poseTwist-val">0.00</span></label><input type="range" id="poseTwist" min="-0.8" max="0.8" step="0.05" value="0"></div>
+        <div class="control-group"><label>Head Turn <span class="val-display" id="poseHeadTurn-val">0.00</span></label><input type="range" id="poseHeadTurn" min="-1" max="1" step="0.05" value="0"></div>
+        <div class="control-group"><label>Head Nod <span class="val-display" id="poseHeadNod-val">0.00</span></label><input type="range" id="poseHeadNod" min="-0.8" max="0.8" step="0.05" value="0"></div>
+        <div class="control-group"><label>Head Tilt <span class="val-display" id="poseHeadTilt-val">0.00</span></label><input type="range" id="poseHeadTilt" min="-0.5" max="0.5" step="0.05" value="0"></div>
+      </div>
+    </details>
+
+    <!-- FACE -->
+    <details open>
+      <summary>Face & Hair</summary>
+      <div class="details-content">
+        <div class="color-grid">
+          <div class="control-group"><label>Skin</label><input type="color" id="colSkin" value="#E8B894"></div>
+          <div class="control-group"><label>Hair & Beard</label><input type="color" id="colHair" value="#5A3A22"></div>
+        </div>
+        <div class="control-group"><label>Hair Style</label>
+          <select id="hairStyle">
+            <option value="short">Short</option>
+            <option value="long">Long</option>
+            <option value="ponytail">Low ponytail</option>
+            <option value="braids">Two braids</option>
+            <option value="bun">Bun</option>
+            <option value="buzz">Buzz cut</option>
+            <option value="bald">Bald</option>
+          </select></div>
+        <div class="control-group"><label>Hair Length <span class="val-display" id="hairLen-val">0.50</span></label><input type="range" id="hairLen" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="bangs"> Bangs</label></div>
+        <div class="control-group"><label>Beard <span class="val-display" id="beard-val">0.00</span></label><input type="range" id="beard" min="0" max="1" step="0.05" value="0"></div>
+        <div class="control-group"><label>Nose Size <span class="val-display" id="nose-val">1.00</span></label><input type="range" id="nose" min="0.6" max="1.6" step="0.05" value="1"></div>
+        <div class="control-group"><label>Goggles</label>
+          <select id="goggles"><option value="none">None</option><option value="eyes">Over eyes</option><option value="forehead">Pushed up on forehead</option></select></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="rosy" checked> Rosy cold cheeks</label></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="lashes"> Eyelashes</label></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="lips"> Lip color</label><input type="color" id="colLips" value="#B5525C"></div>
+      </div>
+    </details>
+
+    <!-- HEADWEAR -->
+    <details open>
+      <summary>Headwear</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Style</label>
+          <select id="hat">
+            <option value="hood">Parka hood with fur ruff</option>
+            <option value="trapper">Fur trapper hat</option>
+            <option value="beanie">Beanie with pompom</option>
+            <option value="headlamp">Beanie with headlamp</option>
+            <option value="bare">No hat</option>
+          </select></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Hat</label><input type="color" id="colHat" value="#5A3B24"></div>
+          <div class="control-group"><label>Fur Trim</label><input type="color" id="colTrim" value="#E2D7C3"></div>
+        </div>
+        <div class="control-group"><label>Fur Trim Size <span class="val-display" id="trimSize-val">1.00</span></label><input type="range" id="trimSize" min="0" max="1.6" step="0.05" value="1"></div>
+      </div>
+    </details>
+
+    <!-- OUTFIT -->
+    <details open>
+      <summary>Outfit</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Parka Style</label>
+          <select id="parkaStyle">
+            <option value="plain">Plain</option>
+            <option value="yoke">Contrast shoulders (yoke)</option>
+            <option value="bands">Reflective bands</option>
+            <option value="block">Color block</option>
+          </select></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Parka</label><input type="color" id="colParka" value="#2F6FD6"></div>
+          <div class="control-group"><label>Accent</label><input type="color" id="colAccent" value="#F2C12E"></div>
+          <div class="control-group"><label>Pants</label><input type="color" id="colPants" value="#26282F"></div>
+          <div class="control-group"><label>Boots</label><input type="color" id="colBoots" value="#5A3B24"></div>
+          <div class="control-group"><label>Mittens</label><input type="color" id="colMitts" value="#3A2A1E"></div>
+          <div class="control-group"><label>Scarf</label><input type="color" id="colScarf" value="#C0392B"></div>
+        </div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="scarf"> Scarf</label></div>
+      </div>
+    </details>
+
+    <!-- BIB -->
+    <details open>
+      <summary>Race Bib</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="showBib" checked> Show race bib</label></div>
+        <div class="control-group"><label>Bib Number</label><input type="text" id="bibNum" value="7" maxlength="3"></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Bib</label><input type="color" id="colBib" value="#F4F1EA"></div>
+          <div class="control-group"><label>Number</label><input type="color" id="colBibText" value="#1D1F26"></div>
+        </div>
+      </div>
+    </details>
+
+    <!-- SLED -->
+    <details>
+      <summary>Sled Colors</summary>
+      <div class="details-content color-grid">
+        <div class="control-group"><label>Wood</label><input type="color" id="colSledWood" value="#B07A45"></div>
+        <div class="control-group"><label>Runners</label><input type="color" id="colSledRunner" value="#2B2B30"></div>
+        <div class="control-group"><label>Sled Bag</label><input type="color" id="colSledBag" value="#B8322A"></div>
+        <button class="wide-btn" id="randomizeSled" style="grid-column: 1 / -1;"><i data-icon="dice"></i>Randomize Sled Colors</button>
+      </div>
+    </details>
+
+    <!-- BODY -->
+    <details>
+      <summary>Body</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Height <span class="val-display" id="height-val">1.00</span></label><input type="range" id="height" min="0.8" max="1.2" step="0.01" value="1"></div>
+        <div class="control-group"><label>Bulk / Puffiness <span class="val-display" id="bulk-val">1.00</span></label><input type="range" id="bulk" min="0.8" max="1.4" step="0.01" value="1"></div>
+        <div class="control-group"><label>Head Size <span class="val-display" id="headSize-val">1.00</span></label><input type="range" id="headSize" min="0.8" max="1.4" step="0.01" value="1"></div>
+        <div class="control-group"><label>Leg Length <span class="val-display" id="legLen-val">1.00</span></label><input type="range" id="legLen" min="0.8" max="1.2" step="0.01" value="1"></div>
+        <div class="control-group"><label>Shoulder Width <span class="val-display" id="shoulders-val">1.00</span></label><input type="range" id="shoulders" min="0.8" max="1.15" step="0.01" value="1"></div>
+        <div class="control-group"><label>Arm Length <span class="val-display" id="armLen-val">1.00</span></label><input type="range" id="armLen" min="0.85" max="1.15" step="0.01" value="1"></div>
+      </div>
+    </details>
+
+    <!-- SCENE & LIGHTING -->
+    <details>
+      <summary>Background & Sun</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>
+        <div class="control-group"><label>Sun Direction <span class="val-display" id="sunAz-val">45</span></label><input type="range" id="sunAz" min="0" max="360" step="1" value="45"></div>
+        <div class="control-group"><label>Sun Height <span class="val-display" id="sunEl-val">55</span></label><input type="range" id="sunEl" min="-20" max="90" step="1" value="55"></div>
+        <div class="control-group"><label>Sun Color</label><input type="color" id="sunColor" value="#FFF5E6"></div>
+        <div class="control-group"><label>Sun Strength <span class="val-display" id="sunInt-val">0.90</span></label><input type="range" id="sunInt" min="0" max="2.5" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Ambient Light <span class="val-display" id="ambInt-val">0.60</span></label><input type="range" id="ambInt" min="0" max="1.5" step="0.05" value="0.6"></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    // --- SCENE SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8ba6b5);
+
+    const canvasContainer = document.getElementById('canvas-container');
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
+    camera.position.set(2.2, 1.6, 3.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha so PNGs export without a background
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    canvasContainer.appendChild(renderer.domElement);
+
+    // Keep the render matched to the space beside the sidebar (also fires when the sidebar hides/shows)
+    function fitRenderer() {
+      const w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    fitRenderer();
+    new ResizeObserver(fitRenderer).observe(canvasContainer);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 0.95, 0);
+    controls.maxPolarAngle = Math.PI / 2 + 0.05;
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    // The "sun": positioned on a sphere around the musher from the direction/height sliders
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    keyLight.shadow.bias = -0.0005;
+    keyLight.shadow.normalBias = 0.02;
+    keyLight.target.position.set(0, 0.9, 0);
+    scene.add(keyLight);
+    scene.add(keyLight.target);
+
+    function updateScene() {
+      const az = THREE.MathUtils.degToRad(parseFloat(document.getElementById('sunAz').value));
+      const el = THREE.MathUtils.degToRad(parseFloat(document.getElementById('sunEl').value));
+      const t = keyLight.target.position;
+      keyLight.position.set(t.x + 10 * Math.cos(el) * Math.sin(az), t.y + 10 * Math.sin(el), t.z + 10 * Math.cos(el) * Math.cos(az));
+      keyLight.color.set(document.getElementById('sunColor').value);
+      keyLight.intensity = parseFloat(document.getElementById('sunInt').value);
+      ambientLight.intensity = parseFloat(document.getElementById('ambInt').value);
+      scene.background.set(document.getElementById('bgColor').value);
+      ['sunAz', 'sunEl'].forEach(id => document.getElementById(`${id}-val`).innerText = document.getElementById(id).value);
+      ['sunInt', 'ambInt'].forEach(id => document.getElementById(`${id}-val`).innerText = parseFloat(document.getElementById(id).value).toFixed(2));
+    }
+
+    const fillLight = new THREE.DirectionalLight(0xaaccff, 0.6);
+    fillLight.position.set(-8, 3, -8);
+    scene.add(fillLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 0.3, 10);
+    pointLight.position.set(0, 2.5, 3);
+    scene.add(pointLight);
+
+    // --- MATERIALS ---
+    // One flat-shaded material per outfit part, recolored live from the color pickers
+    const COLOR_INPUTS = {
+      skin: 'colSkin', hair: 'colHair', hat: 'colHat', trim: 'colTrim', parka: 'colParka', accent: 'colAccent',
+      pants: 'colPants', boots: 'colBoots', mitts: 'colMitts', scarf: 'colScarf',
+      sledWood: 'colSledWood', sledRunner: 'colSledRunner', sledBag: 'colSledBag'
+    };
+    const mats = {};
+    for (const key in COLOR_INPUTS) mats[key] = new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85 });
+    mats.eye = new THREE.MeshStandardMaterial({ color: 0x1a120b, flatShading: true, roughness: 0.15 });
+    mats.mouth = new THREE.MeshStandardMaterial({ color: 0x6b3a3a, flatShading: true, roughness: 0.6 });
+    mats.blush = new THREE.MeshStandardMaterial({ color: 0xe0857a, flatShading: true, roughness: 0.8, transparent: true, opacity: 0.75 });
+    mats.dark = new THREE.MeshStandardMaterial({ color: 0x202024, flatShading: true, roughness: 0.6 });
+    mats.lens = new THREE.MeshStandardMaterial({ color: 0x2a3550, flatShading: true, roughness: 0.1, metalness: 0.6, emissive: 0x0d1a33 });
+    mats.lamp = new THREE.MeshStandardMaterial({ color: 0xfff3c4, emissive: 0xffe08a, emissiveIntensity: 0.9, flatShading: true });
+
+    // Race bib: drawn on a canvas so the number can be anything
+    const bibCanvas = document.createElement('canvas');
+    bibCanvas.width = 256; bibCanvas.height = 300;
+    const bibTex = new THREE.CanvasTexture(bibCanvas);
+    mats.bib = new THREE.MeshStandardMaterial({ map: bibTex, roughness: 0.8 });
+
+    function drawBib() {
+      const g = bibCanvas.getContext('2d');
+      const ink = document.getElementById('colBibText').value;
+      const num = document.getElementById('bibNum').value.trim() || ' ';
+      g.fillStyle = document.getElementById('colBib').value;
+      g.fillRect(0, 0, 256, 300);
+      g.fillStyle = ink;
+      g.fillRect(18, 18, 220, 6);
+      g.fillRect(18, 276, 220, 6);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = 'bold 30px "Segoe UI", sans-serif';
+      g.fillText('LONG TRAIL', 128, 52);
+      g.font = `bold ${num.length > 2 ? 112 : 150}px "Segoe UI", sans-serif`;
+      g.fillText(num, 128, 175);
+      bibTex.needsUpdate = true;
+    }
+
+    function updateColors() {
+      for (const key in COLOR_INPUTS) mats[key].color.set(document.getElementById(COLOR_INPUTS[key]).value);
+      mats.mouth.color.set(document.getElementById('lips').checked ? document.getElementById('colLips').value : '#6b3a3a');
+      drawBib();
+    }
+
+    // --- GEOMETRIES ---
+    const icosa = new THREE.IcosahedronGeometry(1, 1);
+    const sphere = new THREE.IcosahedronGeometry(1, 2);
+    const box = new THREE.BoxGeometry(1, 1, 1);
+    const cyl = new THREE.CylinderGeometry(1, 0.85, 1, 8);      // tapered limb, wide end on top
+    const tube = new THREE.CylinderGeometry(1, 1, 1, 9);        // straight band / ring
+    const hemCyl = new THREE.CylinderGeometry(1, 1.18, 1, 9);   // parka skirt flaring out
+    const tuftGeo = new THREE.ConeGeometry(1, 1, 4, 1);         // four-sided fur spike
+
+    const rig = new THREE.Group();
+    scene.add(rig);
+
+    function createBone(geo, mat, parent, scale, pos, rot) {
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.scale.set(...scale);
+      mesh.position.set(...pos);
+      if (rot) mesh.rotation.set(...rot);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    // Cylinder spanning a -> b (wide end at a)
+    const UP = new THREE.Vector3(0, 1, 0);
+    function createLimb(mat, parent, a, b, radius, geo = cyl) {
+      const dir = new THREE.Vector3().subVectors(a, b);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.scale.set(radius, dir.length(), radius);
+      mesh.position.addVectors(a, b).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    function addTuft(parent, mat, base, dir, len, width, spin) {
+      const mesh = new THREE.Mesh(tuftGeo, mat);
+      const d = dir.clone().normalize();
+      mesh.scale.set(width, len, width * 0.45);
+      mesh.quaternion.setFromUnitVectors(UP, d).multiply(new THREE.Quaternion().setFromAxisAngle(UP, spin));
+      mesh.position.copy(base).addScaledVector(d, len * 0.35);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    // Ring of fur spikes around center in the plane (e1, e2); spikes point outward, tipped toward `push`
+    function furRing(parent, mat, center, e1, e2, r1, r2, count, len, width, push, pushMix) {
+      for (let k = 0; k < count; k++) {
+        const th = (k / count) * Math.PI * 2 + Math.sin(k * 12.9898) * 0.15;
+        const radial = e1.clone().multiplyScalar(Math.cos(th)).addScaledVector(e2, Math.sin(th));
+        const at = center.clone().addScaledVector(e1, Math.cos(th) * r1).addScaledVector(e2, Math.sin(th) * r2);
+        const jitter = 0.75 + 0.5 * Math.abs(Math.sin(k * 78.233));
+        addTuft(parent, mat, at, radial.multiplyScalar(1 - pushMix).addScaledVector(push, pushMix), len * jitter, width, k * 1.7);
+      }
+    }
+
+    // --- PARAMETERS ---
+    const params = { height: 1, bulk: 1, headSize: 1, legLen: 1, armLen: 1, shoulders: 1, beard: 0, nose: 1, trimSize: 1, hairLen: 0.5 };
+    const inputs = Object.keys(params);
+
+    // --- POSES ---
+    // Arms: flex swings the arm forward, abd lifts it out to the side, twist rolls it (so the elbow can bend upward
+    // for a wave), bend folds the elbow. Legs: flex swings the thigh forward, bend folds the knee back, foot tilts the toe down.
+    // Index 0 is the musher's left side (+x), 1 is the right (-x). Angles in radians.
+    const ARM_REST = { flex: 0.05, abd: 0.14, twist: 0, bend: 0.2 };
+    const LEG_REST = { flex: 0, abd: 0.06, bend: 0, foot: 0 };
+    const ARM_BAR  = { flex: 1.0, abd: 0.12, twist: 0, bend: 0.45 };
+    const poses = {
+      stand: { arms: [ARM_REST, ARM_REST], legs: [LEG_REST, LEG_REST],
+               s: { poseLean: 0, poseTwist: 0, poseHeadTurn: 0, poseHeadNod: 0, poseHeadTilt: 0 } },
+      wave:  { arms: [ARM_REST, { flex: 0.25, abd: 1.55, twist: 1.57, bend: 1.3 }], legs: [LEG_REST, { flex: 0.05, abd: 0.12, bend: 0.05, foot: 0 }],
+               s: { poseLean: 0, poseTwist: -0.1, poseHeadTurn: 0, poseHeadNod: 0, poseHeadTilt: 0.15 } },
+      cheer: { arms: [{ flex: 0.15, abd: 2.5, twist: 0, bend: 0.3 }, { flex: 0.15, abd: 2.5, twist: 0, bend: 0.3 }],
+               legs: [{ flex: 0, abd: 0.12, bend: 0, foot: 0 }, { flex: 0, abd: 0.12, bend: 0, foot: 0 }],
+               s: { poseLean: -0.1, poseTwist: 0, poseHeadTurn: 0, poseHeadNod: -0.35, poseHeadTilt: 0 } },
+      point: { arms: [{ flex: -0.15, abd: 0.25, twist: 0, bend: 0.35 }, { flex: 1.45, abd: 0.12, twist: 0, bend: 0.05 }],
+               legs: [{ flex: -0.25, abd: 0.06, bend: 0.15, foot: 0 }, { flex: 0.4, abd: 0.06, bend: 0.35, foot: 0 }],
+               s: { poseLean: 0.12, poseTwist: -0.15, poseHeadTurn: 0, poseHeadNod: 0, poseHeadTilt: 0 } },
+      ride:  { arms: [ARM_BAR, ARM_BAR], legs: [{ flex: 0.25, abd: 0.13, bend: 0.45, foot: 0 }, { flex: 0.25, abd: 0.13, bend: 0.45, foot: 0 }],
+               sledBar: true,
+               s: { poseLean: 0.3, poseTwist: 0, poseHeadTurn: 0, poseHeadNod: -0.15, poseHeadTilt: 0 } },
+      kick:  { arms: [ARM_BAR, ARM_BAR], legs: [{ flex: 0.3, abd: 0.13, bend: 0.5, foot: 0 }, { flex: -0.6, abd: 0.05, bend: 0.55, foot: 0.7 }],
+               sledBar: true,
+               s: { poseLean: 0.4, poseTwist: 0, poseHeadTurn: 0, poseHeadNod: -0.2, poseHeadTilt: 0 } },
+      run:   { arms: [{ flex: 0.9, abd: 0.1, twist: 0, bend: 1.5 }, { flex: -0.7, abd: 0.15, twist: 0, bend: 1.2 }],
+               legs: [{ flex: -0.45, abd: 0.04, bend: 1.1, foot: 0.4 }, { flex: 0.75, abd: 0.04, bend: 0.55, foot: -0.1 }],
+               s: { poseLean: 0.25, poseTwist: 0.1, poseHeadTurn: 0, poseHeadNod: -0.15, poseHeadTilt: 0 } },
+      kneel: { arms: [{ flex: 0.6, abd: 0.1, twist: 0, bend: 0.7 }, { flex: 1.0, abd: 0.15, twist: 0, bend: 0.2 }],
+               legs: [{ flex: 1.45, abd: 0.12, bend: 1.45, foot: 0 }, { flex: -0.05, abd: 0.08, bend: 1.6, foot: 1.2 }],
+               s: { poseLean: 0.15, poseTwist: 0, poseHeadTurn: 0, poseHeadNod: 0.3, poseHeadTilt: 0.1 } }
+    };
+    let currentPose = 'stand';
+    const poseInputs = ['poseLean', 'poseTwist', 'poseHeadTurn', 'poseHeadNod', 'poseHeadTilt'];
+    const poseVals = {};
+
+    // --- BUILD ---
+    function buildMusher() {
+      while (rig.children.length) rig.remove(rig.children[0]);
+      const p = params, ps = poseVals, pose = poses[currentPose];
+      const b = p.bulk, hs = p.headSize;
+      const val = id => document.getElementById(id).value;
+      const checked = id => document.getElementById(id).checked;
+      const style = val('parkaStyle'), hat = val('hat'), goggles = val('goggles');
+      const trim = p.trimSize;
+
+      const bodyGroup = new THREE.Group();
+      rig.add(bodyGroup);
+
+      const footH = 0.07, shinL = 0.42 * p.legLen, thighL = 0.42 * p.legLen;
+      const upperL = 0.28 * p.armLen, foreL = 0.26 * p.armLen;
+
+      // 1. HIPS & LEGS (legs hang from the hips, so leaning the body doesn't swing them)
+      const hips = new THREE.Group();
+      hips.position.y = footH + shinL + thighL;
+      bodyGroup.add(hips);
+      createBone(icosa, mats.pants, hips, [0.17 * b, 0.13, 0.13 * b], [0, 0.02, 0]);
+
+      [1, -1].forEach((side, li) => {
+        const L = pose.legs[li];
+        const hip = new THREE.Group();
+        hip.position.set(side * 0.095 * b, 0, 0);
+        hip.rotation.set(-L.flex, 0, side * L.abd, 'XZY');
+        hips.add(hip);
+        createBone(cyl, mats.pants, hip, [0.1 * b, thighL, 0.1 * b], [0, -thighL / 2, 0]);
+
+        const knee = new THREE.Group();
+        knee.position.y = -thighL;
+        knee.rotation.x = L.bend;
+        hip.add(knee);
+        createBone(icosa, mats.pants, knee, [0.088 * b, 0.088 * b, 0.088 * b], [0, 0, 0]);
+        createBone(cyl, mats.pants, knee, [0.084 * b, shinL * 0.5, 0.084 * b], [0, -shinL * 0.25, 0]);
+        // Mukluk: tall soft boot with a fur cuff
+        createBone(cyl, mats.boots, knee, [0.09 * b, shinL * 0.62, 0.09 * b], [0, -shinL * 0.69, 0]);
+        if (trim > 0.02) furRing(knee, mats.trim, new THREE.Vector3(0, -shinL * 0.38, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1),
+                                 0.09 * b, 0.09 * b, 11, 0.06 * trim, 0.035, new THREE.Vector3(0, -1, 0), 0.4);
+
+        const ankle = new THREE.Group();
+        ankle.position.y = -shinL;
+        ankle.rotation.x = L.flex - L.bend + L.foot; // keeps the boot level unless the pose tips the toe
+        knee.add(ankle);
+        createBone(icosa, mats.boots, ankle, [0.075 * b, 0.05, 0.13], [0, -0.025, 0.045]);
+        createBone(box, mats.dark, ankle, [0.12 * b, 0.022, 0.25], [0, -footH + 0.011, 0.045]);
+      });
+
+      // 2. TORSO (parka)
+      const spine = new THREE.Group();
+      spine.position.y = 0.05;
+      spine.rotation.set(ps.poseLean, ps.poseTwist, 0, 'YXZ');
+      hips.add(spine);
+
+      const accentHem = style === 'block';
+      const sw = p.shoulders;
+      createBone(icosa, mats.parka, spine, [0.22 * b * sw, 0.3, 0.16 * b], [0, 0.27, 0]);
+      createBone(hemCyl, accentHem ? mats.accent : mats.parka, spine, [0.2 * b, 0.2, 0.15 * b], [0, 0.0, 0]);
+      if (style === 'yoke') createBone(icosa, mats.accent, spine, [0.235 * b * sw, 0.14, 0.175 * b], [0, 0.47, 0]);
+      if (style === 'bands') createBone(tube, mats.accent, spine, [0.21 * b, 0.035, 0.158 * b], [0, 0.03, 0]);
+      if (style === 'block') createBone(tube, mats.accent, spine, [0.205 * b, 0.05, 0.152 * b], [0, 0.14, 0]);
+      if (trim > 0.02) furRing(spine, mats.trim, new THREE.Vector3(0, -0.09, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1),
+                               0.23 * b, 0.175 * b, 22, 0.06 * trim, 0.05, new THREE.Vector3(0, -1, 0), 0.6);
+      // collar
+      createBone(tube, mats.parka, spine, [0.085, 0.08, 0.085], [0, 0.58, 0]);
+
+      // Race bib: a curved panel front and back that follows the parka
+      if (checked('showBib')) {
+        [0, Math.PI].forEach(start => {
+          const geo = new THREE.CylinderGeometry(0.2 * b, 0.2 * b, 0.22, 10, 1, true, start - 0.7, 1.4);
+          const bib = new THREE.Mesh(geo, mats.bib);
+          bib.position.set(0, 0.3, start === 0 ? -0.03 * b : 0.03 * b);
+          bib.castShadow = true;
+          bib.receiveShadow = true;
+          spine.add(bib);
+        });
+      }
+
+      if (checked('scarf')) {
+        createBone(tube, mats.scarf, spine, [0.1, 0.06, 0.095], [0, 0.585, 0.005]);
+        createBone(box, mats.scarf, spine, [0.05, 0.18, 0.015], [0.05, 0.49, 0.1 * b + 0.03], [0.15, 0, 0.12]);
+      }
+
+      // 3. ARMS
+      [1, -1].forEach((side, ai) => {
+        const A = pose.arms[ai];
+        const shoulder = new THREE.Group();
+        shoulder.position.set(side * 0.21 * b * sw, 0.47, 0);
+        shoulder.rotation.set(-A.flex, side * A.twist, side * A.abd, 'XZY');
+        spine.add(shoulder);
+        createBone(icosa, style === 'yoke' ? mats.accent : mats.parka, shoulder, [0.085 * b, 0.085 * b, 0.085 * b], [0, -0.01, 0]);
+        createBone(cyl, mats.parka, shoulder, [0.066 * b, upperL, 0.066 * b], [0, -upperL / 2, 0]);
+        if (style === 'bands') createBone(tube, mats.accent, shoulder, [0.069 * b, 0.03, 0.069 * b], [0, -upperL * 0.6, 0]);
+
+        const elbow = new THREE.Group();
+        elbow.position.y = -upperL;
+        elbow.rotation.x = -A.bend;
+        shoulder.add(elbow);
+        createBone(icosa, mats.parka, elbow, [0.06 * b, 0.06 * b, 0.06 * b], [0, 0, 0]);
+        createBone(cyl, accentHem ? mats.accent : mats.parka, elbow, [0.059 * b, foreL, 0.059 * b], [0, -foreL / 2, 0]);
+        if (style === 'bands') createBone(tube, mats.accent, elbow, [0.06 * b, 0.03, 0.06 * b], [0, -foreL * 0.5, 0]);
+        if (trim > 0.02) furRing(elbow, mats.trim, new THREE.Vector3(0, -foreL + 0.015, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1),
+                                 0.058 * b, 0.058 * b, 9, 0.045 * trim, 0.03, new THREE.Vector3(0, -1, 0), 0.35);
+
+        // Big overmitt with a thumb
+        const hand = new THREE.Group();
+        hand.position.y = -foreL;
+        hand.name = 'hand';
+        elbow.add(hand);
+        createBone(icosa, mats.mitts, hand, [0.05, 0.075, 0.042], [0, -0.065, 0.005]);
+        createBone(icosa, mats.mitts, hand, [0.018, 0.035, 0.018], [-side * 0.035, -0.045, 0.025], [0.3, 0, side * 0.5]);
+      });
+
+      // 4. HEAD (pose angles are relative to the world, so cancel the body lean/twist)
+      const head = new THREE.Group();
+      head.position.y = 0.62;
+      head.rotation.set(ps.poseHeadNod - ps.poseLean, ps.poseHeadTurn - ps.poseTwist, ps.poseHeadTilt, 'YXZ');
+      spine.add(head);
+      buildHead(head, hs, hat, goggles, trim, p);
+
+      // 5. GROUND: feet on the snow, or on the sled runners when the sled is shown
+      rig.scale.setScalar(p.height);
+      const sled = checked('showSled');
+      const runnerTop = 0.075;
+      const low = lowestY(bodyGroup);
+      bodyGroup.position.y += ((sled ? runnerTop * p.height : 0) - low) / p.height;
+
+      if (sled) buildSled(pose.sledBar, runnerTop);
+    }
+
+    function buildHead(head, hs, hat, goggles, trim, p) {
+      const H = v => v * hs * 1.15; // slightly big heads read better at card size
+      createBone(sphere, mats.skin, head, [H(0.105), H(0.125), H(0.11)], [0, H(0.12), 0]);
+      // ears (tucked under long hair)
+      if (document.getElementById('hairStyle').value !== 'long')
+        [1, -1].forEach(s => createBone(icosa, mats.skin, head, [H(0.016), H(0.03), H(0.022)], [s * H(0.104), H(0.115), 0]));
+
+      // eyes & brows
+      [1, -1].forEach(s => {
+        createBone(sphere, mats.eye, head, [H(0.015), H(0.017), H(0.01)], [s * H(0.038), H(0.135), H(0.1)]);
+        createBone(box, mats.hair, head, [H(0.032), H(0.008), H(0.012)], [s * H(0.04), H(0.162), H(0.101)], [0, 0, -s * 0.12]);
+      });
+      // nose & mouth
+      createBone(icosa, mats.skin, head, [H(0.018) * p.nose, H(0.022) * p.nose, H(0.024) * p.nose], [0, H(0.112), H(0.116)]);
+      const lips = document.getElementById('lips').checked;
+      createBone(box, mats.mouth, head, lips ? [H(0.032), H(0.011), H(0.008)] : [H(0.03), H(0.006), H(0.006)], [0, H(0.072), H(0.105)]);
+      if (document.getElementById('lashes').checked) {
+        [1, -1].forEach(s => {
+          createBone(box, mats.eye, head, [H(0.03), H(0.005), H(0.006)], [s * H(0.038), H(0.151), H(0.106)]);                 // lash line
+          createBone(box, mats.eye, head, [H(0.014), H(0.005), H(0.006)], [s * H(0.054), H(0.152), H(0.1)], [0, 0, s * 0.6]); // flick
+        });
+      }
+      if (document.getElementById('rosy').checked) {
+        [1, -1].forEach(s => createBone(icosa, mats.blush, head, [H(0.022), H(0.014), H(0.008)], [s * H(0.058), H(0.098), H(0.09)], [0, s * 0.55, 0]));
+      }
+
+      // beard & mustache
+      if (p.beard > 0.02) {
+        const len = p.beard;
+        createBone(icosa, mats.hair, head, [H(0.088), H(0.05 + 0.07 * len), H(0.065)], [0, H(0.065 - 0.035 * len), H(0.055)]);
+        [1, -1].forEach(s => createBone(icosa, mats.hair, head, [H(0.035), H(0.012), H(0.015)], [s * H(0.022), H(0.087), H(0.108)], [0, 0, s * 0.35]));
+      }
+
+      buildHair(head, H, hat, p);
+
+      if (hat === 'hood') {
+        // hood sits back so the face stays clear, with a fur ruff framing the face
+        createBone(sphere, mats.parka, head, [H(0.15), H(0.165), H(0.155)], [0, H(0.125), H(-0.07)]);
+        // two staggered rows of short, forward-swept tufts so the ruff reads as fluffy fur, not a spiky halo
+        if (trim > 0.02) {
+          const ex = new THREE.Vector3(1, 0, 0), ey = new THREE.Vector3(0, 1, 0), fwd = new THREE.Vector3(0, 0, 1);
+          furRing(head, mats.trim, new THREE.Vector3(0, H(0.115), H(0.06)), ex, ey, H(0.12), H(0.142), 30, H(0.05) * trim, H(0.045), fwd, 0.5);
+          furRing(head, mats.trim, new THREE.Vector3(0, H(0.115), H(0.075)), ey, ex, H(0.136), H(0.112), 26, H(0.035) * trim, H(0.04), fwd, 0.65);
+        }
+      } else if (hat === 'trapper') {
+        createBone(tube, mats.hat, head, [H(0.116), H(0.09), H(0.121)], [0, H(0.215), H(-0.005)]);
+        createBone(icosa, mats.hat, head, [H(0.116), H(0.035), H(0.121)], [0, H(0.26), H(-0.005)]);
+        createBone(icosa, mats.trim, head, [H(0.125), H(0.045), H(0.035)], [0, H(0.205), H(0.105)], [-0.35, 0, 0]);
+        [1, -1].forEach(s => createBone(icosa, mats.trim, head, [H(0.028), H(0.08), H(0.065)], [s * H(0.112), H(0.105), H(-0.005)]));
+        createBone(icosa, mats.trim, head, [H(0.11), H(0.06), H(0.03)], [0, H(0.13), H(-0.112)]);
+      } else if (hat === 'beanie' || hat === 'headlamp') {
+        createBone(sphere, mats.hat, head, [H(0.114), H(0.1), H(0.119)], [0, H(0.19), H(-0.005)]);
+        createBone(tube, mats.hat, head, [H(0.119), H(0.04), H(0.124)], [0, H(0.185), H(-0.005)]);
+        if (hat === 'beanie') {
+          createBone(icosa, mats.accent, head, [H(0.042), H(0.042), H(0.042)], [0, H(0.3), H(-0.01)]);
+        } else {
+          createBone(tube, mats.dark, head, [H(0.122), H(0.018), H(0.127)], [0, H(0.2), H(-0.005)]);
+          createBone(box, mats.dark, head, [H(0.04), H(0.03), H(0.022)], [0, H(0.2), H(0.124)]);
+          createBone(icosa, mats.lamp, head, [H(0.014), H(0.014), H(0.006)], [0, H(0.2), H(0.136)]);
+        }
+      }
+
+      if (goggles !== 'none') {
+        const up = goggles === 'forehead';
+        const gy = up ? H(0.215) : H(0.135);
+        createBone(tube, mats.dark, head, [H(0.116), H(0.02), H(0.121)], [0, gy, H(-0.003)], up ? [-0.2, 0, 0] : null);
+        [1, -1].forEach(s => createBone(icosa, mats.lens, head, [H(0.034), H(0.025), H(0.014)], [s * H(0.038), gy + (up ? H(0.01) : 0), H(up ? 0.108 : 0.112)], [up ? -0.5 : 0, s * 0.3, 0]));
+      }
+    }
+
+    // Hair: the cap only shows without a hat; longer styles spill out below any hat or hood
+    function buildHair(head, H, hat, p) {
+      const style = document.getElementById('hairStyle').value;
+      const len = p.hairLen;
+      const hood = hat === 'hood', bare = hat === 'bare';
+      if (style === 'bald') return;
+      if (style === 'buzz') {
+        if (bare) createBone(sphere, mats.hair, head, [H(0.108), H(0.118), H(0.113)], [0, H(0.135), H(-0.006)]);
+        return;
+      }
+      if (bare) createBone(sphere, mats.hair, head, [H(0.114), H(0.112), H(0.119)], [0, H(0.15), H(-0.02)]);
+      if (style === 'short' && (hat === 'beanie' || hat === 'headlamp')) createBone(icosa, mats.hair, head, [H(0.11), H(0.07), H(0.11)], [0, H(0.13), H(-0.035)]);
+
+      if (document.getElementById('bangs').checked) {
+        createBone(icosa, mats.hair, head, [H(0.095), H(0.034), H(0.03)], [0, H(0.18), H(0.082)], [0.15, 0, 0]);
+      }
+
+      if (style === 'long') {
+        // curtain down the back plus locks framing the face
+        createBone(icosa, mats.hair, head, [H(0.12), H(0.17 + 0.12 * len), H(0.06)], [0, H(0.05 - 0.09 * len), H(-0.085)]);
+        [1, -1].forEach(s => createBone(icosa, mats.hair, head, [H(0.03), H(0.12 + 0.07 * len), H(0.06)],
+                                        [s * H(0.1), H(0.07 - 0.04 * len), H(-0.01)], [0, 0, s * 0.08]));
+      } else if (style === 'ponytail' && !hood) {
+        createBone(tube, mats.accent, head, [H(0.025), H(0.02), H(0.025)], [0, H(0.1), H(-0.118)], [Math.PI / 2, 0, 0]);
+        const n = 3 + Math.round(len * 3);
+        for (let k = 0; k < n; k++) {
+          const r = H(0.042 - 0.025 * (k / n));
+          createBone(icosa, mats.hair, head, [r, H(0.05), r * 0.85], [0, H(0.075 - 0.055 * k), H(-0.14 - 0.012 * k)]);
+        }
+      } else if (style === 'braids') {
+        // braids drop from behind the ears and fall forward over the shoulders
+        const n = 4 + Math.round(len * 4);
+        [1, -1].forEach(s => {
+          for (let k = 0; k < n; k++) {
+            const r = H(0.027 - 0.008 * (k / n));
+            createBone(icosa, mats.hair, head, [r, r * 1.25, r], [s * H(0.09 + 0.006 * k), H(0.06 - 0.042 * k), H(-0.04 + 0.016 * k)], [0, 0, s * 0.4 * (k % 2 ? 1 : -1)]);
+          }
+          createBone(tube, mats.accent, head, [H(0.016), H(0.015), H(0.016)], [s * H(0.09 + 0.006 * n), H(0.06 - 0.042 * n + 0.01), H(-0.04 + 0.016 * n)]);
+        });
+      } else if (style === 'bun' && !hood) {
+        // a top bun without a hat, a low bun at the nape under one
+        createBone(icosa, mats.hair, head, [H(0.058), H(0.052), H(0.058)], bare ? [0, H(0.24), H(-0.07)] : [0, H(0.07), H(-0.125)]);
+      }
+    }
+
+    // --- SLED ---
+    // Musher stands on the back of the runners; the sled stretches forward (+z). In Ride/Kick the
+    // handlebar is placed right where the mittens are.
+    function buildSled(barAtHands, runnerTop) {
+      const sled = new THREE.Group();
+      rig.add(sled);
+      const rx = 0.2, wood = mats.sledWood, metal = mats.sledRunner;
+      [1, -1].forEach(s => {
+        createBone(box, metal, sled, [0.03, 0.03, 2.2], [s * rx, 0.015, 0.8]);
+        createBone(box, metal, sled, [0.03, 0.03, 0.32], [s * rx, 0.09, 1.99], [-0.55, 0, 0]);  // curved-up tip
+        createBone(box, mats.dark, sled, [0.12, 0.02, 0.45], [s * rx, runnerTop - 0.01, 0.0]);  // foot pads
+        [0.45, 1.0, 1.55].forEach(z => createBone(box, wood, sled, [0.025, 0.3, 0.025], [s * rx, 0.18, z]));
+        createBone(box, wood, sled, [0.022, 0.022, 1.25], [s * (rx + 0.01), 0.42, 1.0]);
+      });
+      createBone(box, wood, sled, [0.44, 0.02, 1.3], [0, 0.3, 1.0]);       // bed slats
+      createBone(box, mats.sledBag, sled, [0.4, 0.26, 1.1], [0, 0.44, 1.0]); // sled bag
+      createBone(icosa, mats.sledBag, sled, [0.2, 0.05, 0.55], [0, 0.57, 1.0]);
+      // brush bow across the front
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(rx, 0.014, 4, 10, Math.PI), metal);
+      bow.rotation.set(-Math.PI / 2, 0, 0);
+      bow.position.set(0, 0.13, 2.05);
+      bow.castShadow = true;
+      sled.add(bow);
+
+      // Handlebar: at the hands when riding, otherwise at a default height
+      let bar = new THREE.Vector3(0, 0.95, 0.42);
+      if (barAtHands) {
+        rig.updateMatrixWorld(true);
+        const hands = [];
+        rig.traverse(o => { if (o.name === 'hand') hands.push(rig.worldToLocal(o.localToWorld(new THREE.Vector3(0, -0.065, 0)))); });
+        if (hands.length === 2) bar = hands[0].add(hands[1]).multiplyScalar(0.5);
+      }
+      const halfW = rx + 0.03;
+      createLimb(wood, sled, new THREE.Vector3(-halfW, bar.y, bar.z), new THREE.Vector3(halfW, bar.y, bar.z), 0.02, tube);
+      [1, -1].forEach(s => createLimb(wood, sled, new THREE.Vector3(s * halfW, bar.y, bar.z), new THREE.Vector3(s * rx, 0.3, bar.z + 0.35), 0.018, tube));
+    }
+
+    // --- HELPERS ---
+    const _v = new THREE.Vector3();
+    function lowestY(obj) {
+      obj.updateMatrixWorld(true);
+      let low = Infinity;
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        const pos = o.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          _v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+          if (_v.y < low) low = _v.y;
+        }
+      });
+      return low;
+    }
+
+    function centerCamera() {
+      rig.updateMatrixWorld(true);
+      const c = new THREE.Box3().setFromObject(rig).getCenter(new THREE.Vector3());
+      camera.position.add(c.clone().sub(controls.target));
+      controls.target.copy(c);
+    }
+
+    // --- UI LOGIC ---
+    function readInputs() {
+      inputs.forEach(id => {
+        params[id] = parseFloat(document.getElementById(id).value);
+        document.getElementById(`${id}-val`).innerText = params[id].toFixed(2);
+      });
+      poseInputs.forEach(id => {
+        poseVals[id] = parseFloat(document.getElementById(id).value);
+        document.getElementById(`${id}-val`).innerText = poseVals[id].toFixed(2);
+      });
+    }
+
+    function rebuild() {
+      readInputs();
+      updateColors();
+      buildMusher();
+    }
+
+    function applyPose(name) {
+      currentPose = name;
+      for (const id in poses[name].s) document.getElementById(id).value = poses[name].s[id];
+      document.querySelectorAll('[data-pose]').forEach(b => b.classList.toggle('active', b.dataset.pose === name));
+      rebuild();
+      centerCamera();
+    }
+
+    [...inputs, ...poseInputs].forEach(id => document.getElementById(id).addEventListener('input', rebuild));
+    ['hat', 'goggles', 'parkaStyle'].forEach(id => document.getElementById(id).addEventListener('change', rebuild));
+    ['rosy', 'scarf', 'showBib', 'bangs', 'lashes', 'lips', 'hairStyle'].forEach(id => document.getElementById(id).addEventListener('change', rebuild));
+    document.getElementById('colLips').addEventListener('input', updateColors);
+    document.getElementById('showSled').addEventListener('change', () => { rebuild(); centerCamera(); });
+    Object.values(COLOR_INPUTS).forEach(id => document.getElementById(id).addEventListener('input', updateColors));
+    ['bibNum', 'colBib', 'colBibText'].forEach(id => document.getElementById(id).addEventListener('input', drawBib));
+    ['bgColor', 'sunAz', 'sunEl', 'sunColor', 'sunInt', 'ambInt'].forEach(id => document.getElementById(id).addEventListener('input', updateScene));
+    document.querySelectorAll('[data-pose]').forEach(b => b.addEventListener('click', () => applyPose(b.dataset.pose)));
+    document.getElementById('centerCam').addEventListener('click', centerCamera);
+
+    // Hide / show the editing panel (button or the H key, ignored while typing a bib number)
+    function setPanelVisible(visible) {
+      document.getElementById('ui-panel').classList.toggle('hidden', !visible);
+      document.getElementById('show-panel').style.display = visible ? 'none' : 'block';
+    }
+    document.getElementById('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    document.getElementById('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible(document.getElementById('ui-panel').classList.contains('hidden'));
+    });
+
+    // Save PNG: no background, cropped tight to the subject (feet at the bottom edge) so it layers cleanly
+    // over an environment. Rendered at a multiple of the screen resolution for print.
+    // The camera is pulled back along its current viewing angle until the whole subject fits, so a
+    // zoomed-in view never cuts off ears or paws in the saved image.
+    function exportPNG(filename) {
+      const scale = parseFloat(document.getElementById('exportScale').value);
+      const oldBg = scene.background, oldRatio = renderer.getPixelRatio();
+      const oldPos = camera.position.clone(), oldQuat = camera.quaternion.clone();
+
+      rig.updateMatrixWorld(true);
+      const sphere = new THREE.Box3().setFromObject(rig).getBoundingSphere(new THREE.Sphere());
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+      const fitFov = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
+      camera.position.copy(sphere.center).addScaledVector(dir, -sphere.radius / Math.sin(fitFov) * 1.05);
+      camera.lookAt(sphere.center);
+
+      scene.background = null; // transparent: the renderer has an alpha channel
+      renderer.setPixelRatio(oldRatio * scale);
+      renderer.render(scene, camera);
+      const url = cropToContent(renderer.domElement).toDataURL('image/png');
+
+      scene.background = oldBg;
+      renderer.setPixelRatio(oldRatio);
+      camera.position.copy(oldPos);
+      camera.quaternion.copy(oldQuat);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+    }
+
+    function cropToContent(src) {
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d');
+      g.drawImage(src, 0, 0);
+      const { data, width, height } = g.getImageData(0, 0, c.width, c.height);
+      let x0 = width, y0 = height, x1 = -1, y1 = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (data[(y * width + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+      }
+      if (x1 < 0) return c;
+      const pad = 6;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+      x1 = Math.min(width - 1, x1 + pad); y1 = Math.min(height - 1, y1 + pad);
+      const out = document.createElement('canvas');
+      out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+      out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+      return out;
+    }
+
+    // --- SAVE / LOAD CHARACTER & 3D EXPORT ---
+    // A character file is every control in the panel plus a little state that isn't a control (the pose).
+    const fileBase = () => (document.getElementById('charName').value.trim() || 'musher').replace(/[^\w\- ]+/g, '');
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }
+
+    function characterState() {
+      const values = {};
+      document.querySelectorAll('#ui-panel input, #ui-panel select').forEach(el => {
+        if (!el.id || el.type === 'file') return;
+        values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return { type: 'musher', version: 1, pose: currentPose,  values };
+    }
+
+    function applyCharacterState(state) {
+      if (state.type !== 'musher') { alert(`That file is a ${state.type || 'different'} file, not a musher.`); return; }
+      for (const id in state.values) {
+        const el = document.getElementById(id);
+        if (!el || el.type === 'file') continue;
+        if (el.type === 'checkbox') el.checked = state.values[id];
+        else el.value = state.values[id];
+      }
+      if (poses[state.pose]) currentPose = state.pose;
+      document.querySelectorAll('[data-pose]').forEach(b => b.classList.toggle('active', b.dataset.pose === currentPose));
+
+      updateScene();
+      rebuild();
+    }
+
+    document.getElementById('saveChar').addEventListener('click', () => {
+      downloadBlob(new Blob([JSON.stringify(characterState(), null, 2)], { type: 'application/json' }), `${fileBase()}.json`);
+    });
+    document.getElementById('loadChar').addEventListener('click', () => document.getElementById('loadCharFile').click());
+    document.getElementById('loadCharFile').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try { applyCharacterState(JSON.parse(await file.text())); }
+      catch (err) { alert('Could not read that character file.'); }
+    });
+
+    // 3D export: the posed model as a .glb, standing on y = 0 and centered, so the environment
+    // generator (or Blender) can place it. unitScale converts this tool's units to meters.
+    function export3D(deliver = (buffer, name) => downloadBlob(new Blob([buffer], { type: 'model/gltf-binary' }), `${name}.glb`)) {
+      const target = rig, name = fileBase();
+      target.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(target), center = box.getCenter(new THREE.Vector3());
+      const savedPos = target.position.clone();
+      target.position.x -= center.x;
+      target.position.z -= center.z;
+      target.position.y -= box.min.y;
+      // userData holds build bookkeeping that can't go in a file; swap it out while exporting
+      const stash = [];
+      target.traverse(o => { stash.push([o, o.userData]); o.userData = {}; });
+      target.userData = { longTrail: { type: 'musher', unitScale: 1, name } };
+      target.updateMatrixWorld(true);
+      new THREE.GLTFExporter().parse(target, result => {
+        stash.forEach(([o, ud]) => { o.userData = ud; });
+        target.position.copy(savedPos);
+        target.updateMatrixWorld(true);
+        deliver(result, name);
+      }, { binary: true });
+    }
+    document.getElementById('export3d').addEventListener('click', () => export3D());
+    // Inside the Art Studio the model can go straight to the Scenes tab (no file needed)
+    const studio = (() => { try { return window.parent !== window && window.parent.studio ? window.parent.studio : null; } catch (e) { return null; } })();
+    if (studio) {
+      const sendBtn = document.getElementById('sendToScene');
+      sendBtn.style.display = '';
+      sendBtn.addEventListener('click', () => export3D((buffer, name) => studio.sendModel(buffer, name)));
+    }
+
+
+    document.getElementById('savePng').addEventListener('click', () => exportPNG(`${fileBase()}.png`));
+
+    // --- PRESETS: the mushers from the game ---
+    const presets = {
+      veteran: {
+        p: { height: 1.0, bulk: 1.15, headSize: 1.0, legLen: 0.97, armLen: 1.0, beard: 0.85, nose: 1.25, trimSize: 1.1 },
+        sel: { hairStyle: 'short', hat: 'trapper', goggles: 'forehead', parkaStyle: 'yoke' },
+        chk: { rosy: true, scarf: false, showBib: true, bangs: false, lashes: false, lips: false },
+        col: { colSkin: '#D9A57F', colHair: '#C9C5BD', colHat: '#5A3B24', colTrim: '#D8CDB8', colParka: '#3F4F3A', colAccent: '#6B4A2B',
+               colPants: '#2B2B30', colBoots: '#6B4A2B', colMitts: '#3A2A1E', colScarf: '#8C2F25' },
+        bib: '12'
+      },
+      rookie: {
+        p: { height: 0.95, bulk: 1.0, headSize: 1.08, legLen: 1.0, armLen: 1.0, beard: 0, nose: 0.9, trimSize: 0.8 },
+        sel: { hairStyle: 'short', hat: 'beanie', goggles: 'none', parkaStyle: 'bands' },
+        chk: { rosy: true, scarf: true, showBib: true, bangs: false, lashes: false, lips: false },
+        col: { colSkin: '#F1C9A8', colHair: '#7A4A24', colHat: '#F2C12E', colTrim: '#EDE6D8', colParka: '#2F6FD6', colAccent: '#E5482F',
+               colPants: '#1D1F26', colBoots: '#2B2B30', colMitts: '#E5482F', colScarf: '#E5482F' },
+        bib: '47'
+      },
+      vet: {
+        p: { height: 1.0, bulk: 1.1, headSize: 1.0, legLen: 1.0, armLen: 1.0, beard: 0.15, nose: 1.0, trimSize: 1.2 },
+        sel: { hairStyle: 'short', hat: 'hood', goggles: 'none', parkaStyle: 'yoke' },
+        chk: { rosy: true, scarf: false, showBib: true, bangs: false, lashes: false, lips: false },
+        col: { colSkin: '#A96F4B', colHair: '#2A1D15', colHat: '#B8322A', colTrim: '#E9E2D4', colParka: '#B8322A', colAccent: '#F2F2F2',
+               colPants: '#26282F', colBoots: '#3A2A1E', colMitts: '#2B2B30', colScarf: '#F2F2F2' },
+        bib: '3'
+      },
+      sprinter: {
+        p: { height: 1.05, bulk: 0.85, headSize: 0.95, legLen: 1.1, armLen: 1.02, beard: 0, nose: 1.0, trimSize: 0.4 },
+        sel: { hairStyle: 'short', hat: 'headlamp', goggles: 'eyes', parkaStyle: 'block' },
+        chk: { rosy: false, scarf: false, showBib: true, bangs: false, lashes: false, lips: false },
+        col: { colSkin: '#E8B894', colHair: '#D4A837', colHat: '#1D1F26', colTrim: '#D9D4CC', colParka: '#1D1F26', colAccent: '#FF7A1A',
+               colPants: '#1D1F26', colBoots: '#2B2B30', colMitts: '#FF7A1A', colScarf: '#FF7A1A' },
+        bib: '1'
+      }
+    };
+
+    function applyPreset(name) {
+      const pr = presets[name];
+      const defaults = { shoulders: 1, hairLen: 0.5 }; // sliders a preset doesn't set go back to neutral
+      for (const k in defaults) document.getElementById(k).value = defaults[k];
+      for (const k in pr.p) document.getElementById(k).value = pr.p[k];
+      for (const k in pr.sel) document.getElementById(k).value = pr.sel[k];
+      for (const k in pr.chk) document.getElementById(k).checked = pr.chk[k];
+      for (const k in pr.col) document.getElementById(k).value = pr.col[k];
+      document.getElementById('bibNum').value = pr.bib;
+      rebuild();
+    }
+    document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => applyPreset(b.dataset.preset)));
+
+    // --- RANDOMIZERS ---
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const skinTones = ['#F5D0B5', '#F1C9A8', '#E8B894', '#D9A57F', '#C68B62', '#A96F4B', '#7A4A2E', '#5A3520'];
+    const hairColors = ['#1A1410', '#2A1D15', '#5A3A22', '#7A4A24', '#A0522D', '#D4A837', '#C9C5BD', '#E8E4DC'];
+    const parkaColors = ['#2F6FD6', '#B8322A', '#3F4F3A', '#1D1F26', '#E5482F', '#F2C12E', '#2E8B57', '#6A3D9A', '#0E7C86', '#C46A1A', '#556B8A'];
+    const accentColors = ['#F2C12E', '#FF7A1A', '#F2F2F2', '#E5482F', '#2F6FD6', '#1D1F26', '#6B4A2B', '#7FD3C6'];
+    const darkColors = ['#1D1F26', '#26282F', '#2B2B30', '#3A2A1E', '#33402F', '#2E3A55'];
+    const bootColors = ['#2B2B30', '#3A2A1E', '#5A3B24', '#6B4A2B', '#8C6A4A', '#B8322A'];
+    const trimColors = ['#E2D7C3', '#EDE6D8', '#D8CDB8', '#C9B89A', '#8C7458', '#5A4636'];
+
+    function randomizeOutfit() {
+      const parka = pick(parkaColors);
+      let accent = pick(accentColors);
+      while (accent.toLowerCase() === parka.toLowerCase()) accent = pick(accentColors);
+      const set = { colParka: parka, colAccent: accent, colPants: pick(darkColors), colBoots: pick(bootColors),
+                    colMitts: Math.random() < 0.5 ? accent : pick(bootColors), colHat: Math.random() < 0.5 ? accent : pick(parkaColors),
+                    colTrim: pick(trimColors), colScarf: pick([...accentColors, ...parkaColors]) };
+      for (const k in set) document.getElementById(k).value = set[k];
+      document.getElementById('parkaStyle').value = pick(['plain', 'yoke', 'bands', 'block']);
+      document.getElementById('scarf').checked = Math.random() < 0.35;
+      rebuild();
+    }
+
+    const woodColors = ['#B07A45', '#C9965E', '#8C5A35', '#6B4A2B', '#D9B88A', '#4A3526'];
+    const runnerColors = ['#2B2B30', '#1D1F26', '#4A4F57', '#6B7078', '#3A2A1E'];
+    const bagColors = ['#B8322A', '#2F6FD6', '#F2C12E', '#2E8B57', '#1D1F26', '#E5482F', '#6A3D9A', '#0E7C86', '#C46A1A', '#556B8A', '#3F4F3A'];
+    function randomizeSled() {
+      document.getElementById('colSledWood').value = pick(woodColors);
+      document.getElementById('colSledRunner').value = pick(runnerColors);
+      // half the time the sled bag matches the musher's parka or accent, like a team kit
+      document.getElementById('colSledBag').value = Math.random() < 0.5
+        ? document.getElementById(pick(['colParka', 'colAccent'])).value : pick(bagColors);
+      updateColors();
+    }
+    document.getElementById('randomizeSled').addEventListener('click', randomizeSled);
+
+    function randomizeMusher() {
+      // Long styles usually come without a beard and often with lashes/lip color, so random mushers mix it up
+      const hairStyle = pick(['short', 'short', 'long', 'ponytail', 'braids', 'bun', 'buzz', 'bald']);
+      const longHair = ['long', 'ponytail', 'braids', 'bun'].includes(hairStyle);
+      const set = { height: rand(0.88, 1.1), bulk: rand(0.85, 1.3), headSize: rand(0.9, 1.15), legLen: rand(0.9, 1.1), armLen: rand(0.95, 1.05),
+                    shoulders: longHair ? rand(0.82, 1.0) : rand(0.92, 1.12), hairLen: rand(0.2, 1),
+                    beard: (longHair ? Math.random() < 0.1 : Math.random() < 0.55) ? rand(0.1, 1) : 0, nose: rand(0.8, 1.4), trimSize: rand(0.4, 1.4) };
+      document.getElementById('hairStyle').value = hairStyle;
+      document.getElementById('bangs').checked = Math.random() < (longHair ? 0.45 : 0.15);
+      document.getElementById('lashes').checked = longHair && Math.random() < 0.75;
+      document.getElementById('lips').checked = longHair && Math.random() < 0.5;
+      document.getElementById('colLips').value = pick(['#B5525C', '#C0606A', '#9C3F4C', '#C7756E', '#8E4A4A']);
+      for (const k in set) document.getElementById(k).value = set[k].toFixed(2);
+      document.getElementById('colSkin').value = pick(skinTones);
+      document.getElementById('colHair').value = pick(hairColors);
+      document.getElementById('hat').value = pick(['hood', 'hood', 'trapper', 'beanie', 'headlamp', 'bare']);
+      document.getElementById('goggles').value = pick(['none', 'none', 'eyes', 'forehead']);
+      document.getElementById('rosy').checked = Math.random() < 0.7;
+      document.getElementById('bibNum').value = String(1 + Math.floor(Math.random() * 99));
+      randomizeOutfit();
+      randomizeSled();
+    }
+
+    document.getElementById('randomize').addEventListener('click', randomizeMusher);
+    document.getElementById('randomizeOutfit').addEventListener('click', randomizeOutfit);
+
+    updateScene();
+    applyPreset('rookie');
+    applyPose('stand');
+
+    // --- RENDER LOOP ---
+    function animate() {
+      requestAnimationFrame(animate);
+      if (window.studioPaused) return; // hidden tab in the Art Studio
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

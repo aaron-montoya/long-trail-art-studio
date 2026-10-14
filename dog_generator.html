@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Low-Poly Sled Dog Generator</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    /* The 3D view fills whatever space the sidebar leaves, so the dog stays centered in it */
+    #canvas-container { flex: 1 1 auto; min-width: 0; height: 100vh; position: relative; }
+    #canvas-container canvas { display: block; }
+
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+
+    #show-panel {
+      position: absolute; top: 15px; left: 15px; display: none; z-index: 10;
+      background: rgba(20, 20, 28, 0.85); border-color: #445; padding: 8px 12px;
+    }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .preset-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .pose-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+    .primary-btn { grid-column: span 2; background: #4f46e5; font-weight: bold; padding: 10px; border-color: #6366f1; }
+    .wide-btn { grid-column: 1 / -1; }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+
+    .val-display { color: #fff; font-weight: bold; }
+    .pattern-row { display: flex; gap: 6px; }
+    select { flex: 1; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    .hint { font-size: 0.72rem; color: #8a8aa0; margin-top: 5px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+  <script src="icons.js"></script>
+</head>
+<body>
+
+  <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Dog Generator</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="control-group"><label>Name (used for saved files)</label><input type="text" id="charName" value="Dog" maxlength="40"
+      style="width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.9rem;"></div>
+
+    <div class="preset-btns">
+      <button onclick="applyPreset('husky')">Husky</button>
+      <button onclick="applyPreset('malamute')">Malamute</button>
+      <button onclick="applyPreset('hound')">Droopy Hound</button>
+      <button onclick="applyPreset('mut')">Scruffy Mut</button>
+      <button class="primary-btn" id="randomize"><i data-icon="dice"></i>Randomize Dog</button>
+      <button class="primary-btn" id="randomizeColors"><i data-icon="palette"></i>Randomize Colors & Pattern</button>
+      <button class="primary-btn" id="savePng"><i data-icon="image"></i>Save PNG</button>
+      <div class="primary-btn" style="display: flex; gap: 8px; align-items: center; background: none; border: none; padding: 0; font-weight: normal;">
+        <span style="font-size: 0.75rem; color: #aaa; white-space: nowrap;">PNG size (no background)</span>
+        <select id="exportScale" style="flex: 1; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px;">
+          <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
+        </select>
+      </div>
+      <button id="saveChar"><i data-icon="download"></i>Save Character</button>
+      <button id="loadChar"><i data-icon="folder"></i>Load Character</button>
+      <button class="primary-btn" id="sendToScene" style="display: none;"><i data-icon="send"></i>Send to Scene</button>
+      <button class="primary-btn" id="export3d"><i data-icon="cube"></i>Export 3D Model (.glb)</button>
+      <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
+    </div>
+
+    <!-- POSE -->
+    <details open>
+      <summary>Pose</summary>
+      <div class="details-content">
+        <div class="pose-btns">
+          <button data-pose="stand">Stand</button>
+          <button data-pose="alert">Alert</button>
+          <button data-pose="trot">Trot</button>
+          <button data-pose="run">Run</button>
+          <button data-pose="pull">Pull</button>
+          <button data-pose="sit">Sit</button>
+          <button data-pose="howl">Howl</button>
+          <button data-pose="lie">Lie Down</button>
+          <button data-pose="bow">Play Bow</button>
+          <button class="wide-btn" id="centerCam"><i data-icon="target"></i>Center Camera on Dog</button>
+        </div>
+        <div class="control-group"><label>Body Tilt <span class="val-display" id="posePitch-val">0.00</span></label><input type="range" id="posePitch" min="-0.8" max="1.0" step="0.05" value="0"></div>
+        <div class="control-group"><label>Crouch <span class="val-display" id="poseDrop-val">0.00</span></label><input type="range" id="poseDrop" min="0" max="0.6" step="0.02" value="0"></div>
+        <div class="control-group"><label>Neck Reach <span class="val-display" id="poseNeck-val">0.60</span></label><input type="range" id="poseNeck" min="-0.3" max="1.5" step="0.05" value="0.6"></div>
+        <div class="control-group"><label>Head Raise <span class="val-display" id="poseHead-val">0.00</span></label><input type="range" id="poseHead" min="-1.0" max="1.2" step="0.05" value="0"></div>
+        <div class="control-group"><label>Head Turn <span class="val-display" id="poseTurn-val">0.00</span></label><input type="range" id="poseTurn" min="-0.9" max="0.9" step="0.05" value="0"></div>
+        <div class="control-group"><label>Head Tilt <span class="val-display" id="poseTilt-val">0.00</span></label><input type="range" id="poseTilt" min="-0.6" max="0.6" step="0.05" value="0"></div>
+        <div class="control-group"><label>Mouth Open <span class="val-display" id="poseJaw-val">0.00</span></label><input type="range" id="poseJaw" min="0" max="0.7" step="0.05" value="0"></div>
+        <div class="control-group"><label>Ears Back <span class="val-display" id="poseEars-val">0.00</span></label><input type="range" id="poseEars" min="-0.4" max="1.2" step="0.05" value="0"></div>
+        <div class="control-group"><label>Tail Lift <span class="val-display" id="poseTail-val">0.00</span></label><input type="range" id="poseTail" min="-2.0" max="1.5" step="0.05" value="0"></div>
+      </div>
+    </details>
+
+    <!-- SCENE & LIGHTING -->
+    <details>
+      <summary>Background & Sun</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>
+        <div class="control-group"><label>Sun Direction <span class="val-display" id="sunAz-val">45</span></label><input type="range" id="sunAz" min="0" max="360" step="1" value="45"></div>
+        <div class="control-group"><label>Sun Height <span class="val-display" id="sunEl-val">55</span></label><input type="range" id="sunEl" min="-20" max="90" step="1" value="55"></div>
+        <div class="control-group"><label>Sun Color</label><input type="color" id="sunColor" value="#FFF5E6"></div>
+        <div class="control-group"><label>Sun Strength <span class="val-display" id="sunInt-val">0.90</span></label><input type="range" id="sunInt" min="0" max="2.5" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Ambient Light <span class="val-display" id="ambInt-val">0.60</span></label><input type="range" id="ambInt" min="0" max="1.5" step="0.05" value="0.6"></div>
+      </div>
+    </details>
+
+    <!-- COLORS -->
+    <details open>
+      <summary>Colors & Pattern</summary>
+      <div class="details-content">
+        <div class="control-group">
+          <label>Coat Pattern</label>
+          <div class="pattern-row"><select id="pattern"></select><button id="rerollPattern" title="New random markings for this pattern"><i data-icon="dice"></i>Reroll</button></div>
+          <div class="hint" id="patternHint"></div>
+        </div>
+        <div class="control-group"><label>Main Coat</label><input type="color" id="colorMain" value="#8C5A35"></div>
+        <div class="control-group"><label>Light Markings</label><input type="color" id="colorSec" value="#E8DCC4"></div>
+        <div class="control-group"><label>Dark Markings / Spots</label><input type="color" id="colorAcc" value="#2B2420"></div>
+        <div class="control-group"><label>Eyes</label><input type="color" id="colorEye" value="#1A120B"></div>
+        <div class="control-group"><label>Fur Shading Variation <span class="val-display" id="furVary-val">0.05</span></label><input type="range" id="furVary" min="0" max="0.2" step="0.01" value="0.05"></div>
+        <div class="control-group"><label style="justify-content: flex-start; gap: 8px; cursor: pointer;"><input type="checkbox" id="fineFacets"> Fine facets (sharper spots &amp; stripes)</label></div>
+      </div>
+    </details>
+
+    <!-- FUR -->
+    <details open>
+      <summary>Fur</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Shagginess <span class="val-display" id="furShag-val">0.30</span></label><input type="range" id="furShag" min="0" max="1" step="0.05" value="0.3"></div>
+        <div class="control-group"><label>Neck Ruff <span class="val-display" id="furRuff-val">0.50</span></label><input type="range" id="furRuff" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="control-group"><label>Cheek Fluff <span class="val-display" id="furCheek-val">0.30</span></label><input type="range" id="furCheek" min="0" max="1" step="0.05" value="0.3"></div>
+        <div class="control-group"><label>Tail Fluff <span class="val-display" id="furTail-val">0.50</span></label><input type="range" id="furTail" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="control-group"><label>Leg & Rump Feathering <span class="val-display" id="furLegs-val">0.30</span></label><input type="range" id="furLegs" min="0" max="1" step="0.05" value="0.3"></div>
+        <div class="control-group"><label>Back Tufts <span class="val-display" id="furBody-val">0.20</span></label><input type="range" id="furBody" min="0" max="1" step="0.05" value="0.2"></div>
+      </div>
+    </details>
+
+    <!-- CORE BODY -->
+    <details>
+      <summary>Core Torso</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Torso Length <span class="val-display" id="bodyLen-val">1.80</span></label><input type="range" id="bodyLen" min="1.4" max="2.4" step="0.1" value="1.8"></div>
+        <div class="control-group"><label>Chest Girth <span class="val-display" id="chestSize-val">0.90</span></label><input type="range" id="chestSize" min="0.7" max="1.3" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Pelvis Width <span class="val-display" id="pelvisSize-val">0.80</span></label><input type="range" id="pelvisSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
+      </div>
+    </details>
+
+    <!-- HEAD & FACE -->
+    <details>
+      <summary>Head & Face</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Neck Length <span class="val-display" id="neckLen-val">0.70</span></label><input type="range" id="neckLen" min="0.4" max="1.1" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Skull Size <span class="val-display" id="headSize-val">0.80</span></label><input type="range" id="headSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
+        <div class="control-group"><label>Snout Length <span class="val-display" id="snoutLen-val">0.70</span></label><input type="range" id="snoutLen" min="0.4" max="1.2" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.2" max="1.0" step="0.05" value="0.4"></div>
+        <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0"></div>
+      </div>
+    </details>
+
+    <!-- LEGS -->
+    <details>
+      <summary>Legs</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Leg Height <span class="val-display" id="legScale-val">1.20</span></label><input type="range" id="legScale" min="0.8" max="1.8" step="0.1" value="1.2"></div>
+        <div class="control-group"><label>Bone Thickness <span class="val-display" id="boneThick-val">0.15</span></label><input type="range" id="boneThick" min="0.1" max="0.25" step="0.01" value="0.15"></div>
+      </div>
+    </details>
+
+    <!-- TAIL -->
+    <details>
+      <summary>Tail</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Tail Base Angle <span class="val-display" id="tailBase-val">0.50</span></label><input type="range" id="tailBase" min="-1.5" max="1.5" step="0.1" value="0.5"></div>
+        <div class="control-group"><label>Tail Length <span class="val-display" id="tailLen-val">1.00</span></label><input type="range" id="tailLen" min="0.3" max="1.8" step="0.1" value="1.0"></div>
+        <div class="control-group"><label>Tail Curl <span class="val-display" id="tailCurl-val">0.30</span></label><input type="range" id="tailCurl" min="-0.8" max="1.0" step="0.1" value="0.3"></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script>
+    // --- SCENE SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8ba6b5);
+
+    const canvasContainer = document.getElementById('canvas-container');
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    // MOVED CAMERA FORWARD & ISOMETRIC (A bit right, facing a bit left & forward)
+    camera.position.set(4, 3.2, 5.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha so PNGs export without a background
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    canvasContainer.appendChild(renderer.domElement);
+
+    // Keep the render matched to the space beside the sidebar (also fires when the sidebar hides/shows)
+    function fitRenderer() {
+      const w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+    fitRenderer();
+    new ResizeObserver(fitRenderer).observe(canvasContainer);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    // AIM CAMERAS TO TARGET THE HEAD (Y: 1.4 for the head, not the paws)
+    controls.target.set(0.2, 1.35, 0.5);
+    controls.maxPolarAngle = Math.PI / 2 + 0.05;
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    // The "sun": positioned on a sphere around the dog from the azimuth/height sliders
+    const keyLight = new THREE.DirectionalLight(0xfff5e6, 0.9);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 2048;
+    keyLight.shadow.mapSize.height = 2048;
+    keyLight.shadow.bias = -0.0005;
+    keyLight.shadow.normalBias = 0.02;
+    keyLight.target.position.set(0, 1.2, 0);
+    scene.add(keyLight);
+    scene.add(keyLight.target);
+
+    function updateScene() {
+      const az = THREE.MathUtils.degToRad(parseFloat(document.getElementById('sunAz').value));
+      const el = THREE.MathUtils.degToRad(parseFloat(document.getElementById('sunEl').value));
+      const t = keyLight.target.position;
+      keyLight.position.set(t.x + 10 * Math.cos(el) * Math.sin(az), t.y + 10 * Math.sin(el), t.z + 10 * Math.cos(el) * Math.cos(az));
+      keyLight.color.set(document.getElementById('sunColor').value);
+      keyLight.intensity = parseFloat(document.getElementById('sunInt').value);
+      ambientLight.intensity = parseFloat(document.getElementById('ambInt').value);
+      scene.background.set(document.getElementById('bgColor').value);
+      ['sunAz', 'sunEl'].forEach(id => document.getElementById(`${id}-val`).innerText = document.getElementById(id).value);
+      ['sunInt', 'ambInt'].forEach(id => document.getElementById(`${id}-val`).innerText = parseFloat(document.getElementById(id).value).toFixed(2));
+    }
+
+    const fillLight = new THREE.DirectionalLight(0xaaccff, 0.6);
+    fillLight.position.set(-8, 3, -8);
+    scene.add(fillLight);
+
+    // Front Point Light just to make those tiny eyes and muzzle pop with sparkles
+    const pointLight = new THREE.PointLight(0xffffff, 0.3, 10);
+    pointLight.position.set(0, 3, 4);
+    scene.add(pointLight);
+
+    // --- MATERIALS ---
+    // Fur uses per-triangle colors so coat patterns can paint any part of the dog
+    const matCoat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 });
+    const matDark = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, flatShading: true, roughness: 0.2 }); // glossier nose
+    const matEye = new THREE.MeshStandardMaterial({ color: 0x1a120b, flatShading: true, roughness: 0.15 });
+    const matTongue = new THREE.MeshStandardMaterial({ color: 0xd9707a, flatShading: true, roughness: 0.5 });
+
+    function updateColors() {
+      matEye.color.set(document.getElementById('colorEye').value);
+      document.getElementById('furVary-val').innerText = parseFloat(document.getElementById('furVary').value).toFixed(2);
+      colorizeDog();
+    }
+
+    // --- GEOMETRIES ---
+    const icosa = new THREE.IcosahedronGeometry(1, 1);
+    const box = new THREE.BoxGeometry(1, 1, 1);
+    const cyl = new THREE.CylinderGeometry(1, 0.8, 1, 7);
+    const neckCyl = new THREE.CylinderGeometry(1, 0.6, 1, 7); // wide end at the shoulders
+    const sphere = new THREE.IcosahedronGeometry(1, 2);
+
+    let dogRig = new THREE.Group();
+    scene.add(dogRig);
+
+    const params = {
+      bodyLen: 1.8, chestSize: 0.9, pelvisSize: 0.8,
+      neckLen: 0.7, headSize: 0.8, snoutLen: 0.7, earSize: 0.4, earDroop: 0.0,
+      legScale: 1.2, boneThick: 0.15,
+      tailBase: 0.5, tailLen: 1.0, tailCurl: 0.3,
+      furShag: 0.3, furRuff: 0.5, furCheek: 0.3, furTail: 0.5, furLegs: 0.3, furBody: 0.2
+    };
+
+    // --- POSES ---
+    // Leg angles are radians from straight down, in world space; positive swings the lower end forward.
+    // Front: [upper arm, forearm, pastern]. Rear: [thigh, shin, hock-to-paw]. paw: toe-down tilt.
+    // plant: the middle joint auto-bends so the paw lands exactly on the ground.
+    // Leg order: front-left, front-right, rear-left, rear-right.
+    const STAND_F = { a: [-0.17, 0, 0.2], paw: 0, plant: true };
+    const STAND_R = { a: [0.36, -0.7, 0.2], paw: 0, plant: true };
+    const SIT_F   = { a: [0.05, 0, 0.15], paw: 0 };
+    const SIT_R   = { a: [1.25, -1.0, 1.45], paw: 0 };
+    const LIE_F   = { a: [-0.7, 1.45, 1.5], paw: 0 };
+    const LIE_R   = { a: [1.35, -1.6, 1.5], paw: 0 };
+
+    const poses = {
+      stand: { legs: [STAND_F, STAND_F, STAND_R, STAND_R],
+               s: { posePitch: 0, poseDrop: 0, poseNeck: 0.6, poseHead: 0, poseTurn: 0, poseTilt: 0, poseJaw: 0, poseEars: 0, poseTail: 0 } },
+      alert: { legs: [{ a: [0.6, -0.9, -0.5], paw: 0.9 }, { a: [-0.12, 0, 0.15], paw: 0, plant: true }, STAND_R, STAND_R],
+               s: { posePitch: 0.05, poseDrop: 0, poseNeck: 0.35, poseHead: 0.1, poseTurn: 0.3, poseTilt: 0.15, poseJaw: 0, poseEars: -0.15, poseTail: 0.4 } },
+      trot:  { legs: [{ a: [0.3, 0.2, 0.3], paw: 0, plant: true }, { a: [-0.3, -0.7, -1.2], paw: 1.2 },
+                      { a: [0.75, -0.9, -0.2], paw: 0.4 }, { a: [-0.05, -0.85, -0.45], paw: 0, plant: true }],
+               s: { posePitch: 0, poseDrop: 0.03, poseNeck: 0.75, poseHead: -0.05, poseTurn: 0, poseTilt: 0, poseJaw: 0.15, poseEars: 0.15, poseTail: 0.1 } },
+      run:   { legs: [{ a: [1.0, 0.8, 0.6], paw: -0.3 }, { a: [0.75, 0.45, 0.35], paw: -0.2 },
+                      { a: [-0.5, -1.2, -1.4], paw: 1.2 }, { a: [-0.3, -1.0, -1.2], paw: 1.0 }],
+               ground: 'low',
+               s: { posePitch: 0, poseDrop: 0.1, poseNeck: 1.0, poseHead: 0, poseTurn: 0, poseTilt: 0, poseJaw: 0.3, poseEars: 0.7, poseTail: -0.5 } },
+      pull:  { legs: [{ a: [-0.45, -0.3, 0.25], paw: 0, plant: true }, { a: [-0.15, -0.05, 0.35], paw: 0, plant: true },
+                      { a: [0.15, -1.0, -0.55], paw: 0, plant: true }, { a: [0.5, -0.75, -0.05], paw: 0, plant: true }],
+               s: { posePitch: -0.1, poseDrop: 0.15, poseNeck: 1.05, poseHead: 0.05, poseTurn: 0, poseTilt: 0, poseJaw: 0.15, poseEars: 0.5, poseTail: -0.2 } },
+      sit:   { legs: [SIT_F, SIT_F, SIT_R, SIT_R],
+               s: { posePitch: 0.6, poseDrop: 0, poseNeck: 0.3, poseHead: 0, poseTurn: 0.15, poseTilt: 0.1, poseJaw: 0, poseEars: 0, poseTail: -0.8 } },
+      howl:  { legs: [SIT_F, SIT_F, SIT_R, SIT_R],
+               s: { posePitch: 0.6, poseDrop: 0, poseNeck: 0.0, poseHead: 1.0, poseTurn: 0, poseTilt: 0, poseJaw: 0.3, poseEars: 0.3, poseTail: -0.8 } },
+      lie:   { legs: [LIE_F, LIE_F, LIE_R, LIE_R],
+               s: { posePitch: 0, poseDrop: 0, poseNeck: 0.75, poseHead: 0, poseTurn: 0.25, poseTilt: 0, poseJaw: 0.1, poseEars: 0.2, poseTail: -1.3 } },
+      bow:   { legs: [LIE_F, LIE_F, { a: [0.25, -0.5, 0.15], paw: 0 }, { a: [0.25, -0.5, 0.15], paw: 0 }],
+               s: { posePitch: -0.45, poseDrop: 0, poseNeck: 0.9, poseHead: 0.5, poseTurn: 0.15, poseTilt: 0.2, poseJaw: 0.25, poseEars: -0.1, poseTail: 0.9 } }
+    };
+    let currentPose = 'stand';
+    const poseInputs = ['posePitch', 'poseDrop', 'poseNeck', 'poseHead', 'poseTurn', 'poseTilt', 'poseJaw', 'poseEars', 'poseTail'];
+    const poseVals = {};
+
+    let tempGeos = []; // per-build geometries (ears, colored coat copies) that must be disposed on rebuild
+    let coatMeshes = []; // fur meshes that the pattern painter colors
+
+    // Coat meshes need their own non-indexed copy of the shared geometry to hold per-triangle colors
+    function ownGeo(geo) {
+      const g = geo.index ? geo.toNonIndexed() : geo.clone();
+      tempGeos.push(g);
+      return g;
+    }
+
+    // Register a fur mesh with the region of the dog it belongs to and the frame its pattern is measured in
+    function coat(mesh, region, frame, extra = {}) {
+      mesh.userData.coat = { region, frame, ...extra };
+      coatMeshes.push(mesh);
+      return mesh;
+    }
+
+    function createBone(geo, mat, parent, scale, pos, rot) {
+      const mesh = new THREE.Mesh(mat === matCoat ? ownGeo(geo) : geo, mat);
+      mesh.scale.set(...scale);
+      mesh.position.set(...pos);
+      if(rot) mesh.rotation.set(...rot);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    // Cylinder spanning joint a -> joint b (wide end at a), so meshes always meet their joints
+    const UP = new THREE.Vector3(0, 1, 0);
+    function createLimb(mat, parent, a, b, radius, geo = cyl) {
+      const dir = new THREE.Vector3().subVectors(a, b);
+      const mesh = new THREE.Mesh(mat === matCoat ? ownGeo(geo) : geo, mat);
+      mesh.scale.set(radius, dir.length(), radius);
+      mesh.position.addVectors(a, b).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return mesh;
+    }
+
+    // Flat ear piece covering ear-length fraction u0..u1. Outline blends from a pointed
+    // triangle (flop=0) to a rounded hanging leaf (flop=1). Origin sits at u=origin, ear grows along +Y.
+    // A negative u0 adds a root below the origin that gets buried in the skull.
+    function earGeo(flop, L, w, u0, u1, thick, origin = u0) {
+      const N = 5, pts = [];
+      const halfW = u => {
+        const pointy = (w / 2) * (1 - Math.abs(u)); // root (u<0) tapers back in so it stays inside the skull
+        const f = u * 1.05;
+        const leaf = w * 0.5 * Math.sqrt(Math.max(0, 1 - ((f - 0.5) / 0.55) ** 2));
+        return pointy + (leaf - pointy) * flop;
+      };
+      for (let i = 0; i <= N; i++) { const u = u0 + (u1 - u0) * i / N; pts.push(new THREE.Vector2(halfW(u), (u - origin) * L)); }
+      for (let i = N; i >= 0; i--) {
+        const u = u0 + (u1 - u0) * i / N;
+        if (i === N && halfW(u) < 1e-4) continue; // tip already closed
+        pts.push(new THREE.Vector2(-halfW(u), (u - origin) * L));
+      }
+      const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: thick, bevelEnabled: false });
+      geo.translate(0, 0, -thick / 2);
+      tempGeos.push(geo);
+      return geo;
+    }
+
+    const smoothstep = x => { x = THREE.MathUtils.clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+
+    function buildDog() {
+      while(dogRig.children.length > 0) dogRig.remove(dogRig.children[0]);
+      tempGeos.forEach(g => g.dispose());
+      tempGeos = [];
+      coatMeshes = [];
+      // Fine facets: smaller triangles on the body and head so spots and stripes read more clearly
+      const bodyIco = document.getElementById('fineFacets').checked ? sphere : icosa;
+      const p = params;
+      const ps = poseVals;
+      const pitch = ps.posePitch; // positive = front of body up
+
+      const chestY = p.legScale + (p.chestSize * 0.5);
+      const pelvisY = p.legScale + (p.pelvisSize * 0.5);
+
+      // 1. TORSO
+      const torso = new THREE.Group();
+      torso.position.y = chestY - ps.poseDrop;
+      torso.rotation.x = -pitch;
+      dogRig.add(torso);
+
+      const tag = (mesh, contact) => { mesh.userData.contact = contact; return mesh; };
+      const pelvisOffset = pelvisY - chestY;
+      const body = (mesh, shag = { mode: 'radial', amt: 1 }) => coat(mesh, 'body', torso, { pelvisOffset, shag });
+      // Dogs are deep and narrow through the chest, not round: these shapes are shared with the fur tufts
+      const chestC = new THREE.Vector3(0, p.chestSize*0.05, p.bodyLen/2), chestR = [p.chestSize*0.75, p.chestSize*0.85, p.chestSize];
+      const pelvisC = new THREE.Vector3(0, pelvisOffset, -p.bodyLen/2), pelvisR = [p.pelvisSize*0.8, p.pelvisSize*0.85, p.pelvisSize*0.95];
+      tag(body(createBone(bodyIco, matCoat, torso, chestR, chestC.toArray())), 'front');
+      tag(body(createBone(bodyIco, matCoat, torso, [chestR[0]*0.9, chestR[1]*0.75, chestR[2]*0.9], [0, -p.chestSize*0.2, p.bodyLen/2])), 'front');
+
+      tag(body(createBone(bodyIco, matCoat, torso, pelvisR, pelvisC.toArray())), 'rear');
+      tag(body(createBone(bodyIco, matCoat, torso, [pelvisR[0]*0.9, pelvisR[1]*0.8, pelvisR[2]*0.9], [0, pelvisOffset - p.pelvisSize*0.2, -p.bodyLen/2])), 'rear');
+
+      const abdomenRot = Math.atan2(pelvisOffset, p.bodyLen);
+      body(createBone(cyl, matCoat, torso, [p.chestSize*0.55, p.bodyLen, p.pelvisSize*0.65], [0, pelvisOffset/2, 0], [Math.PI/2 - abdomenRot, 0, 0]), { mode: 'tube', amt: 0.8 });
+
+      // Shoulder blades: slabs on the upper front of the chest, top tipped back toward the withers
+      [1, -1].forEach(side => {
+        body(createBone(bodyIco, matCoat, torso, [p.chestSize*0.17, p.chestSize*0.5, p.chestSize*0.32],
+                        [side * p.chestSize*0.6, p.chestSize*0.28, p.bodyLen/2 + p.chestSize*0.1], [-0.45, 0, side * 0.12]), { mode: 'radial', amt: 0.6 });
+      });
+
+      // 2. HEAD & NECK (pose angles are world-relative, so cancel out the body tilt)
+      const neckJoint = new THREE.Group();
+      neckJoint.position.set(0, p.chestSize * 0.3, p.bodyLen/2 + p.chestSize * 0.05);
+      torso.add(neckJoint);
+
+      const neckA = ps.poseNeck + pitch; // lean forward from vertical
+      const neckReach = p.chestSize * 0.35 + p.neckLen * 0.85;
+      const headPos = new THREE.Vector3(0, neckReach * Math.cos(neckA), neckReach * Math.sin(neckA));
+      coat(createLimb(matCoat, neckJoint, new THREE.Vector3(), headPos, p.chestSize * 0.46, neckCyl), 'neck', neckJoint,
+           { axis: headPos.clone().normalize(), len: headPos.length(), offset: neckJoint.position.clone(), shag: { mode: 'tube', amt: 0.8 } });
+
+      const headJoint = new THREE.Group();
+      headJoint.position.copy(headPos);
+      headJoint.rotation.set(-ps.poseHead + pitch, ps.poseTurn, ps.poseTilt, 'YXZ');
+      neckJoint.add(headJoint);
+
+      // Skull
+      coat(createBone(bodyIco, matCoat, headJoint, [p.headSize*0.4, p.headSize*0.3, p.headSize*0.4], [0, p.headSize*0.1, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35 } });
+      coat(createBone(bodyIco, matCoat, headJoint, [p.headSize*0.38, p.headSize*0.2, p.headSize*0.38], [0, -p.headSize*0.1, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35 } });
+
+      // Snout top
+      coat(createBone(cyl, matCoat, headJoint, [p.headSize*0.25, p.snoutLen, p.headSize*0.25], [0, 0, p.headSize*0.2 + p.snoutLen/2], [Math.PI/2, 0, 0]), 'muzzle', headJoint);
+
+      // Lower jaw hinges open for panting / howling
+      const jaw = new THREE.Group();
+      jaw.position.set(0, -p.headSize*0.12, p.headSize*0.15);
+      jaw.rotation.x = 0.1 + ps.poseJaw;
+      headJoint.add(jaw);
+      coat(createBone(box, matCoat, jaw, [p.headSize*0.22, p.headSize*0.1, p.snoutLen*0.9], [0, -p.headSize*0.03, p.headSize*0.05 + p.snoutLen*0.45]), 'muzzle', headJoint, { jaw: true });
+      if (ps.poseJaw > 0.05) createBone(box, matTongue, jaw, [p.headSize*0.15, p.headSize*0.03, p.snoutLen*0.75], [0, p.headSize*0.035, p.headSize*0.05 + p.snoutLen*0.5]);
+
+      // Nose Point
+      createBone(icosa, matDark, headJoint, [p.headSize*0.1, p.headSize*0.08, p.headSize*0.1], [0, p.headSize*0.05, p.headSize*0.2 + p.snoutLen]);
+
+      // Eyes: solid glossy spheres sitting on the skull surface (scaled with the head) so they always poke out
+      const skullR = [p.headSize*0.4, p.headSize*0.3, p.headSize*0.4];
+      const skullCY = p.headSize*0.1;
+      const eyeDir = new THREE.Vector3(0.5, 0.45, 0.75).normalize();
+      const eyeR = p.headSize * 0.085;
+      [1, -1].forEach(side => {
+        const eyePos = new THREE.Vector3(side*skullR[0]*eyeDir.x, skullCY + skullR[1]*eyeDir.y, skullR[2]*eyeDir.z);
+        const normal = new THREE.Vector3(side*eyeDir.x/skullR[0], eyeDir.y/skullR[1], eyeDir.z/skullR[2]).normalize();
+        eyePos.addScaledVector(normal, eyeR*0.35);
+        createBone(sphere, matEye, headJoint, [eyeR, eyeR, eyeR], eyePos.toArray());
+      });
+
+      // Ears: two flat pieces (base + tip) on a hinge. As floppiness rises the tip folds
+      // over (button ear), then the whole ear swings down and turns flat against the cheek.
+      const flop = p.earDroop;
+      const earL = p.earSize * 1.5 * (1 + 0.1 * flop);
+      const earW = p.earSize * (1 + 0.1 * flop);
+      const earThick = p.earSize * 0.15;
+      const swing = 0.2 + 2.75 * smoothstep((flop - 0.25) / 0.75);
+      const fold = flop < 0.8 ? 1.4 * Math.sin(Math.PI * flop / 0.8) : 0;
+      const twist = (Math.PI / 2) * smoothstep((flop - 0.3) / 0.7);
+      [1, -1].forEach(side => {
+        const hinge = new THREE.Group();
+        // Hinge sits just inside the low-poly skull surface so the ear root is buried, not perched on top
+        const hx = p.headSize * (0.27 + 0.07 * flop), hz = -p.headSize * (0.08 + 0.04 * flop);
+        const surf = Math.sqrt(Math.max(0, 1 - (hx / skullR[0]) ** 2 - (hz / skullR[2]) ** 2));
+        hinge.position.set(side * hx, skullCY + skullR[1] * surf * 0.85, hz);
+        hinge.rotation.set(-0.15 - ps.poseEars, -side * twist, -side * swing, 'XZY');
+        headJoint.add(hinge);
+        const base = coat(new THREE.Mesh(earGeo(flop, earL, earW, -0.05 - 0.25 * (1 - flop), 0.5, earThick, 0), matCoat), 'ear', hinge, { L: earL, uOff: 0, side });
+        hinge.add(base);
+        const tipJoint = new THREE.Group();
+        tipJoint.position.y = earL * 0.5;
+        tipJoint.rotation.x = fold;
+        hinge.add(tipJoint);
+        const tip = coat(new THREE.Mesh(earGeo(flop, earL, earW, 0.5, 1, earThick), matCoat), 'ear', tipJoint, { L: earL, uOff: 0.5, side });
+        tipJoint.add(tip);
+        [base, tip].forEach(m => { m.castShadow = true; m.receiveShadow = true; });
+      });
+
+      // 3. LEGS
+      const frontZ = p.bodyLen/2 - p.chestSize*0.2;
+      const backZ = -p.bodyLen/2 + p.pelvisSize*0.2;
+      const frontX = p.chestSize * 0.45;
+      const backX = p.pelvisSize * 0.45;
+
+      const legs = [
+        { x: frontX, z: frontZ, isFront: true }, { x: -frontX, z: frontZ, isFront: true },
+        { x: backX, z: backZ, isFront: false },  { x: -backX, z: backZ, isFront: false }
+      ];
+      const legDefs = poses[currentPose].legs;
+      const legData = []; // joint chains, kept for leg feathering
+      const pawH = 0.12;
+
+      legs.forEach((pos, li) => {
+        const def = legDefs[li];
+        const hipY = pos.isFront ? 0 : pelvisOffset;
+        const legGroup = new THREE.Group();
+        legGroup.position.set(pos.x, hipY, pos.z);
+        torso.add(legGroup);
+
+        const bt = p.boneThick;
+        // Segment lengths are sized so the standing pose reaches the ground exactly
+        const stand = pos.isFront ? STAND_F.a : STAND_R.a;
+        const frac = pos.isFront ? [0.43, 0.45, 0.14] : [0.45, 0.43, 0.27];
+        const reach = (pos.isFront ? chestY : pelvisY) - pawH * 0.6;
+        const k = reach / frac.reduce((s, f, i) => s + f * Math.cos(stand[i]), 0);
+        const L = frac.map(f => f * k);
+
+        const a = def.a.slice();
+        if (def.plant) {
+          const hipWorldY = torso.position.y + hipY * Math.cos(pitch) + pos.z * Math.sin(pitch);
+          const need = (hipWorldY - pawH * 0.6 - L[0] * Math.cos(a[0]) - L[2] * Math.cos(a[2])) / L[1];
+          a[1] = (Math.sign(a[1]) || 1) * Math.acos(THREE.MathUtils.clamp(need, -1, 1));
+        }
+
+        // Joint chain from body to ground (+Z is forward), converted from world angles to body space
+        const joints = [new THREE.Vector3()];
+        for (let i = 0; i < 3; i++) {
+          const al = a[i] - pitch;
+          joints.push(joints[i].clone().add(new THREE.Vector3(0, -L[i] * Math.cos(al), L[i] * Math.sin(al))));
+        }
+        const radii = pos.isFront ? [bt*1.3, bt*1.05, bt*0.85] : [bt*1.5, bt*1.1, bt*0.85];
+        // Patterns read legs by distance from hip (0) to paw (1), so markings stay put in any pose
+        const total = L[0] + L[1] + L[2];
+        const cum = [0, L[0] / total, (L[0] + L[1]) / total, 1];
+        const legInfo = { leg: li, front: pos.isFront };
+        legData.push({ group: legGroup, joints, radii, cum, li, front: pos.isFront });
+
+        for (let i = 0; i < 3; i++) {
+          coat(createLimb(matCoat, legGroup, joints[i], joints[i+1], radii[i]), 'leg', legGroup, { ...legInfo, s0: cum[i], s1: cum[i+1] });
+          if (i > 0) coat(createBone(icosa, matCoat, legGroup, [radii[i]*0.95, radii[i]*0.95, radii[i]*0.95], joints[i].toArray()), 'leg', legGroup, { ...legInfo, s: cum[i] }); // joint cap
+        }
+
+        const paw = new THREE.Group();
+        paw.position.copy(joints[3]);
+        paw.rotation.x = def.paw + pitch;
+        legGroup.add(paw);
+        coat(createBone(box, matCoat, paw, [bt*1.4, pawH, bt*1.8], [0, -pawH * 0.1, bt*0.5]), 'leg', legGroup, { ...legInfo, s: 1 });
+
+        legGroup.traverse(o => { if (o.isMesh) o.userData.contact = pos.isFront ? 'front' : 'rear'; });
+      });
+
+      // 4. TAIL
+      const tailRoot = new THREE.Group();
+      tailRoot.position.set(0, pelvisOffset + p.pelvisSize*0.35, -p.bodyLen/2 - p.pelvisSize*0.3);
+      tailRoot.rotation.x = -Math.PI/4 + p.tailBase + ps.poseTail;
+      torso.add(tailRoot);
+
+      const tailSegs = [];
+      let tailParent = tailRoot;
+      for(let i=0; i<3; i++) {
+        const segGroup = new THREE.Group();
+        if(i > 0) { segGroup.position.set(0, p.tailLen/3, 0); segGroup.rotation.x = p.tailCurl; }
+        tailParent.add(segGroup);
+        tailParent = segGroup;
+
+        const taper = 0.2 * (1 - (i * 0.2)) * (1 + 0.4 * p.furTail);
+        coat(createBone(cyl, matCoat, segGroup, [taper, p.tailLen/3, taper], [0, (p.tailLen/3)/2, 0]), 'tail', tailRoot, { seg: i, shag: { mode: 'tube', amt: 0.6 } });
+        tailSegs.push({ group: segGroup, len: p.tailLen / 3, radius: taper });
+      }
+
+      addFur({ torso, pelvisOffset, chestC, chestR, pelvisC, pelvisR, neckJoint, headPos, headJoint, legData, tailSegs, tailRoot });
+
+      groundDog(poses[currentPose].ground || 'two');
+      updateColors();
+    }
+
+    // --- COAT PATTERNS ---
+    // Every fur triangle gets one flat color. A pattern looks at where the triangle sits on the dog
+    // (its region plus coordinates measured on that body part) and answers 'main', 'sec' (light) or 'acc' (dark).
+    let patternSeed = 1;
+
+    function hash3(x, y, z, s) {
+      let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 1440662683) ^ Math.imul(s | 0, 1274126177);
+      h = Math.imul(h ^ (h >>> 13), 1103515245);
+      h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    }
+
+    // Smooth 3D value noise in [0, 1]
+    function noise3(x, y, z, s) {
+      const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+      const fx = x - xi, fy = y - yi, fz = z - zi;
+      const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const c = (dx, dy, dz) => hash3(xi + dx, yi + dy, zi + dz, s);
+      return lerp(lerp(lerp(c(0, 0, 0), c(1, 0, 0), u), lerp(c(0, 1, 0), c(1, 1, 0), u), v),
+                  lerp(lerp(c(0, 0, 1), c(1, 0, 1), u), lerp(c(0, 1, 1), c(1, 1, 1), u), v), w);
+    }
+    const fbm = (q, f, s) => 0.65 * noise3(q.x * f, q.y * f, q.z * f, s) + 0.35 * noise3(q.x * f * 2.1, q.y * f * 2.1, q.z * f * 2.1, s + 7);
+
+    // Turn a triangle's position into pattern-friendly coordinates for its body part.
+    //   body:  bx (side), by (-1 belly .. +1 spine), bz (-1 pelvis .. +1 chest)
+    //   neck:  v (0 shoulders .. 1 head), side (-1 throat .. +1 nape)
+    //   head / muzzle: hx, hy, hz in head sizes; mz (0 snout base .. 1 nose); jaw
+    //   ear:   u (0 base .. 1 tip), inner (front face)
+    //   leg:   v (0 hip .. 1 paw), leg index, front
+    //   tail:  v (0 base .. 1 tip)
+    // np is a position used for noise, kept continuous across the torso and neck so spots flow over them.
+    function describe(c, lp, fp) {
+      const p = params, h = p.headSize;
+      const i = { region: c.region, np: fp.clone() };
+      switch (c.region) {
+        case 'body': {
+          const bz = fp.z / (p.bodyLen / 2);
+          const t = THREE.MathUtils.clamp((bz + 1) / 2, 0, 1);
+          const centerY = THREE.MathUtils.lerp(c.pelvisOffset, 0, t);
+          const r = THREE.MathUtils.lerp(p.pelvisSize, p.chestSize, t) * 0.8;
+          i.bx = fp.x / r; i.by = (fp.y - centerY) / r; i.bz = bz;
+          break;
+        }
+        case 'neck': {
+          const along = fp.dot(c.axis);
+          i.v = along / c.len;
+          const perp = fp.clone().addScaledVector(c.axis, -along);
+          const nape = new THREE.Vector3(0, c.axis.z, -c.axis.y);
+          i.side = perp.length() > 1e-6 ? perp.dot(nape) / perp.length() : 0;
+          i.np.add(c.offset);
+          break;
+        }
+        case 'head': case 'muzzle':
+          i.hx = fp.x / h; i.hy = fp.y / h; i.hz = fp.z / h;
+          i.mz = (fp.z - h * 0.2) / p.snoutLen;
+          i.jaw = !!c.jaw;
+          i.np.x += 50;
+          break;
+        case 'ear':
+          i.u = lp.y / c.L + c.uOff;
+          i.inner = lp.z > 0;
+          i.np.set(lp.x + c.side * 30, lp.y + c.uOff * c.L, 60);
+          break;
+        case 'leg':
+          i.leg = c.leg; i.front = c.front;
+          i.v = c.s !== undefined ? c.s : c.s0 + (c.s1 - c.s0) * (0.5 - lp.y);
+          i.np.set(c.leg * 9 + lp.x * 0.15, i.v * 1.6, lp.z * 0.15 + 90);
+          break;
+        case 'tail':
+          i.v = (c.seg + lp.y + 0.5) / 3;
+          i.np.set(lp.x * 0.2, i.v * 1.5, -60);
+          break;
+      }
+      if (c.fixed) Object.assign(i, c.fixed); // tufts pin coordinates their own shape can't express
+      return i;
+    }
+
+    // Classic countershading: light belly, throat, jaw, lower legs and tail tip
+    function lightUnder(i) {
+      switch (i.region) {
+        case 'body': return i.by < -0.25;
+        case 'neck': return i.side < -0.1;
+        case 'head': return i.hy < -0.02;
+        case 'muzzle': return i.jaw || i.hy < -0.03;
+        case 'leg': return i.v > 0.45;
+        case 'tail': return i.v > 0.75;
+      }
+      return false;
+    }
+
+    // fn(i, seed, rnd) -> 'main' | 'sec' | 'acc'.  rnd(k) is a fixed random number per seed (for Reroll).
+    const PATTERNS = {
+      solid: { label: 'Solid', uses: 'Main', fn: () => 'main' },
+
+      twoTone: { label: 'Two-Tone', uses: 'Main + Light', fn: i => lightUnder(i) ? 'sec' : 'main' },
+
+      husky: { label: 'Husky Mask', uses: 'Main + Light', fn: i => {
+        switch (i.region) {
+          case 'body': return i.by < -0.2 || (i.bz > 0.75 && i.by < 0.35) ? 'sec' : 'main';
+          case 'neck': return i.side < 0.3 ? 'sec' : 'main';
+          case 'head': return i.hy < 0.02 || (i.hz > 0.12 && !(Math.abs(i.hx) < 0.08 && i.hy > 0.12)) ? 'sec' : 'main';
+          case 'muzzle': return 'sec';
+          case 'ear': return i.inner && i.u > 0.05 && i.u < 0.8 ? 'sec' : 'main';
+          case 'leg': return i.v > 0.3 ? 'sec' : 'main';
+          case 'tail': return i.v > 0.8 ? 'sec' : 'main';
+        }
+      } },
+
+      tuxedo: { label: 'Tuxedo', uses: 'Main + Light', fn: i => {
+        switch (i.region) {
+          case 'body': return i.by < -0.15 || (i.bz > 0.7 && i.by < 0.45) ? 'sec' : 'main';
+          case 'neck': return i.side < 0.1 ? 'sec' : 'main';
+          case 'head': return i.hy < -0.02 ? 'sec' : 'main';
+          case 'muzzle': return 'sec';
+          case 'leg': return i.v > 0.65 ? 'sec' : 'main';
+          case 'tail': return i.v > 0.85 ? 'sec' : 'main';
+        }
+        return 'main';
+      } },
+
+      socks: { label: 'Socks & Blaze', uses: 'Main + Light (Reroll changes sock heights)', fn: (i, seed, rnd) => {
+        switch (i.region) {
+          case 'body': return (i.bz > 0.8 && Math.abs(i.bx) < 0.45 && i.by < 0.25) || i.by < -0.65 ? 'sec' : 'main';
+          case 'neck': return i.side < -0.55 ? 'sec' : 'main';
+          case 'head': return Math.abs(i.hx) < 0.08 && i.hz > 0 && i.hy > -0.1 ? 'sec' : 'main';
+          case 'muzzle': return 'sec';
+          case 'leg': return i.v > 0.5 + rnd(10 + i.leg) * 0.4 ? 'sec' : 'main';
+          case 'tail': return i.v > 0.85 ? 'sec' : 'main';
+        }
+        return 'main';
+      } },
+
+      blackTan: { label: 'Saddle (Black & Tan)', uses: 'Main (tan) + Dark (saddle)', fn: i => {
+        switch (i.region) {
+          case 'body': return i.by > -0.15 && i.bz < 0.9 ? 'acc' : 'main';
+          case 'neck': return i.side > 0.1 ? 'acc' : 'main';
+          case 'head': return i.hy > 0.2 || i.hz < -0.15 ? 'acc' : 'main';
+          case 'muzzle': return i.mz > 0.45 ? 'acc' : 'main';
+          case 'ear': return 'acc';
+          case 'leg': return !i.front && i.v < 0.15 ? 'acc' : 'main';
+          case 'tail': return 'acc';
+        }
+      } },
+
+      tricolor: { label: 'Tricolor (Hound)', uses: 'Main (tan) + Light + Dark (saddle)', fn: i => {
+        switch (i.region) {
+          case 'body': return i.by < -0.3 ? 'sec' : (i.by > 0.05 && i.bz < 0.85 ? 'acc' : 'main');
+          case 'neck': return i.side < -0.2 ? 'sec' : 'main';
+          case 'head': return (Math.abs(i.hx) < 0.08 && i.hz > 0.05) || i.hy < -0.04 ? 'sec' : 'main';
+          case 'muzzle': return 'sec';
+          case 'ear': return 'main';
+          case 'leg': return i.v > 0.3 ? 'sec' : 'main';
+          case 'tail': return i.v > 0.8 ? 'sec' : 'acc';
+        }
+      } },
+
+      piebald: { label: 'Piebald Patches', uses: 'Light (base) + Main (patches) — Reroll for new patches', fn: (i, seed, rnd) => {
+        const n = fbm(i.np, 1.1, seed);
+        switch (i.region) {
+          case 'body': case 'neck': return n > 0.55 ? 'main' : 'sec';
+          case 'head': {
+            const side = rnd(1) < 0.5 ? 1 : -1;
+            const bothEyes = rnd(2) < 0.5;
+            const capped = bothEyes ? Math.abs(i.hx) > 0.08 : i.hx * side > -0.05;
+            return i.hy > -0.05 && capped ? 'main' : 'sec';
+          }
+          case 'muzzle': return 'sec';
+          case 'ear': return 'main';
+          case 'leg': return n > 0.62 ? 'main' : 'sec';
+          case 'tail': return i.v < 0.6 ? 'main' : 'sec';
+        }
+      } },
+
+      spotted: { label: 'Spotted', uses: 'Light (base) + Dark (spots) — Reroll for new spots', fn: (i, seed) => {
+        const n = noise3(i.np.x * 5, i.np.y * 5, i.np.z * 5, seed);
+        if (i.region === 'ear') return n > 0.45 ? 'acc' : 'sec';
+        if (i.region === 'muzzle') return n > 0.78 ? 'acc' : 'sec';
+        return n > 0.7 ? 'acc' : 'sec';
+      } },
+
+      merle: { label: 'Merle', uses: 'Main (base) + Dark (blotches) + Light (trim)', fn: (i, seed) => {
+        if ((i.region === 'body' && (i.by < -0.55 || (i.bz > 0.9 && i.by < -0.1))) || (i.region === 'leg' && i.v > 0.85) ||
+            (i.region === 'muzzle' && i.jaw) || (i.region === 'neck' && i.side < -0.6)) return 'sec';
+        return fbm(i.np, 2.2, seed) > 0.58 ? 'acc' : 'main';
+      } },
+
+      brindle: { label: 'Brindle', uses: 'Main (base) + Dark (stripes)', fn: (i, seed) => {
+        if (i.region === 'ear') return 'acc';
+        if (i.region === 'muzzle') return i.mz > 0.3 ? 'acc' : 'main';
+        if (i.region === 'body' && i.bz > 0.9 && i.by < -0.2) return 'sec';
+        const n = noise3(i.np.x * 1.5, i.np.y * 1.5, i.np.z * 1.5, seed);
+        const coord = i.region === 'leg' ? i.v * 3 + i.leg * 0.37 : i.np.z * 2 + i.np.y * 0.5;
+        return Math.sin(coord * Math.PI * 2 + n * 5) > 0.35 ? 'acc' : 'main';
+      } }
+    };
+
+    const _pa = new THREE.Vector3(), _pb = new THREE.Vector3(), _pc = new THREE.Vector3(), _toFrame = new THREE.Matrix4();
+    function colorizeDog() {
+      const pal = {
+        main: new THREE.Color(document.getElementById('colorMain').value),
+        sec: new THREE.Color(document.getElementById('colorSec').value),
+        acc: new THREE.Color(document.getElementById('colorAcc').value)
+      };
+      const pattern = PATTERNS[document.getElementById('pattern').value] || PATTERNS.twoTone;
+      const vary = parseFloat(document.getElementById('furVary').value);
+      const seed = patternSeed;
+      const rnd = k => hash3(k, 17, 3, seed);
+      const col = new THREE.Color();
+      dogRig.updateMatrixWorld(true);
+
+      coatMeshes.forEach((mesh, mi) => {
+        const c = mesh.userData.coat;
+        const pos = mesh.geometry.attributes.position;
+        let attr = mesh.geometry.attributes.color;
+        if (!attr) {
+          attr = new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3);
+          mesh.geometry.setAttribute('color', attr);
+        }
+        _toFrame.copy(c.frame.matrixWorld).invert().multiply(mesh.matrixWorld);
+        for (let f = 0; f + 2 < pos.count; f += 3) {
+          _pa.fromBufferAttribute(pos, f); _pb.fromBufferAttribute(pos, f + 1); _pc.fromBufferAttribute(pos, f + 2);
+          const lp = _pa.add(_pb).add(_pc).divideScalar(3); // triangle center, mesh space
+          const fp = lp.clone().applyMatrix4(_toFrame);      // same point in the body part's frame
+          const slot = pattern.fn(describe(c, lp, fp), seed, rnd) || 'main';
+          // small per-facet brightness wobble so flat areas read as faceted fur, not plastic
+          col.copy(pal[slot]).multiplyScalar(1 + (hash3(mi, f, 5, seed) - 0.5) * 2 * vary);
+          for (let k = 0; k < 3; k++) attr.setXYZ(f + k, col.r, col.g, col.b);
+        }
+        attr.needsUpdate = true;
+      });
+    }
+
+    // --- FUR ---
+    // Low-poly fur = lumpy silhouettes (shagginess) + spiky tufts that follow the direction the fur lies.
+    // Tufts are coat meshes, so they take their colors from the active coat pattern.
+    const tuftGeo = new THREE.ConeGeometry(1, 1, 4, 1); // four-sided spike
+
+    function mulberry32(a) {
+      return () => {
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // Random unit direction that passes test(); falls back to the last try
+    function randomDir(rng, test) {
+      let d = new THREE.Vector3(0, 1, 0);
+      for (let k = 0; k < 80; k++) {
+        const z = rng() * 2 - 1, t = rng() * Math.PI * 2, r = Math.sqrt(1 - z * z);
+        d = new THREE.Vector3(r * Math.cos(t), r * Math.sin(t), z);
+        if (test(d)) break;
+      }
+      return d;
+    }
+
+    // Point on an ellipsoid (pulled in slightly so tuft roots hide inside the low-poly surface) and its normal
+    function ellipsoidPoint(center, radii, d, inset = 0.92) {
+      return {
+        p: new THREE.Vector3(d.x * radii[0], d.y * radii[1], d.z * radii[2]).multiplyScalar(inset).add(center),
+        n: new THREE.Vector3(d.x / radii[0], d.y / radii[1], d.z / radii[2]).normalize()
+      };
+    }
+
+    const flowDir = (n, flow, mix) => n.clone().multiplyScalar(1 - mix).addScaledVector(flow, mix).normalize();
+
+    function addTuft(parent, frame, region, base, dir, len, width, spin, extra) {
+      const mesh = new THREE.Mesh(ownGeo(tuftGeo), matCoat);
+      const d = dir.clone().normalize();
+      mesh.scale.set(width, len, width * 0.45);
+      mesh.quaternion.setFromUnitVectors(UP, d).multiply(new THREE.Quaternion().setFromAxisAngle(UP, spin));
+      mesh.position.copy(base).addScaledVector(d, len * 0.35); // root sunk into the body
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+      return coat(mesh, region, frame, extra);
+    }
+
+    // Push vertices in/out with smooth noise. Same position -> same push, so faces never crack apart.
+    function shagMesh(mesh, amp, mode, offset) {
+      const pos = mesh.geometry.attributes.position;
+      for (let k = 0; k < pos.count; k++) {
+        const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k);
+        const f = 1 + (noise3(x * 2.7 + offset, y * 2.7, z * 2.7, 4242) - 0.5) * 2 * amp;
+        if (mode === 'tube') pos.setXYZ(k, x * f, y, z * f);
+        else pos.setXYZ(k, x * f, y * f, z * f);
+      }
+      pos.needsUpdate = true;
+      mesh.geometry.computeBoundingSphere();
+    }
+
+    function addFur(ctx) {
+      const p = params, c = p.chestSize, h = p.headSize;
+      const { torso, pelvisOffset, chestC, chestR, pelvisC, pelvisR, neckJoint, headPos, headJoint, legData, tailSegs, tailRoot } = ctx;
+      const jitter = rng => 0.7 + 0.6 * rng();
+
+      // 1. Shagginess
+      const amp = 0.35 * p.furShag;
+      if (amp > 0) coatMeshes.forEach((m, k) => {
+        const s = m.userData.coat.shag;
+        if (s) shagMesh(m, amp * s.amt, s.mode, k * 7.3);
+      });
+
+      // 2. Neck ruff: over the front of the chest, plus a ring around the base of the neck
+      if (p.furRuff > 0.02) {
+        const rng = mulberry32(101);
+        const flow = new THREE.Vector3(0, -0.8, -0.5).normalize();
+        const center = chestC, radii = chestR;
+        for (let k = 0; k < 26; k++) {
+          const { p: at, n } = ellipsoidPoint(center, radii, randomDir(rng, d => d.z > 0.1 && d.y > -0.45));
+          addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.45), c * 0.42 * p.furRuff * jitter(rng), c * 0.16 * jitter(rng), rng() * 6.28, { pelvisOffset });
+        }
+        const axis = headPos.clone().normalize(), len = headPos.length();
+        const e1 = new THREE.Vector3(1, 0, 0), e2 = new THREE.Vector3().crossVectors(axis, e1).normalize();
+        for (let k = 0; k < 14; k++) {
+          const th = (k / 14) * Math.PI * 2 + rng() * 0.3;
+          const radial = e1.clone().multiplyScalar(Math.cos(th)).addScaledVector(e2, Math.sin(th));
+          const along = len * (0.1 + 0.45 * rng());
+          const at = axis.clone().multiplyScalar(along).addScaledVector(radial, c * 0.42 * (1 - 0.4 * along / len));
+          addTuft(neckJoint, neckJoint, 'neck', at, flowDir(radial, flow, 0.45), c * 0.32 * p.furRuff * jitter(rng), c * 0.15, rng() * 6.28,
+                  { axis, len, offset: neckJoint.position.clone() });
+        }
+      }
+
+      // 3. Cheek fluff sweeping back from the sides of the head (kept clear of the eyes)
+      if (p.furCheek > 0.02) {
+        const rng = mulberry32(202);
+        const center = new THREE.Vector3(0, h * 0.1, 0), radii = [h * 0.4, h * 0.3, h * 0.4];
+        for (let k = 0; k < 16; k++) {
+          const d = randomDir(rng, d => Math.abs(d.x) > 0.55 && d.y < 0.3 && d.z < 0.3);
+          const { p: at, n } = ellipsoidPoint(center, radii, d);
+          const flow = new THREE.Vector3(Math.sign(d.x) * 0.4, -0.5, -0.8).normalize();
+          addTuft(headJoint, headJoint, 'head', at, flowDir(n, flow, 0.5), h * 0.3 * p.furCheek * jitter(rng), h * 0.12, rng() * 6.28);
+        }
+      }
+
+      // 4. Back tufts lying backward along the chest and hips
+      if (p.furBody > 0.02) {
+        const rng = mulberry32(303);
+        const flow = new THREE.Vector3(0, -0.3, -1).normalize();
+        [[chestC, chestR, c], [pelvisC, pelvisR, p.pelvisSize]].forEach(([center, radii, size]) => {
+          for (let k = 0; k < 18; k++) {
+            const { p: at, n } = ellipsoidPoint(center, radii, randomDir(rng, d => d.y > -0.15));
+            addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.6), size * 0.26 * p.furBody * jitter(rng), size * 0.14, rng() * 6.28, { pelvisOffset });
+          }
+        });
+      }
+
+      // 5. Feathering down the back of the forearms and thighs, plus fluffy "britches" on the rump
+      if (p.furLegs > 0.02) {
+        const rng = mulberry32(404);
+        legData.forEach(L => {
+          const seg = L.front ? 1 : 0;
+          const A = L.joints[seg], B = L.joints[seg + 1];
+          const down = B.clone().sub(A).normalize();
+          const back = new THREE.Vector3(0, -down.z, down.y);
+          if (back.z > 0) back.negate();
+          for (let k = 0; k < 6; k++) {
+            const t = 0.15 + 0.7 * (k / 5);
+            const at = A.clone().lerp(B, t).addScaledVector(back, L.radii[seg] * 0.7);
+            at.x += (rng() - 0.5) * L.radii[seg];
+            const v = L.cum[seg] + (L.cum[seg + 1] - L.cum[seg]) * t;
+            addTuft(L.group, L.group, 'leg', at, back.clone().multiplyScalar(0.75).addScaledVector(down, 0.55),
+                    p.boneThick * 2.2 * p.furLegs * jitter(rng), p.boneThick * 0.8, rng() * 6.28, { leg: L.li, front: L.front, s: v });
+          }
+        });
+        const ps = p.pelvisSize;
+        const flow = new THREE.Vector3(0, -1, -0.3).normalize();
+        for (let k = 0; k < 14; k++) {
+          const { p: at, n } = ellipsoidPoint(pelvisC, pelvisR, randomDir(rng, d => d.z < -0.3 && d.y < 0.25 && d.y > -0.8));
+          addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.5), ps * 0.3 * p.furLegs * jitter(rng), ps * 0.14, rng() * 6.28, { pelvisOffset });
+        }
+      }
+
+      // 6. Bushy tail: tufts radiating out and sweeping toward the tip
+      if (p.furTail > 0.02) {
+        const rng = mulberry32(505);
+        tailSegs.forEach((T, i) => {
+          for (let k = 0; k < 9; k++) {
+            const th = (k / 9) * Math.PI * 2 + rng() * 0.5;
+            const radial = new THREE.Vector3(Math.cos(th), 0, Math.sin(th));
+            const y = T.len * (0.1 + 0.8 * rng());
+            const at = radial.clone().multiplyScalar(T.radius * 0.8).setY(y);
+            addTuft(T.group, tailRoot, 'tail', at, radial.clone().multiplyScalar(0.65).add(new THREE.Vector3(0, 0.6, 0)),
+                    p.tailLen * 0.3 * p.furTail * jitter(rng), T.radius * 0.9, rng() * 6.28, { seg: i, fixed: { v: (i + y / T.len) / 3 } });
+          }
+        });
+      }
+    }
+
+    // --- GROUNDING ---
+    // Rocks the dog so its lowest front point and lowest rear point both touch y=0
+    // (so a sitting dog rests on its rump and front paws), then sets it on the ground.
+    const _v = new THREE.Vector3();
+    function lowestPoint(meshes) {
+      let best = null;
+      meshes.forEach(m => {
+        const pos = m.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          _v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
+          if (!best || _v.y < best.y) best = _v.clone();
+        }
+      });
+      return best;
+    }
+
+    function groundDog(mode) {
+      dogRig.position.set(0, 0, 0);
+      dogRig.rotation.set(0, 0, 0);
+      const front = [], rear = [];
+      dogRig.traverse(o => {
+        if (o.userData.contact === 'front') front.push(o);
+        else if (o.userData.contact === 'rear') rear.push(o);
+      });
+      if (mode === 'two') {
+        for (let iter = 0; iter < 3; iter++) {
+          dogRig.updateMatrixWorld(true);
+          const P = lowestPoint(front), Q = lowestPoint(rear);
+          const dz = Q.z - P.z;
+          if (Math.abs(dz) < 0.05) break;
+          const d = Math.atan((Q.y - P.y) / dz);
+          if (Math.abs(d) < 1e-4) break;
+          // rotate the whole rig about the x-axis through P
+          const c = Math.cos(d), s = Math.sin(d), t = dogRig.position;
+          const y = t.y - P.y, z = t.z - P.z;
+          t.y = P.y + y * c - z * s;
+          t.z = P.z + y * s + z * c;
+          dogRig.rotation.x += d;
+        }
+      }
+      dogRig.updateMatrixWorld(true);
+      dogRig.position.y -= lowestPoint([...front, ...rear]).y;
+    }
+
+    function centerCamera() {
+      dogRig.updateMatrixWorld(true);
+      const c = new THREE.Box3().setFromObject(dogRig).getCenter(new THREE.Vector3());
+      camera.position.add(c.clone().sub(controls.target));
+      controls.target.copy(c);
+    }
+
+    // --- UI LOGIC ---
+    const inputs = ['bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
+
+    function readPoseInputs() {
+      poseInputs.forEach(id => {
+        poseVals[id] = parseFloat(document.getElementById(id).value);
+        document.getElementById(`${id}-val`).innerText = poseVals[id].toFixed(2);
+      });
+    }
+
+    function updateFromInputs() {
+      inputs.forEach(id => {
+        params[id] = parseFloat(document.getElementById(id).value);
+        document.getElementById(`${id}-val`).innerText = params[id].toFixed(2);
+      });
+      readPoseInputs();
+      buildDog();
+    }
+
+    function applyPose(name) {
+      currentPose = name;
+      for (const id in poses[name].s) document.getElementById(id).value = poses[name].s[id];
+      document.querySelectorAll('[data-pose]').forEach(b => b.classList.toggle('active', b.dataset.pose === name));
+      updateFromInputs();
+      centerCamera();
+    }
+
+    inputs.forEach(id => document.getElementById(id).addEventListener('input', updateFromInputs));
+    poseInputs.forEach(id => document.getElementById(id).addEventListener('input', updateFromInputs));
+    document.querySelectorAll('[data-pose]').forEach(b => b.addEventListener('click', () => applyPose(b.dataset.pose)));
+    document.getElementById('centerCam').addEventListener('click', centerCamera);
+    ['colorMain', 'colorSec', 'colorAcc', 'colorEye', 'furVary'].forEach(id => document.getElementById(id).addEventListener('input', updateColors));
+    document.getElementById('fineFacets').addEventListener('change', buildDog);
+
+    const patternSelect = document.getElementById('pattern');
+    for (const key in PATTERNS) patternSelect.add(new Option(PATTERNS[key].label, key));
+    patternSelect.value = 'twoTone';
+    function setPattern(key) {
+      patternSelect.value = key;
+      document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[key].uses;
+      updateColors();
+    }
+    patternSelect.addEventListener('change', () => setPattern(patternSelect.value));
+    document.getElementById('rerollPattern').addEventListener('click', () => {
+      patternSeed = Math.floor(Math.random() * 1e6);
+      updateColors();
+    });
+    document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS.twoTone.uses;
+    ['bgColor', 'sunAz', 'sunEl', 'sunColor', 'sunInt', 'ambInt'].forEach(id => document.getElementById(id).addEventListener('input', updateScene));
+
+    // Hide / show the editing panel (button or the H key)
+    function setPanelVisible(visible) {
+      document.getElementById('ui-panel').classList.toggle('hidden', !visible);
+      document.getElementById('show-panel').style.display = visible ? 'none' : 'block';
+    }
+    document.getElementById('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    document.getElementById('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible(document.getElementById('ui-panel').classList.contains('hidden'));
+    });
+
+    // Save PNG: no background, cropped tight to the subject (feet at the bottom edge) so it layers cleanly
+    // over an environment. Rendered at a multiple of the screen resolution for print.
+    // The camera is pulled back along its current viewing angle until the whole subject fits, so a
+    // zoomed-in view never cuts off ears or paws in the saved image.
+    function exportPNG(filename) {
+      const scale = parseFloat(document.getElementById('exportScale').value);
+      const oldBg = scene.background, oldRatio = renderer.getPixelRatio();
+      const oldPos = camera.position.clone(), oldQuat = camera.quaternion.clone();
+
+      dogRig.updateMatrixWorld(true);
+      const sphere = new THREE.Box3().setFromObject(dogRig).getBoundingSphere(new THREE.Sphere());
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
+      const fitFov = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
+      camera.position.copy(sphere.center).addScaledVector(dir, -sphere.radius / Math.sin(fitFov) * 1.05);
+      camera.lookAt(sphere.center);
+
+      scene.background = null; // transparent: the renderer has an alpha channel
+      renderer.setPixelRatio(oldRatio * scale);
+      renderer.render(scene, camera);
+      const url = cropToContent(renderer.domElement).toDataURL('image/png');
+
+      scene.background = oldBg;
+      renderer.setPixelRatio(oldRatio);
+      camera.position.copy(oldPos);
+      camera.quaternion.copy(oldQuat);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+    }
+
+    function cropToContent(src) {
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      const g = c.getContext('2d');
+      g.drawImage(src, 0, 0);
+      const { data, width, height } = g.getImageData(0, 0, c.width, c.height);
+      let x0 = width, y0 = height, x1 = -1, y1 = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (data[(y * width + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+      }
+      if (x1 < 0) return c;
+      const pad = 6;
+      x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+      x1 = Math.min(width - 1, x1 + pad); y1 = Math.min(height - 1, y1 + pad);
+      const out = document.createElement('canvas');
+      out.width = x1 - x0 + 1; out.height = y1 - y0 + 1;
+      out.getContext('2d').drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+      return out;
+    }
+
+    // --- SAVE / LOAD CHARACTER & 3D EXPORT ---
+    // A character file is every control in the panel plus a little state that isn't a control (the pose).
+    const fileBase = () => (document.getElementById('charName').value.trim() || 'dog').replace(/[^\w\- ]+/g, '');
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }
+
+    function characterState() {
+      const values = {};
+      document.querySelectorAll('#ui-panel input, #ui-panel select').forEach(el => {
+        if (!el.id || el.type === 'file') return;
+        values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return { type: 'dog', version: 1, pose: currentPose, patternSeed, values };
+    }
+
+    function applyCharacterState(state) {
+      if (state.type !== 'dog') { alert(`That file is a ${state.type || 'different'} file, not a dog.`); return; }
+      for (const id in state.values) {
+        const el = document.getElementById(id);
+        if (!el || el.type === 'file') continue;
+        if (el.type === 'checkbox') el.checked = state.values[id];
+        else el.value = state.values[id];
+      }
+      if (poses[state.pose]) currentPose = state.pose;
+      document.querySelectorAll('[data-pose]').forEach(b => b.classList.toggle('active', b.dataset.pose === currentPose));
+      if (state.patternSeed !== undefined) patternSeed = state.patternSeed;
+      document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[document.getElementById('pattern').value].uses;
+      updateScene();
+      updateFromInputs();
+    }
+
+    document.getElementById('saveChar').addEventListener('click', () => {
+      downloadBlob(new Blob([JSON.stringify(characterState(), null, 2)], { type: 'application/json' }), `${fileBase()}.json`);
+    });
+    document.getElementById('loadChar').addEventListener('click', () => document.getElementById('loadCharFile').click());
+    document.getElementById('loadCharFile').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try { applyCharacterState(JSON.parse(await file.text())); }
+      catch (err) { alert('Could not read that character file.'); }
+    });
+
+    // 3D export: the posed model as a .glb, standing on y = 0 and centered, so the environment
+    // generator (or Blender) can place it. unitScale converts this tool's units to meters.
+    function export3D(deliver = (buffer, name) => downloadBlob(new Blob([buffer], { type: 'model/gltf-binary' }), `${name}.glb`)) {
+      const target = dogRig, name = fileBase();
+      target.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(target), center = box.getCenter(new THREE.Vector3());
+      const savedPos = target.position.clone();
+      target.position.x -= center.x;
+      target.position.z -= center.z;
+      target.position.y -= box.min.y;
+      // userData holds build bookkeeping that can't go in a file; swap it out while exporting
+      const stash = [];
+      target.traverse(o => { stash.push([o, o.userData]); o.userData = {}; });
+      target.userData = { longTrail: { type: 'dog', unitScale: 0.22, name } };
+      target.updateMatrixWorld(true);
+      new THREE.GLTFExporter().parse(target, result => {
+        stash.forEach(([o, ud]) => { o.userData = ud; });
+        target.position.copy(savedPos);
+        target.updateMatrixWorld(true);
+        deliver(result, name);
+      }, { binary: true });
+    }
+    document.getElementById('export3d').addEventListener('click', () => export3D());
+    // Inside the Art Studio the model can go straight to the Scenes tab (no file needed)
+    const studio = (() => { try { return window.parent !== window && window.parent.studio ? window.parent.studio : null; } catch (e) { return null; } })();
+    if (studio) {
+      const sendBtn = document.getElementById('sendToScene');
+      sendBtn.style.display = '';
+      sendBtn.addEventListener('click', () => export3D((buffer, name) => studio.sendModel(buffer, name)));
+    }
+
+
+    document.getElementById('savePng').addEventListener('click', () => exportPNG(`${fileBase()}.png`));
+
+    // Separate pools keep random palettes readable: a mid/dark coat, a light marking color, a dark accent
+    const coatColors  = ["#111111", "#2b2420", "#4a4a52", "#6b6b75", "#8C5A35", "#9a5a2c", "#a87140", "#c49c72", "#d4a837", "#b8b2a8"];
+    const lightColors = ["#ffffff", "#f3ece0", "#E8DCC4", "#e0cca1", "#d9d4cc"];
+    const darkColors  = ["#111111", "#1f1b18", "#2b2420", "#3a2a1e", "#33333a"];
+    const eyeColors = ["#1A120B", "#1A120B", "#3b2410", "#7fb8e0", "#c98a2b"];
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    function randomizeColors() {
+      document.getElementById('colorMain').value = pick(coatColors);
+      document.getElementById('colorSec').value = pick(lightColors);
+      document.getElementById('colorAcc').value = pick(darkColors);
+      document.getElementById('colorEye').value = pick(eyeColors);
+      patternSeed = Math.floor(Math.random() * 1e6);
+      setPattern(pick(Object.keys(PATTERNS)));
+    }
+
+    document.getElementById('randomizeColors').addEventListener('click', randomizeColors);
+
+    document.getElementById('randomize').addEventListener('click', () => {
+      inputs.forEach(id => {
+        const el = document.getElementById(id);
+        el.value = (Math.random() * (parseFloat(el.max) - parseFloat(el.min)) + parseFloat(el.min)).toFixed(2);
+      });
+      randomizeColors();
+      updateFromInputs();
+    });
+
+    window.applyPreset = function(type) {
+      const presets = {
+        husky:    { c1: "#8C5A35", c2: "#E8DCC4", c3: "#2b2420", pattern: 'husky', p: { bodyLen: 1.8, chestSize: 1.0, pelvisSize: 0.8, neckLen: 0.8, headSize: 0.9, snoutLen: 0.8, earSize: 0.45, earDroop: 0.0, legScale: 1.4, boneThick: 0.16, tailBase: 0.5, tailLen: 1.2, tailCurl: 0.2, furShag: 0.3, furRuff: 0.6, furCheek: 0.4, furTail: 0.7, furLegs: 0.3, furBody: 0.3 } },
+        malamute: { c1: "#4a4a52", c2: "#ffffff", c3: "#1d1d22", pattern: 'husky', p: { bodyLen: 2.1, chestSize: 1.2, pelvisSize: 1.0, neckLen: 0.7, headSize: 1.1, snoutLen: 0.7, earSize: 0.35, earDroop: 0.0, legScale: 1.3, boneThick: 0.22, tailBase: 0.6, tailLen: 1.1, tailCurl: 0.4, furShag: 0.5, furRuff: 0.9, furCheek: 0.6, furTail: 0.9, furLegs: 0.5, furBody: 0.5 } },
+        hound:    { c1: "#a8682f", c2: "#f3ece0", c3: "#1f1b18", pattern: 'tricolor', p: { bodyLen: 1.9, chestSize: 1.1, pelvisSize: 0.75, neckLen: 0.8, headSize: 0.85, snoutLen: 1.0, earSize: 0.6, earDroop: 1.0, legScale: 1.3, boneThick: 0.15, tailBase: -0.3, tailLen: 1.4, tailCurl: -0.2, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0 } },
+        mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
+      };
+
+      const pr = presets[type];
+      document.getElementById('colorMain').value = pr.c1;
+      document.getElementById('colorSec').value = pr.c2;
+      document.getElementById('colorAcc').value = pr.c3;
+      patternSelect.value = pr.pattern;
+      document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[pr.pattern].uses;
+
+      for(let key in pr.p) {
+        if(document.getElementById(key)) document.getElementById(key).value = pr.p[key];
+      }
+      updateFromInputs();
+    };
+
+    updateScene();
+    applyPose('stand');
+
+    // --- RENDER LOOP ---
+    function animate() {
+      requestAnimationFrame(animate);
+      if (window.studioPaused) return; // hidden tab in the Art Studio
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+  </script>
+</body>
+</html>

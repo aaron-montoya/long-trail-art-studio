@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Low-Poly Trail Scene Generator</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    #canvas-container { flex: 1 1 auto; min-width: 0; height: 100vh; position: relative; background: #111; }
+    #canvas-container canvas { display: block; }
+    #overlay { position: absolute; inset: 0; pointer-events: none; }
+
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+
+    #show-panel {
+      position: absolute; top: 15px; left: 15px; display: none; z-index: 10;
+      background: rgba(20, 20, 28, 0.85); border-color: #445; padding: 8px 12px;
+    }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .btn-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+    .primary-btn { grid-column: span 2; background: #4f46e5; font-weight: bold; padding: 10px; border-color: #6366f1; }
+    .wide-btn { grid-column: 1 / -1; }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    input[type=number], select { width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    select[size] { padding: 2px; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .hint { font-size: 0.72rem; color: #8a8aa0; margin: 4px 0 10px; line-height: 1.4; }
+    .row { display: flex; gap: 6px; }
+    .row > * { flex: 1; }
+
+    .val-display { color: #fff; font-weight: bold; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="icons.js"></script>
+</head>
+<body>
+
+  <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Trail Scene Generator</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="btn-grid3" id="biomeBtns"></div>
+    <div class="btn-grid">
+      <button class="primary-btn" id="reseed"><i data-icon="dice"></i>New Layout</button>
+      <button class="primary-btn" id="saveCard"><i data-icon="image"></i>Save Card PNG</button>
+    </div>
+
+    <!-- CARD FRAME -->
+    <details open>
+      <summary>Card Frame & Export</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Frame Shape</label>
+          <select id="aspect">
+            <option value="5:7" selected>Portrait card (2.5 × 3.5)</option>
+            <option value="7:5">Landscape card (3.5 × 2.5)</option>
+            <option value="1:1">Square</option>
+            <option value="4:3">Art box 4:3</option>
+            <option value="16:9">Wide 16:9</option>
+          </select></div>
+        <div class="control-group"><label>Export Width (px)</label><input type="number" id="exportWidth" value="1500" min="300" max="4000" step="50"></div>
+        <div class="hint">1500 px wide = 600 dpi on a 2.5" poker card.</div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="includeLayers" checked> Include character layers in export</label></div>
+      </div>
+    </details>
+
+    <!-- 3D MODELS -->
+    <details open>
+      <summary>3D Characters (Dogs & Mushers)</summary>
+      <div class="details-content">
+        <div class="control-group"><input type="file" id="modelFiles" accept=".glb,.gltf" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
+        <div class="hint">Add .glb files from "Export 3D Model" in the dog and musher generators (or drop them on the view). They stand on the terrain and get the scene's sun, shadows and fog. Drag one to move it along the ground; scroll over it to turn it.</div>
+        <div class="control-group"><select id="modelList" size="4"></select></div>
+        <div class="control-group"><label>Size <span class="val-display" id="modelScale-val">1.00</span></label><input type="range" id="modelScale" min="0.3" max="3" step="0.05" value="1"></div>
+        <div class="control-group"><label>Turn <span class="val-display" id="modelTurn-val">0</span></label><input type="range" id="modelTurn" min="0" max="360" step="1" value="0"></div>
+        <div class="row">
+          <button id="modelToTrail"><i data-icon="trail"></i>Onto trail</button>
+          <button id="modelDuplicate"><i data-icon="copy"></i>Duplicate</button>
+          <button id="modelRemove"><i data-icon="close"></i>Remove</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- LAYERS -->
+    <details>
+      <summary>2D Characters (PNG layers)</summary>
+      <div class="details-content">
+        <div class="control-group"><input type="file" id="layerFiles" accept="image/png,image/webp,image/*" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
+        <div class="hint">Add PNGs saved from the dog and musher generators (or drop them on the view). Drag a character in the view to move it; scroll over it to resize.</div>
+        <div class="control-group"><select id="layerList" size="5"></select></div>
+        <div class="control-group"><label>Size <span class="val-display" id="layerSize-val">0.40</span></label><input type="range" id="layerSize" min="0.05" max="1.2" step="0.01" value="0.4"></div>
+        <div class="control-group row">
+          <label class="check"><input type="checkbox" id="layerFlip"> Flip</label>
+          <label class="check"><input type="checkbox" id="layerShadow" checked> Ground shadow</label>
+        </div>
+        <div class="row">
+          <button id="layerUp"><i data-icon="up"></i>Forward</button>
+          <button id="layerDown"><i data-icon="down"></i>Back</button>
+          <button id="layerRemove"><i data-icon="close"></i>Remove</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- SKY -->
+    <details open>
+      <summary>Time of Day & Sky</summary>
+      <div class="details-content">
+        <div class="btn-grid3" id="timeBtns"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="aurora"> Northern lights</label></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Sky Top</label><input type="color" id="skyTop" value="#3F78C0"></div>
+          <div class="control-group"><label>Horizon</label><input type="color" id="skyHorizon" value="#CFE2EF"></div>
+          <div class="control-group"><label>Sun / Moon</label><input type="color" id="sunColor" value="#FFF3E0"></div>
+        </div>
+        <div class="control-group"><label>Sun Direction <span class="val-display" id="sunAz-val">125</span></label><input type="range" id="sunAz" min="0" max="360" step="1" value="125"></div>
+        <div class="control-group"><label>Sun Height <span class="val-display" id="sunEl-val">38</span></label><input type="range" id="sunEl" min="-5" max="85" step="1" value="38"></div>
+        <div class="control-group"><label>Sun Strength <span class="val-display" id="sunInt-val">1.00</span></label><input type="range" id="sunInt" min="0" max="2" step="0.05" value="1"></div>
+        <div class="control-group"><label>Sky Light <span class="val-display" id="ambInt-val">0.65</span></label><input type="range" id="ambInt" min="0" max="1.5" step="0.05" value="0.65"></div>
+      </div>
+    </details>
+
+    <!-- WEATHER -->
+    <details open>
+      <summary>Weather</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Snowfall <span class="val-display" id="snowfall-val">0.15</span></label><input type="range" id="snowfall" min="0" max="1" step="0.05" value="0.15"></div>
+        <div class="control-group"><label>Wind <span class="val-display" id="wind-val">0.10</span></label><input type="range" id="wind" min="0" max="1" step="0.05" value="0.1"></div>
+        <div class="control-group"><label>Fog / Haze <span class="val-display" id="fog-val">0.25</span></label><input type="range" id="fog" min="0" max="1" step="0.05" value="0.25"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="clouds"> Sea of clouds below</label></div>
+      </div>
+    </details>
+
+    <!-- CAMERA -->
+    <details open>
+      <summary>Camera</summary>
+      <div class="details-content">
+        <div class="btn-grid" style="margin-bottom: 10px;">
+          <button data-cam="trail">Trail level</button>
+          <button data-cam="low">Low & dramatic</button>
+          <button data-cam="high">High</button>
+          <button data-cam="wide">Wide</button>
+        </div>
+        <div class="control-group"><label>Lens (field of view) <span class="val-display" id="fov-val">45</span></label><input type="range" id="fov" min="20" max="75" step="1" value="45"></div>
+        <div class="hint">You can also orbit with the mouse (drag empty space, scroll to zoom, right-drag to pan).</div>
+      </div>
+    </details>
+
+    <!-- LANDSCAPE -->
+    <details>
+      <summary>Landscape Details</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Tree Density <span class="val-display" id="treeDensity-val">1.00</span></label><input type="range" id="treeDensity" min="0" max="1.8" step="0.05" value="1"></div>
+        <div class="control-group"><label>Snow on Trees <span class="val-display" id="treeSnow-val">0.60</span></label><input type="range" id="treeSnow" min="0" max="1" step="0.05" value="0.6"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="showTrail" checked> Show sled trail</label></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Snow</label><input type="color" id="colSnow" value="#F2F6FA"></div>
+          <div class="control-group"><label>Spruce</label><input type="color" id="colTree" value="#2E4A3B"></div>
+          <div class="control-group"><label>Rock</label><input type="color" id="colRock" value="#5D6574"></div>
+          <div class="control-group"><label>River Ice</label><input type="color" id="colIce" value="#A9D3E6"></div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div id="canvas-container"><canvas id="overlay"></canvas></div>
+
+  <script>
+    // ================= SETUP =================
+    const canvasContainer = document.getElementById('canvas-container');
+    const overlay = document.getElementById('overlay');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 3000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    canvasContainer.insertBefore(renderer.domElement, overlay);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI / 2 + 0.2;
+
+    function fitRenderer() {
+      const w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      const dpr = window.devicePixelRatio;
+      overlay.width = Math.round(w * dpr);
+      overlay.height = Math.round(h * dpr);
+    }
+    new ResizeObserver(fitRenderer).observe(canvasContainer);
+
+    const $ = id => document.getElementById(id);
+    const num = id => parseFloat($(id).value);
+
+    // ================= RANDOM & NOISE =================
+    function mulberry32(a) {
+      return () => {
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function hash2(x, y, s) {
+      let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 1274126177);
+      h = Math.imul(h ^ (h >>> 13), 1103515245);
+      h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    }
+    function noise2(x, y, s) {
+      const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+      const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+      const a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+      return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+    }
+    function fbm2(x, y, s, oct = 4) {
+      let amp = 0.5, f = 1, sum = 0, norm = 0;
+      for (let o = 0; o < oct; o++) { sum += amp * noise2(x * f, y * f, s + o * 17); norm += amp; amp *= 0.5; f *= 2.03; }
+      return sum / norm;
+    }
+    const smoothstep = (a, b, x) => { const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    // ================= BIOMES =================
+    // base(x, z, d): ground height, where d is the distance from the trail's center line.
+    // The trail itself is flattened onto `bed` so the sled path always reads clearly.
+    let seed = 7;
+    const S = () => seed;
+
+    const BIOMES = {
+      snowfield: {
+        label: 'Snowfield', time: 'day', weather: { snowfall: 0.15, wind: 0.15, fog: 0.25, clouds: false },
+        trail: { amp: 6, width: 2.4, blend: 3.5 }, rockSlope: 0.6,
+        base: (x, z, d) => 4 * fbm2(x * 0.012, z * 0.012, S()) * Math.min(1, d / 35) + 1.2 * fbm2(x * 0.05, z * 0.05, S() + 3) - 1.5,
+        trees: { count: 120, minD: 18, maxD: 140, zMin: -175, zMax: -10, hMin: 3, hMax: 7, cluster: true },
+        rocks: { count: 18, minD: 3, maxD: 50, zMin: -80, zMax: 12, sMin: 0.3, sMax: 1.2 },
+        mountains: { count: 18, baseY: -5, hMin: 40, hMax: 95, dMin: 380, dMax: 620 }
+      },
+      forest: {
+        label: 'Spruce Forest', time: 'day', weather: { snowfall: 0.25, wind: 0, fog: 0.35, clouds: false },
+        trail: { amp: 4, width: 2.4, blend: 3 }, rockSlope: 0.6,
+        base: (x, z, d) => 2.4 * fbm2(x * 0.03, z * 0.03, S()) + 0.7 * fbm2(x * 0.1, z * 0.1, S() + 4),
+        trees: { count: 1100, minD: 2.6, maxD: 105, zMin: -178, zMax: 18, hMin: 4, hMax: 11, bias: 1.3, framing: true },
+        rocks: { count: 20, minD: 2.5, maxD: 30, zMin: -60, zMax: 15, sMin: 0.3, sMax: 1 },
+        mountains: { count: 14, baseY: 0, hMin: 55, hMax: 120, dMin: 360, dMax: 560 }
+      },
+      mountainPass: {
+        label: 'Mountain Pass', time: 'day', weather: { snowfall: 0.05, wind: 0.3, fog: 0.2, clouds: false },
+        trail: { amp: 3, width: 2.2, blend: 3 }, rockSlope: 0.8,
+        base: (x, z, d) => {
+          const climb = Math.max(0, 10 - z) * 0.09;
+          // valley walls rise steeply, then level off so they don't wall out the sky far away
+          const rise = Math.pow(Math.max(0, d - 9) / 50, 1.5) * 42;
+          const walls = (rise / (1 + rise / 60)) * (0.65 + 0.7 * fbm2(x * 0.015, z * 0.015, S()));
+          const rough = 3 * fbm2(x * 0.09, z * 0.09, S() + 5) * smoothstep(3, 12, d);
+          return climb + walls + rough;
+        },
+        trees: { count: 60, minD: 5, maxD: 28, zMin: -40, zMax: 15, hMin: 2.5, hMax: 5.5 },
+        rocks: { count: 230, minD: 2.2, maxD: 70, zMin: -170, zMax: 15, sMin: 0.4, sMax: 3.5 },
+        mountains: { count: 16, baseY: 20, hMin: 90, hMax: 170, dMin: 380, dMax: 600 }
+      },
+      riverIce: {
+        label: 'River Ice', time: 'day', weather: { snowfall: 0.1, wind: 0.2, fog: 0.25, clouds: false },
+        trail: { amp: 5, width: 2.4, blend: 1 }, rockSlope: 0.6, ice: { half: 5 },
+        base: (x, z, d) => smoothstep(5, 9, d) * 2.4 + 4 * fbm2(x * 0.03, z * 0.03, S()) * smoothstep(6, 30, d),
+        bed: () => 0,
+        trees: { count: 650, minD: 9, maxD: 110, zMin: -178, zMax: 18, hMin: 4, hMax: 9, bias: 1.2 },
+        rocks: { count: 40, minD: 5, maxD: 9, zMin: -100, zMax: 15, sMin: 0.4, sMax: 1.6 },
+        mountains: { count: 16, baseY: 0, hMin: 50, hMax: 110, dMin: 360, dMax: 580 }
+      },
+      deepPowder: {
+        label: 'Deep Powder', time: 'overcast', weather: { snowfall: 0.75, wind: 0.2, fog: 0.5, clouds: false },
+        trail: { amp: 5, width: 1.8, blend: 0.8, trench: 0.8 }, rockSlope: 0.5,
+        base: (x, z, d) => 2.6 * fbm2(x * 0.045, z * 0.045, S()) + 1.6 * Math.pow(fbm2(x * 0.11, z * 0.11, S() + 9), 1.5),
+        trees: { count: 90, minD: 8, maxD: 90, zMin: -175, zMax: 12, hMin: 3, hMax: 7, sink: 0.45 },
+        rocks: { count: 0 },
+        mountains: { count: 14, baseY: 0, hMin: 50, hMax: 105, dMin: 360, dMax: 560 }
+      },
+      exposedRidge: {
+        label: 'Exposed Ridge', time: 'dusk', weather: { snowfall: 0.2, wind: 0.75, fog: 0.3, clouds: true },
+        trail: { amp: 2.5, width: 1.8, blend: 2 }, rockSlope: 0.82, cloudY: -8,
+        base: (x, z, d) => {
+          const crest = 10 + 3 * fbm2(z * 0.02, 3.3, S());
+          const fall = Math.pow(d / 7, 1.45) * 7;
+          const rough = 1.6 * fbm2(x * 0.12, z * 0.12, S() + 2) * smoothstep(1.5, 6, d);
+          return Math.max(-90, crest - fall + rough);
+        },
+        trees: { count: 0 },
+        rocks: { count: 150, minD: 1.6, maxD: 16, zMin: -160, zMax: 12, sMin: 0.4, sMax: 2.6 },
+        mountains: { count: 14, baseY: -30, hMin: 70, hMax: 150, dMin: 520, dMax: 820 }
+      }
+    };
+    let biomeKey = 'snowfield';
+    const biome = () => BIOMES[biomeKey];
+
+    let phase1 = 0, phase2 = 0;
+    function trailX(z) {
+      const amp = biome().trail.amp;
+      return amp * (0.75 * Math.sin(z * 0.022 + phase1) + 0.25 * Math.sin(z * 0.061 + phase2));
+    }
+    function terrainH(x, z) {
+      const B = biome(), tx = trailX(z), d = Math.abs(x - tx);
+      const base = B.base(x, z, d);
+      let bed = B.bed ? B.bed(z) : B.base(tx, z, 0);
+      if (B.trail.trench) bed -= B.trail.trench;
+      const w = B.trail.width * 0.5;
+      return bed + (base - bed) * smoothstep(w, w + B.trail.blend, d);
+    }
+    function slopeAt(x, z) {
+      return Math.hypot(terrainH(x + 1, z) - terrainH(x - 1, z), terrainH(x, z + 1) - terrainH(x, z - 1)) / 2;
+    }
+
+    // ================= MATERIALS =================
+    const colorMat = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+    const terrainMat = colorMat(), treeMat = colorMat(), rockMat = colorMat(), mountainMat = colorMat(), cloudMat = colorMat();
+    const trackMat = new THREE.MeshStandardMaterial({ color: 0xc3cfdb, flatShading: true, roughness: 1 });
+    const packedMat = new THREE.MeshStandardMaterial({ color: 0xe1e8ef, flatShading: true, roughness: 1 });
+    const crackMat = new THREE.MeshStandardMaterial({ color: 0x6f93a8, flatShading: true, roughness: 0.4 });
+
+    // ================= GEOMETRY HELPERS =================
+    // Merge parts into one geometry with a flat color per triangle. Each part: { geo, matrix, color | colorFn(centroid) }
+    function mergeParts(parts) {
+      const prepared = parts.map(pt => {
+        const g = pt.geo.index ? pt.geo.toNonIndexed() : pt.geo.clone();
+        const pos = g.attributes.position, cols = new Float32Array(pos.count * 3), c = new THREE.Vector3();
+        for (let f = 0; f < pos.count; f += 3) {
+          c.set(0, 0, 0);
+          for (let k = 0; k < 3; k++) c.x += pos.getX(f + k) / 3, c.y += pos.getY(f + k) / 3, c.z += pos.getZ(f + k) / 3;
+          const col = pt.colorFn ? pt.colorFn(c, f) : pt.color;
+          for (let k = 0; k < 3; k++) cols.set([col.r, col.g, col.b], (f + k) * 3);
+        }
+        g.applyMatrix4(pt.matrix || new THREE.Matrix4());
+        return { g, cols };
+      });
+      const total = prepared.reduce((s, p) => s + p.g.attributes.position.count, 0);
+      const pos = new Float32Array(total * 3), col = new Float32Array(total * 3);
+      let o = 0;
+      prepared.forEach(({ g, cols }) => {
+        pos.set(g.attributes.position.array, o * 3);
+        col.set(cols, o * 3);
+        o += g.attributes.position.count;
+        g.dispose();
+      });
+      const out = new THREE.BufferGeometry();
+      out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      out.computeVertexNormals();
+      return out;
+    }
+
+    // Flat ribbon following a list of {x, y, z} points
+    function ribbon(points, width) {
+      const pos = [];
+      for (let i = 0; i < points.length - 1; i++) {
+        const a = points[i], b = points[i + 1];
+        const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz) || 1;
+        const nx = -dz / len * width / 2, nz = dx / len * width / 2;
+        const a1 = [a.x - nx, a.y, a.z - nz], a2 = [a.x + nx, a.y, a.z + nz], b1 = [b.x - nx, b.y, b.z - nz], b2 = [b.x + nx, b.y, b.z + nz];
+        pos.push(...a1, ...b1, ...a2, ...a2, ...b1, ...b2);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.computeVertexNormals();
+      // make sure the ribbon faces up
+      if (g.attributes.normal.getY(0) < 0) {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i += 3) { const t = [p.getX(i + 1), p.getY(i + 1), p.getZ(i + 1)]; p.setXYZ(i + 1, p.getX(i + 2), p.getY(i + 2), p.getZ(i + 2)); p.setXYZ(i + 2, ...t); }
+        g.computeVertexNormals();
+      }
+      return g;
+    }
+
+    // ================= TEMPLATES =================
+    function makeTreeGeo(load, green, snowC) {
+      const parts = [{ geo: new THREE.CylinderGeometry(0.035, 0.05, 0.22, 5), color: new THREE.Color('#4a3526'), matrix: new THREE.Matrix4().makeTranslation(0, 0.11, 0) }];
+      for (let k = 0; k < 4; k++) {
+        const r = 0.36 - 0.075 * k, h = 0.4 - 0.04 * k, y = 0.18 + 0.2 * k + h / 2;
+        const tier = green.clone().multiplyScalar(0.88 + 0.07 * k);
+        parts.push({
+          geo: new THREE.ConeGeometry(r, h, 8, 3), matrix: new THREE.Matrix4().makeTranslation(0, y, 0).multiply(new THREE.Matrix4().makeRotationY(k * 0.45)),
+          // snow rests on the upper surface of each tier's skirt
+          colorFn: (c, f) => {
+            const frac = (c.y + h / 2) / h;
+            return frac > 0.06 && frac < 0.08 + 0.62 * load && hash2(f, k, 3) > 0.22 ? snowC : tier;
+          }
+        });
+      }
+      return mergeParts(parts);
+    }
+
+    function makeRockGeo(snowC, rockC) {
+      const g = new THREE.IcosahedronGeometry(1, 0);
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        const j = 0.75 + 0.5 * hash2(Math.round(x * 100), Math.round(y * 100) + Math.round(z * 100) * 7, 11);
+        p.setXYZ(i, x * j, y * j, z * j);
+      }
+      g.computeVertexNormals();
+      const n = new THREE.Vector3();
+      return mergeParts([{ geo: g, colorFn: (c, f) => {
+        const a = new THREE.Vector3().fromBufferAttribute(p, f), b = new THREE.Vector3().fromBufferAttribute(p, f + 1), d = new THREE.Vector3().fromBufferAttribute(p, f + 2);
+        n.subVectors(b, a).cross(new THREE.Vector3().subVectors(d, a)).normalize();
+        return n.y > 0.55 ? snowC : rockC.clone().multiplyScalar(0.85 + 0.3 * hash2(f, 2, 9));
+      } }]);
+    }
+
+    // ================= ENVIRONMENT BUILD =================
+    const env = new THREE.Group();
+    scene.add(env);
+
+    function clearGroup(g) {
+      while (g.children.length) {
+        const o = g.children[0];
+        g.remove(o);
+        o.traverse(c => { if (c.geometry && c.geometry.dispose) c.geometry.dispose(); });
+      }
+    }
+
+    let nearTerrain = null; // detailed terrain mesh, used to drag models along the ground
+    function buildTerrain(w, d, sx, sz, cz, sinkInside) {
+      const B = biome(), geo = new THREE.PlaneGeometry(w, d, sx, sz);
+      geo.rotateX(-Math.PI / 2);
+      geo.translate(0, 0, cz);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i), z = pos.getZ(i);
+        let y = terrainH(x, z);
+        if (sinkInside && Math.abs(x) < 108 && z < 18 && z > -178) y -= 30; // the detailed terrain covers this part
+        pos.setY(i, sinkInside ? y - 0.4 : y);
+      }
+      const g = geo.toNonIndexed();
+      geo.dispose();
+
+      const snow = new THREE.Color($('colSnow').value), rock = new THREE.Color($('colRock').value), ice = new THREE.Color($('colIce').value);
+      const p = g.attributes.position, cols = new Float32Array(p.count * 3);
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), col = new THREE.Color();
+      for (let f = 0; f < p.count; f += 3) {
+        a.fromBufferAttribute(p, f); b.fromBufferAttribute(p, f + 1); c.fromBufferAttribute(p, f + 2);
+        n.subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a)).normalize();
+        const cx = (a.x + b.x + c.x) / 3, cz2 = (a.z + b.z + c.z) / 3;
+        const d = Math.abs(cx - trailX(cz2));
+        col.copy(snow);
+        if (B.ice && d < B.ice.half) {
+          const v = fbm2(cx * 0.15, cz2 * 0.15, S() + 21);
+          col.copy(ice);
+          if (v > 0.6) col.copy(snow);                      // wind-blown snow on the ice
+          else if (v < 0.36) col.multiplyScalar(0.82);      // clear, dark ice
+        } else {
+          const steep = smoothstep(B.rockSlope + 0.08, B.rockSlope - 0.04, Math.abs(n.y));
+          if (steep > 0.5) col.copy(rock).multiplyScalar(0.85 + 0.3 * hash2(f, 1, S()));
+        }
+        col.multiplyScalar(0.97 + 0.06 * hash2(f, 7, S()));
+        for (let k = 0; k < 3; k++) cols.set([col.r, col.g, col.b], (f + k) * 3);
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      g.computeVertexNormals();
+      const mesh = new THREE.Mesh(g, terrainMat);
+      mesh.receiveShadow = true;
+      env.add(mesh);
+      if (!sinkInside) nearTerrain = mesh;
+    }
+
+    // Scatter points beside the trail; fn(x, z, rng) places one object
+    function scatter(opts, rng, fn) {
+      if (!opts || !opts.count) return;
+      const centers = opts.cluster ? Array.from({ length: 7 }, () => ({ side: rng() < 0.5 ? -1 : 1, d: lerp(opts.minD, opts.maxD, rng()), z: lerp(opts.zMax, opts.zMin, rng()) })) : null;
+      let placed = 0, tries = 0;
+      while (placed < opts.count && tries++ < opts.count * 25) {
+        let x, z;
+        if (centers) {
+          const c = centers[Math.floor(rng() * centers.length)];
+          z = c.z + (rng() - 0.5) * 30;
+          x = trailX(c.z) + c.side * c.d + (rng() - 0.5) * 30;
+        } else {
+          z = lerp(opts.zMax, opts.zMin, rng());
+          x = trailX(z) + (rng() < 0.5 ? -1 : 1) * lerp(opts.minD, opts.maxD, Math.pow(rng(), opts.bias || 1));
+        }
+        if (Math.abs(x - trailX(z)) < opts.minD || Math.abs(x) > 106 || z > 19 || z < -177) continue;
+        if (fn(x, z, rng) !== false) placed++;
+      }
+    }
+
+    function buildInstances(geo, mat, items) {
+      if (!items.length) return;
+      const mesh = new THREE.InstancedMesh(geo, mat, items.length);
+      const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+      items.forEach((it, i) => {
+        e.set(it.tilt || 0, it.rot, (it.tilt || 0) * 0.7);
+        q.setFromEuler(e);
+        m.compose(it.pos, q, it.scale);
+        mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, new THREE.Color().setScalar(it.shade));
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      env.add(mesh);
+    }
+
+    let camPresets = {};
+    function buildEnvironment() {
+      clearGroup(env);
+      const B = biome(), rng = mulberry32(seed * 9973 + 17);
+      phase1 = rng() * 6.28; phase2 = rng() * 6.28;
+      const snowC = new THREE.Color($('colSnow').value), rockC = new THREE.Color($('colRock').value), green = new THREE.Color($('colTree').value);
+
+      buildTerrain(220, 200, 176, 160, -80, false);   // detailed area around the trail
+      buildTerrain(1600, 1600, 128, 128, -500, true);  // coarse land out to the mountains
+
+      // sled trail: packed snow band with two runner grooves
+      if ($('showTrail').checked) {
+        const center = [], left = [], right = [];
+        for (let z = 18; z > -176; z -= 0.5) {
+          const tx = trailX(z), tx2 = trailX(z - 0.5), dx = tx2 - tx, len = Math.hypot(dx, 0.5), ox = 0.5 / len, oz = dx / len;
+          center.push({ x: tx, y: terrainH(tx, z) + 0.04, z });
+          const lx = tx - 0.4 * ox, rx = tx + 0.4 * ox;
+          left.push({ x: lx, y: terrainH(lx, z - 0.4 * oz) + 0.07, z: z - 0.4 * oz });
+          right.push({ x: rx, y: terrainH(rx, z + 0.4 * oz) + 0.07, z: z + 0.4 * oz });
+        }
+        [[center, B.trail.width * 0.7, packedMat], [left, 0.11, trackMat], [right, 0.11, trackMat]].forEach(([pts, w, mat]) => {
+          const m = new THREE.Mesh(ribbon(pts, w), mat);
+          m.receiveShadow = true;
+          env.add(m);
+        });
+        packedMat.color.copy(snowC).multiplyScalar(0.93).lerp(new THREE.Color('#c9d6e3'), 0.25);
+        trackMat.color.copy(snowC).multiplyScalar(0.78).lerp(new THREE.Color('#8fa5bd'), 0.35);
+      }
+
+      // cracks in river ice
+      if (B.ice) {
+        const crackGeos = [];
+        for (let k = 0; k < 28; k++) {
+          let z = 14 - rng() * 75, x = trailX(z) + (rng() - 0.5) * B.ice.half * 1.6, ang = rng() * 6.28;
+          const pts = [{ x, y: 0.03, z }];
+          for (let s = 0; s < 6 + Math.floor(rng() * 8); s++) {
+            ang += (rng() - 0.5) * 1.3;
+            x += Math.cos(ang) * (0.6 + rng() * 1.1);
+            z += Math.sin(ang) * (0.6 + rng() * 1.1);
+            if (Math.abs(x - trailX(z)) > B.ice.half - 0.4) break;
+            pts.push({ x, y: 0.03, z });
+          }
+          if (pts.length > 1) crackGeos.push(ribbon(pts, 0.05 + rng() * 0.05));
+        }
+        crackGeos.forEach(g => env.add(new THREE.Mesh(g, crackMat)));
+        crackMat.color.copy(new THREE.Color($('colIce').value)).multiplyScalar(0.62);
+      }
+
+      // spruces
+      const trees = [];
+      const tOpts = B.trees.count ? { ...B.trees, count: Math.round(B.trees.count * num('treeDensity')) } : null;
+      scatter(tOpts, rng, (x, z, r) => {
+        if (slopeAt(x, z) > 1.1) return false;
+        if (B.ice && Math.abs(x - trailX(z)) < B.ice.half + 2.5) return false;
+        const h = lerp(B.trees.hMin, B.trees.hMax, r());
+        const sink = (B.trees.sink || 0) * h * (0.6 + 0.8 * r());
+        trees.push({ pos: new THREE.Vector3(x, terrainH(x, z) - 0.15 - sink, z), rot: r() * 6.28, tilt: (r() - 0.5) * 0.06,
+                     scale: new THREE.Vector3(h * (0.85 + 0.3 * r()), h, h * (0.85 + 0.3 * r())), shade: 0.85 + 0.3 * r() });
+      });
+      if (B.trees.framing && num('treeDensity') > 0.2) {
+        // a couple of big trees close to the camera frame the trail
+        [[-1, 5.5, 2], [1, 6.5, -1], [-1, 9, -9], [1, 10, -14]].forEach(([side, d, z]) => {
+          const x = trailX(z) + side * d, h = 11 + rng() * 4;
+          trees.push({ pos: new THREE.Vector3(x, terrainH(x, z) - 0.2, z), rot: rng() * 6.28, scale: new THREE.Vector3(h * 0.95, h, h * 0.95), shade: 0.9 });
+        });
+      }
+      buildInstances(makeTreeGeo(num('treeSnow'), green, snowC), treeMat, trees);
+
+      // rocks
+      const rocks = [];
+      scatter(B.rocks, rng, (x, z, r) => {
+        const s = lerp(B.rocks.sMin, B.rocks.sMax, Math.pow(r(), 1.6));
+        rocks.push({ pos: new THREE.Vector3(x, terrainH(x, z) - s * 0.3, z), rot: r() * 6.28, tilt: (r() - 0.5) * 0.4,
+                     scale: new THREE.Vector3(s * (0.9 + 0.5 * r()), s * (0.55 + 0.4 * r()), s * (0.9 + 0.4 * r())), shade: 0.85 + 0.3 * r() });
+      });
+      buildInstances(makeRockGeo(snowC, rockC), rockMat, rocks);
+
+      // distant mountains: jagged cones with snow above a ragged snowline
+      const M = B.mountains, endX = trailX(-150);
+      const mParts = [];
+      for (let k = 0; k < M.count; k++) {
+        const a = (rng() - 0.5) * 2.6, h = lerp(M.hMin, M.hMax, rng()), r = h * (0.9 + 0.6 * rng());
+        const dist = Math.max(lerp(M.dMin, M.dMax, rng()), r + 90); // never wide enough to reach the camera
+        const geo = new THREE.ConeGeometry(r, h, 7, 5, true);
+        const p = geo.attributes.position, ms = k * 31 + seed;
+        for (let i = 0; i < p.count; i++) {
+          const y = p.getY(i), apex = y > h / 2 - 0.01;
+          const jx = apex ? 0 : (noise2(p.getX(i) * 0.05, y * 0.05, ms) - 0.5) * r * 0.35;
+          const jz = apex ? 0 : (noise2(p.getZ(i) * 0.05, y * 0.05 + 9, ms) - 0.5) * r * 0.35;
+          // jitter is a function of position, so the duplicated seam vertices move together (no cracks)
+          const jy = apex ? 0 : (noise2(p.getX(i) * 0.05 + p.getZ(i) * 0.07, y * 0.05, ms + 1) - 0.5) * h * 0.06;
+          p.setXYZ(i, p.getX(i) + jx, y + jy, p.getZ(i) + jz);
+        }
+        const snowline = 0.45 + 0.2 * rng(), dark = rockC.clone().multiplyScalar(0.9).lerp(new THREE.Color('#4b5a70'), 0.4);
+        const mx = endX * 0.5 + Math.sin(a) * dist, mz = 10 - Math.cos(a) * dist;
+        const baseY = Math.min(M.baseY, terrainH(mx, mz)) - 5; // rooted in the ground (or below the clouds)
+        mParts.push({
+          geo, matrix: new THREE.Matrix4().makeTranslation(mx, baseY + h / 2, mz).multiply(new THREE.Matrix4().makeRotationY(rng() * 6.28)),
+          colorFn: (c, f) => ((c.y / h + 0.5) + (hash2(f, k, 5) - 0.5) * 0.18 > snowline ? snowC : dark.clone().multiplyScalar(0.85 + 0.3 * hash2(f, k, 6)))
+        });
+      }
+      const mMesh = new THREE.Mesh(mergeParts(mParts), mountainMat);
+      mMesh.receiveShadow = true;
+      env.add(mMesh);
+
+      buildClouds();
+      snapModels();
+
+      // camera viewpoints along this trail
+      const at = (z, lift) => new THREE.Vector3(trailX(z), terrainH(trailX(z), z) + lift, z);
+      const side = rng() < 0.5 ? -1 : 1;
+      camPresets = {
+        trail: { pos: at(8, 1.7).add(new THREE.Vector3(side * 1.2, 0, 0)), target: at(-22, 1.0), fov: 45 },
+        low:   { pos: at(6, 0.55).add(new THREE.Vector3(side * 0.8, 0, 0)), target: at(-14, 2.6), fov: 50 },
+        high:  { pos: at(16, 9).add(new THREE.Vector3(side * 6, 0, 0)), target: at(-12, 0), fov: 42 },
+        wide:  { pos: at(12, 4).add(new THREE.Vector3(side * 9, 0, 0)), target: at(-26, 2), fov: 58 }
+      };
+    }
+
+    // ================= CLOUDS (sea of clouds under the ridge) =================
+    const cloudGroup = new THREE.Group();
+    scene.add(cloudGroup);
+    function buildClouds() {
+      clearGroup(cloudGroup);
+      if (!$('clouds').checked) return;
+      const y = biome().cloudY !== undefined ? biome().cloudY : -6;
+      const rng = mulberry32(seed + 404), white = new THREE.Color('#f4f7fb');
+      const parts = [{ geo: new THREE.PlaneGeometry(3000, 3000, 1, 1), matrix: new THREE.Matrix4().makeTranslation(0, y, -300).multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2)), color: white }];
+      for (let k = 0; k < 90; k++) {
+        const z = 20 - rng() * 500, x = (rng() - 0.5) * 600, s = 8 + rng() * 30;
+        parts.push({ geo: new THREE.IcosahedronGeometry(1, 1), color: white.clone().multiplyScalar(0.92 + 0.08 * rng()),
+                     matrix: new THREE.Matrix4().compose(new THREE.Vector3(x, y + rng() * 2, z), new THREE.Quaternion(), new THREE.Vector3(s, s * 0.3, s * 0.8)) });
+      }
+      const m = new THREE.Mesh(mergeParts(parts), cloudMat);
+      m.receiveShadow = true;
+      cloudGroup.add(m);
+    }
+
+    // ================= SKY =================
+    const skyGroup = new THREE.Group(); // follows the camera so the horizon stays put
+    scene.add(skyGroup);
+    const SKY_R = 1500;
+    const skyGeo = new THREE.SphereGeometry(SKY_R, 32, 20);
+    skyGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(skyGeo.attributes.position.count * 3), 3));
+    const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+    sky.renderOrder = -10;
+    skyGroup.add(sky);
+
+    function radialTexture(stops) {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const g = c.getContext('2d'), grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      stops.forEach(([o, col]) => grad.addColorStop(o, col));
+      g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(c);
+    }
+    const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.12, 'rgba(255,255,255,0.9)'], [0.3, 'rgba(255,255,255,0.25)'], [1, 'rgba(255,255,255,0)']]),
+                                                                blending: THREE.AdditiveBlending, fog: false, depthWrite: false, transparent: true }));
+    const moonDisc = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTexture([[0, 'rgba(255,255,255,1)'], [0.42, 'rgba(255,255,255,1)'], [0.47, 'rgba(255,255,255,0.15)'], [1, 'rgba(255,255,255,0)']]),
+                                                                 fog: false, depthWrite: false, transparent: true }));
+    skyGroup.add(sunGlow, moonDisc);
+
+    const stars = (() => {
+      const rng = mulberry32(99), pos = [];
+      for (let i = 0; i < 1400; i++) {
+        const u = rng(), v = rng() * 0.95 + 0.05, th = u * Math.PI * 2, r = Math.sqrt(1 - v * v);
+        pos.push(Math.cos(th) * r * SKY_R * 0.95, v * SKY_R * 0.95, Math.sin(th) * r * SKY_R * 0.95);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      return new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.85, depthWrite: false }));
+    })();
+    skyGroup.add(stars);
+
+    // Northern lights: wavy curtains with a glowing green base fading up to violet
+    const aurora = (() => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const g = c.getContext('2d');
+      for (let x = 0; x < 256; x++) {
+        const ray = 0.45 + 0.55 * Math.pow(Math.abs(Math.sin(x * 0.11) * Math.sin(x * 0.037 + 1)), 0.6);
+        const grad = g.createLinearGradient(0, 256, 0, 0);
+        grad.addColorStop(0, 'rgba(60,255,150,0)');
+        grad.addColorStop(0.08, `rgba(90,255,160,${0.95 * ray})`);
+        grad.addColorStop(0.35, `rgba(60,230,180,${0.55 * ray})`);
+        grad.addColorStop(0.75, `rgba(140,90,255,${0.25 * ray})`);
+        grad.addColorStop(1, 'rgba(140,90,255,0)');
+        g.fillStyle = grad; g.fillRect(x, 0, 1, 256);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      const group = new THREE.Group();
+      [[0, 430, -1050, 0.0, 1], [-250, 520, -1150, 1.7, 0.8], [300, 380, -1200, 3.1, 0.7]].forEach(([x, y, z, ph, s]) => {
+        const geo = new THREE.PlaneGeometry(1700, 420, 90, 1);
+        const p = geo.attributes.position;
+        for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 0.004 + ph) * 260 + Math.sin(p.getX(i) * 0.011 + ph * 2) * 60);
+        const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: s, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+        m.position.set(x, y, z);
+        m.rotation.x = -0.25;
+        group.add(m);
+      });
+      return group;
+    })();
+    skyGroup.add(aurora);
+
+    // ================= LIGHTS & TIME OF DAY =================
+    const hemi = new THREE.HemisphereLight(0xcfe2ef, 0x7d8fa8, 0.65);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 500 });
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.05;
+    scene.add(sun, sun.target);
+
+    const TIMES = {
+      day:      { label: 'Day',         top: '#3F78C0', horizon: '#CFE2EF', sun: '#FFF3E0', az: 125, el: 38, sunInt: 1.0,  amb: 0.65, night: false },
+      golden:   { label: 'Golden hour', top: '#4B5F9E', horizon: '#F6C48F', sun: '#FFC98A', az: 150, el: 9,  sunInt: 0.95, amb: 0.6,  night: false },
+      dusk:     { label: 'Dusk',        top: '#232653', horizon: '#E7907A', sun: '#FF8F66', az: 160, el: 4,  sunInt: 0.85, amb: 0.55, night: false },
+      overcast: { label: 'Overcast',    top: '#8E99A6', horizon: '#D9DEE3', sun: '#FFFFFF', az: 160, el: 50, sunInt: 0.3,  amb: 0.95, night: false },
+      night:    { label: 'Night',       top: '#040817', horizon: '#1A2A4D', sun: '#A9BCFF', az: 165, el: 28, sunInt: 0.45, amb: 0.32, night: true }
+    };
+    let timeKey = 'day';
+
+    function applyTime(key) {
+      timeKey = key;
+      const T = TIMES[key];
+      $('skyTop').value = T.top; $('skyHorizon').value = T.horizon; $('sunColor').value = T.sun;
+      $('sunAz').value = T.az; $('sunEl').value = T.el; $('sunInt').value = T.sunInt; $('ambInt').value = T.amb;
+      $('aurora').checked = T.night;
+      document.querySelectorAll('[data-time]').forEach(b => b.classList.toggle('active', b.dataset.time === key));
+      updateSky();
+    }
+
+    function updateSky() {
+      const top = new THREE.Color($('skyTop').value), horizon = new THREE.Color($('skyHorizon').value);
+      const p = skyGeo.attributes.position, col = skyGeo.attributes.color, c = new THREE.Color();
+      for (let i = 0; i < p.count; i++) {
+        const t = Math.max(0, p.getY(i) / SKY_R);
+        c.copy(horizon).lerp(top, Math.pow(t, 0.45));
+        col.setXYZ(i, c.r, c.g, c.b);
+      }
+      col.needsUpdate = true;
+
+      const az = THREE.MathUtils.degToRad(num('sunAz')), el = THREE.MathUtils.degToRad(num('sunEl'));
+      const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+      const sunC = new THREE.Color($('sunColor').value), night = TIMES[timeKey].night;
+      sun.color.copy(sunC);
+      sun.intensity = num('sunInt');
+      hemi.intensity = num('ambInt');
+      hemi.color.copy(top).lerp(horizon, 0.5).lerp(new THREE.Color('#ffffff'), 0.3);
+      hemi.groundColor.copy(new THREE.Color($('colSnow').value)).multiplyScalar(0.5).lerp(top, 0.35);
+      sun.userData.dir = dir;
+
+      sunGlow.position.copy(dir).multiplyScalar(SKY_R * 0.9);
+      sunGlow.material.color.copy(sunC);
+      sunGlow.material.opacity = night ? 0.35 : Math.min(1, num('sunInt')) * (timeKey === 'overcast' ? 0.25 : 1);
+      sunGlow.scale.setScalar(night ? 160 : 420);
+      moonDisc.visible = night;
+      moonDisc.position.copy(dir).multiplyScalar(SKY_R * 0.88);
+      moonDisc.scale.setScalar(55);
+      stars.visible = night;
+      stars.material.opacity = night ? 0.85 : 0;
+      aurora.visible = $('aurora').checked;
+      updateFog();
+      ['sunAz', 'sunEl'].forEach(id => $(id + '-val').innerText = $(id).value);
+      ['sunInt', 'ambInt'].forEach(id => $(id + '-val').innerText = num(id).toFixed(2));
+    }
+
+    function updateFog() {
+      const f = num('fog'), horizon = new THREE.Color($('skyHorizon').value);
+      const far = lerp(1100, 90, Math.pow(f, 0.8));
+      scene.fog = new THREE.Fog(horizon, far * 0.12, far);
+      cloudMat.emissive = horizon.clone().multiplyScalar(0.45); // clouds glow with the sky instead of going dark
+      $('fog-val').innerText = f.toFixed(2);
+    }
+
+    // ================= SNOWFALL =================
+    const snowGroup = new THREE.Group();
+    scene.add(snowGroup);
+    const flakeTex = radialTexture([[0, 'rgba(255,255,255,1)'], [0.5, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']]);
+    function buildSnow() {
+      clearGroup(snowGroup);
+      const amount = num('snowfall'), wind = num('wind');
+      $('snowfall-val').innerText = amount.toFixed(2);
+      $('wind-val').innerText = wind.toFixed(2);
+      const n = Math.round(amount * 9000);
+      if (!n) return;
+      const rng = mulberry32(seed + 77), cam = camera.position, fwd = new THREE.Vector3();
+      camera.getWorldDirection(fwd);
+      fwd.y = 0; fwd.normalize();
+      const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+      const pos = [], streaks = [];
+      for (let i = 0; i < n; i++) {
+        const along = 1 + Math.pow(rng(), 1.3) * 80, across = (rng() - 0.5) * along * 1.6;
+        const p = cam.clone().addScaledVector(fwd, along).addScaledVector(right, across);
+        p.y = cam.y - 6 + rng() * 34;
+        pos.push(p.x, p.y, p.z);
+        if (wind > 0.3 && i % 4 === 0) {
+          const len = (wind - 0.2) * 0.9;
+          streaks.push(p.x, p.y, p.z, p.x + right.x * len, p.y - len * 0.25, p.z + right.z * len);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      snowGroup.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.13, map: flakeTex, transparent: true, depthWrite: false, alphaTest: 0.02 })));
+      if (streaks.length) {
+        const sg = new THREE.BufferGeometry();
+        sg.setAttribute('position', new THREE.Float32BufferAttribute(streaks, 3));
+        snowGroup.add(new THREE.LineSegments(sg, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 })));
+      }
+    }
+
+    // ================= CAMERA =================
+    function applyCamera(key) {
+      const c = camPresets[key];
+      if (!c) return;
+      camera.position.copy(c.pos);
+      controls.target.copy(c.target);
+      $('fov').value = c.fov;
+      updateFov();
+      controls.update();
+      document.querySelectorAll('[data-cam]').forEach(b => b.classList.toggle('active', b.dataset.cam === key));
+      buildSnow();
+    }
+    function updateFov() {
+      camera.fov = num('fov');
+      camera.updateProjectionMatrix();
+      $('fov-val').innerText = $('fov').value;
+    }
+
+    // ================= CARD FRAME & LAYERS =================
+    const aspectWH = () => $('aspect').value.split(':').map(Number);
+    function frameRect() { // CSS pixels inside the 3D view
+      const cw = canvasContainer.clientWidth, ch = canvasContainer.clientHeight, [aw, ah] = aspectWH(), m = 24;
+      let h = ch - m * 2, w = h * aw / ah;
+      if (w > cw - m * 2) { w = cw - m * 2; h = w * ah / aw; }
+      return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+    }
+
+    const layers = [];
+    let selected = -1, dragging = null;
+
+    function drawLayers(g, fr, showSelection) {
+      layers.forEach((L, i) => {
+        const h = L.size * fr.h, w = h * L.img.width / L.img.height;
+        const px = fr.x + L.x * fr.w, py = fr.y + L.y * fr.h;
+        if (L.shadow) {
+          g.save();
+          g.fillStyle = 'rgba(25, 35, 70, 0.3)';
+          g.filter = `blur(${Math.max(1, h * 0.02)}px)`;
+          g.beginPath();
+          g.ellipse(px, py - h * 0.012, w * 0.42, Math.max(2, h * 0.035), 0, 0, Math.PI * 2);
+          g.fill();
+          g.restore();
+        }
+        g.save();
+        g.translate(px, py);
+        if (L.flip) g.scale(-1, 1);
+        g.drawImage(L.img, -w / 2, -h, w, h);
+        g.restore();
+        if (showSelection && i === selected) {
+          g.save();
+          g.strokeStyle = '#818cf8'; g.lineWidth = 2; g.setLineDash([6, 4]);
+          g.strokeRect(px - w / 2, py - h, w, h);
+          g.restore();
+        }
+      });
+    }
+
+    function drawOverlay() {
+      const g = overlay.getContext('2d'), dpr = window.devicePixelRatio;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, overlay.width, overlay.height);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const fr = frameRect(), cw = canvasContainer.clientWidth, ch = canvasContainer.clientHeight;
+      // dim everything outside the card
+      g.fillStyle = 'rgba(10, 10, 16, 0.6)';
+      g.beginPath();
+      g.rect(0, 0, cw, ch);
+      g.rect(fr.x, fr.y + fr.h, fr.w, -fr.h);
+      g.fill('evenodd');
+      g.save();
+      g.beginPath(); g.rect(fr.x, fr.y, fr.w, fr.h); g.clip();
+      drawLayers(g, fr, true);
+      g.restore();
+      g.strokeStyle = 'rgba(255,255,255,0.7)';
+      g.lineWidth = 1;
+      g.strokeRect(fr.x + 0.5, fr.y + 0.5, fr.w - 1, fr.h - 1);
+    }
+
+    function layerAt(px, py) {
+      const fr = frameRect();
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const L = layers[i], h = L.size * fr.h, w = h * L.img.width / L.img.height;
+        const cx = fr.x + L.x * fr.w, by = fr.y + L.y * fr.h;
+        if (px > cx - w / 2 && px < cx + w / 2 && py > by - h && py < by) return i;
+      }
+      return -1;
+    }
+
+    function refreshLayerUI() {
+      const list = $('layerList');
+      list.innerHTML = '';
+      layers.forEach((L, i) => list.add(new Option(L.name, i)));
+      list.value = selected >= 0 ? String(selected) : '';
+      const L = layers[selected];
+      ['layerSize', 'layerFlip', 'layerShadow', 'layerUp', 'layerDown', 'layerRemove'].forEach(id => $(id).disabled = !L);
+      if (L) {
+        $('layerSize').value = L.size;
+        $('layerSize-val').innerText = L.size.toFixed(2);
+        $('layerFlip').checked = L.flip;
+        $('layerShadow').checked = L.shadow;
+      }
+    }
+
+    function addLayerFiles(files) {
+      [...files].filter(f => f.type.startsWith('image/')).forEach((file, k) => {
+        const img = new Image();
+        img.onload = () => {
+          const wide = img.width > img.height * 1.1; // dogs and sleds are wider than tall
+          layers.push({ img, name: file.name, x: 0.35 + 0.15 * ((layers.length + k) % 3), y: 0.88, size: wide ? 0.28 : 0.45, flip: false, shadow: true });
+          selected = layers.length - 1;
+          refreshLayerUI();
+        };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Layer dragging happens in the capture phase so the orbit camera doesn't also move
+    canvasContainer.addEventListener('pointerdown', e => {
+      const r = canvasContainer.getBoundingClientRect(), i = layerAt(e.clientX - r.left, e.clientY - r.top);
+      if (i < 0) {
+        const m = modelAt(e);
+        if (m < 0) return;
+        selModel = m;
+        dragModel = m;
+        refreshModelUI();
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      selected = i;
+      dragging = { i, sx: e.clientX, sy: e.clientY, ox: layers[i].x, oy: layers[i].y };
+      refreshLayerUI();
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+    window.addEventListener('pointermove', e => {
+      if (dragModel !== null && nearTerrain) {
+        pickRay(e);
+        const hit = raycaster.intersectObject(nearTerrain)[0];
+        if (hit) { const M = models[dragModel]; M.object.position.x = hit.point.x; M.object.position.z = hit.point.z; applyModel(M); }
+        return;
+      }
+      if (!dragging) return;
+      const fr = frameRect(), L = layers[dragging.i];
+      L.x = dragging.ox + (e.clientX - dragging.sx) / fr.w;
+      L.y = dragging.oy + (e.clientY - dragging.sy) / fr.h;
+    });
+    window.addEventListener('pointerup', () => { dragging = null; dragModel = null; });
+    canvasContainer.addEventListener('wheel', e => {
+      const r = canvasContainer.getBoundingClientRect(), i = layerAt(e.clientX - r.left, e.clientY - r.top);
+      if (i < 0) {
+        const m = modelAt(e);
+        if (m < 0) return;
+        const M = models[m];
+        M.turn = ((M.turn + Math.sign(e.deltaY) * 8) % 360 + 360) % 360;
+        selModel = m;
+        applyModel(M);
+        refreshModelUI();
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      const L = layers[i];
+      L.size = THREE.MathUtils.clamp(L.size * (1 - e.deltaY * 0.001), 0.03, 1.5);
+      selected = i;
+      refreshLayerUI();
+      e.stopPropagation();
+      e.preventDefault();
+    }, { capture: true, passive: false });
+    canvasContainer.addEventListener('dragover', e => e.preventDefault());
+    canvasContainer.addEventListener('drop', e => {
+      e.preventDefault();
+      addLayerFiles(e.dataTransfer.files);   // PNGs become 2D layers
+      addModelFiles(e.dataTransfer.files);   // .glb files become 3D models
+    });
+
+    $('layerFiles').addEventListener('change', e => { addLayerFiles(e.target.files); e.target.value = ''; });
+    $('layerList').addEventListener('change', () => { selected = parseInt($('layerList').value); refreshLayerUI(); });
+    $('layerSize').addEventListener('input', () => { if (layers[selected]) { layers[selected].size = num('layerSize'); $('layerSize-val').innerText = layers[selected].size.toFixed(2); } });
+    $('layerFlip').addEventListener('change', () => { if (layers[selected]) layers[selected].flip = $('layerFlip').checked; });
+    $('layerShadow').addEventListener('change', () => { if (layers[selected]) layers[selected].shadow = $('layerShadow').checked; });
+    $('layerUp').addEventListener('click', () => {
+      if (selected < 0 || selected >= layers.length - 1) return;
+      [layers[selected], layers[selected + 1]] = [layers[selected + 1], layers[selected]]; selected++; refreshLayerUI();
+    });
+    $('layerDown').addEventListener('click', () => {
+      if (selected <= 0) return;
+      [layers[selected], layers[selected - 1]] = [layers[selected - 1], layers[selected]]; selected--; refreshLayerUI();
+    });
+    $('layerRemove').addEventListener('click', () => {
+      if (selected < 0) return;
+      layers.splice(selected, 1); selected = Math.min(selected, layers.length - 1); refreshLayerUI();
+    });
+
+    // ================= 3D MODELS =================
+    const modelGroup = new THREE.Group();
+    scene.add(modelGroup);
+    const models = [];
+    let selModel = -1, dragModel = null;
+    const selBox = new THREE.BoxHelper(undefined, 0x818cf8);
+    selBox.visible = false;
+    scene.add(selBox);
+    const gltfLoader = new THREE.GLTFLoader();
+
+    function applyModel(M) {
+      M.object.scale.setScalar(M.unitScale * M.userScale);
+      M.object.rotation.y = THREE.MathUtils.degToRad(M.turn);
+      M.object.position.y = terrainH(M.object.position.x, M.object.position.z);
+    }
+    function snapModels() { models.forEach(applyModel); }
+
+    // A spot on the ground a few steps in front of the camera
+    function groundAhead(dist, side) {
+      const fwd = new THREE.Vector3();
+      camera.getWorldDirection(fwd);
+      fwd.y = 0; fwd.normalize();
+      const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+      return camera.position.clone().addScaledVector(fwd, dist).addScaledVector(right, side);
+    }
+
+    function addModelObject(object, info, name) {
+      object.traverse(o => {
+        if (!o.isMesh) return;
+        o.castShadow = true;
+        o.receiveShadow = true;
+        // glTF has no flat-shading flag; turn it back on for the faceted look
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.flatShading = true; m.needsUpdate = true; });
+      });
+      const pos = groundAhead(info.type === 'dog' ? 4.5 : 6, [0, -1.5, 1.5][models.length % 3]); // first one lands mid-card
+      object.position.set(pos.x, 0, pos.z);
+      // face 3/4 toward the camera
+      const turn = (THREE.MathUtils.radToDeg(Math.atan2(camera.position.x - pos.x, camera.position.z - pos.z)) + 35 + 360) % 360;
+      const M = { name, object, unitScale: info.unitScale || 1, userScale: 1, turn: Math.round(turn), type: info.type };
+      modelGroup.add(object);
+      models.push(M);
+      applyModel(M);
+      selModel = models.length - 1;
+      refreshModelUI();
+    }
+
+    function addModelFiles(files) {
+      [...files].filter(f => /\.(glb|gltf)$/i.test(f.name)).forEach(async file => {
+        addModelData(await file.arrayBuffer(), file.name.replace(/\.(glb|gltf)$/i, ''));
+      });
+    }
+
+    // Also called directly by the Art Studio's "Send to Scene"
+    function addModelData(data, fallbackName) {
+      gltfLoader.parse(data, '', gltf => {
+        let info = { type: 'model', unitScale: 1 };
+        gltf.scene.traverse(o => { if (o.userData && o.userData.longTrail) info = o.userData.longTrail; });
+        addModelObject(gltf.scene, info, info.name || fallbackName);
+      }, err => alert('Could not load ' + fallbackName + ': ' + (err.message || err)));
+    }
+
+    function refreshModelUI() {
+      const list = $('modelList');
+      list.innerHTML = '';
+      models.forEach((M, i) => list.add(new Option(`${M.name} (${M.type})`, i)));
+      list.value = selModel >= 0 ? String(selModel) : '';
+      const M = models[selModel];
+      ['modelScale', 'modelTurn', 'modelToTrail', 'modelDuplicate', 'modelRemove'].forEach(id => $(id).disabled = !M);
+      if (M) {
+        $('modelScale').value = M.userScale; $('modelScale-val').innerText = M.userScale.toFixed(2);
+        $('modelTurn').value = M.turn; $('modelTurn-val').innerText = M.turn;
+      }
+    }
+
+    const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
+    function pickRay(e) {
+      const r = renderer.domElement.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+    }
+    function modelAt(e) {
+      pickRay(e);
+      const hit = raycaster.intersectObjects(modelGroup.children, true)[0];
+      if (!hit) return -1;
+      return models.findIndex(M => { let o = hit.object; while (o) { if (o === M.object) return true; o = o.parent; } return false; });
+    }
+
+    $('modelFiles').addEventListener('change', e => { addModelFiles(e.target.files); e.target.value = ''; });
+    $('modelList').addEventListener('change', () => { selModel = parseInt($('modelList').value); refreshModelUI(); });
+    $('modelScale').addEventListener('input', () => {
+      const M = models[selModel]; if (!M) return;
+      M.userScale = num('modelScale'); $('modelScale-val').innerText = M.userScale.toFixed(2); applyModel(M);
+    });
+    $('modelTurn').addEventListener('input', () => {
+      const M = models[selModel]; if (!M) return;
+      M.turn = num('modelTurn'); $('modelTurn-val').innerText = M.turn; applyModel(M);
+    });
+    $('modelToTrail').addEventListener('click', () => {
+      const M = models[selModel]; if (!M) return;
+      M.object.position.x = trailX(M.object.position.z); applyModel(M);
+    });
+    $('modelDuplicate').addEventListener('click', () => {
+      const M = models[selModel]; if (!M) return;
+      const copy = M.object.clone(true);
+      modelGroup.add(copy);
+      copy.position.x += 1.2;
+      models.push({ ...M, object: copy });
+      selModel = models.length - 1;
+      applyModel(models[selModel]);
+      refreshModelUI();
+    });
+    $('modelRemove').addEventListener('click', () => {
+      const M = models[selModel]; if (!M) return;
+      modelGroup.remove(M.object);
+      models.splice(selModel, 1);
+      selModel = Math.min(selModel, models.length - 1);
+      refreshModelUI();
+    });
+
+    // ================= EXPORT =================
+    // Renders exactly what's inside the frame guide at print size, then paints the character layers on top.
+    function exportCard() {
+      const link = document.createElement('a');
+      link.download = `${biome().label.toLowerCase().replace(/\s+/g, '-')}-card.png`;
+      link.href = renderCard(num('exportWidth') || 1500).toDataURL('image/png');
+      link.click();
+    }
+
+    function renderCard(width) {
+      const [aw, ah] = aspectWH(), outW = Math.round(THREE.MathUtils.clamp(width, 100, 4000)), outH = Math.round(outW * ah / aw);
+      const fr = frameRect(), ch = canvasContainer.clientHeight;
+      const oldFov = camera.fov, oldRatio = renderer.getPixelRatio();
+      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(oldFov) / 2) * fr.h / ch));
+      camera.aspect = outW / outH;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(1);
+      renderer.setSize(outW, outH, false);
+      skyGroup.position.copy(camera.position);
+      const boxWas = selBox.visible;
+      selBox.visible = false;
+      renderer.render(scene, camera);
+      selBox.visible = boxWas;
+
+      const c = document.createElement('canvas');
+      c.width = outW; c.height = outH;
+      const g = c.getContext('2d');
+      g.drawImage(renderer.domElement, 0, 0);
+      if ($('includeLayers').checked) drawLayers(g, { x: 0, y: 0, w: outW, h: outH }, false);
+
+      camera.fov = oldFov;
+      renderer.setPixelRatio(oldRatio);
+      fitRenderer();
+      return c;
+    }
+
+    // ================= UI WIRING =================
+    for (const key in BIOMES) {
+      const b = document.createElement('button');
+      b.textContent = BIOMES[key].label;
+      b.dataset.biome = key;
+      b.addEventListener('click', () => selectBiome(key));
+      $('biomeBtns').appendChild(b);
+    }
+    for (const key in TIMES) {
+      const b = document.createElement('button');
+      b.textContent = TIMES[key].label;
+      b.dataset.time = key;
+      b.addEventListener('click', () => applyTime(key));
+      $('timeBtns').appendChild(b);
+    }
+
+    let currentCam = 'trail';
+    function selectBiome(key) {
+      biomeKey = key;
+      const W = BIOMES[key].weather;
+      $('snowfall').value = W.snowfall; $('wind').value = W.wind; $('fog').value = W.fog; $('clouds').checked = W.clouds;
+      document.querySelectorAll('[data-biome]').forEach(b => b.classList.toggle('active', b.dataset.biome === key));
+      buildEnvironment();
+      applyTime(BIOMES[key].time);
+      applyCamera(currentCam);
+    }
+
+    $('reseed').addEventListener('click', () => { seed = 1 + Math.floor(Math.random() * 100000); buildEnvironment(); applyCamera(currentCam); });
+    $('saveCard').addEventListener('click', exportCard);
+    document.querySelectorAll('[data-cam]').forEach(b => b.addEventListener('click', () => { currentCam = b.dataset.cam; applyCamera(currentCam); }));
+    $('fov').addEventListener('input', updateFov);
+    ['skyTop', 'skyHorizon', 'sunColor', 'sunAz', 'sunEl', 'sunInt', 'ambInt'].forEach(id => $(id).addEventListener('input', updateSky));
+    $('aurora').addEventListener('change', updateSky);
+    $('fog').addEventListener('input', updateFog);
+    ['snowfall', 'wind'].forEach(id => $(id).addEventListener('input', buildSnow));
+    $('clouds').addEventListener('change', buildClouds);
+    ['treeDensity', 'treeSnow'].forEach(id => $(id).addEventListener('input', () => $(id + '-val').innerText = num(id).toFixed(2)));
+    ['treeDensity', 'treeSnow', 'colSnow', 'colTree', 'colRock', 'colIce', 'showTrail'].forEach(id => $(id).addEventListener('change', () => { buildEnvironment(); updateSky(); }));
+
+    function setPanelVisible(visible) {
+      $('ui-panel').classList.toggle('hidden', !visible);
+      $('show-panel').style.display = visible ? 'none' : 'block';
+    }
+    $('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    $('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
+    });
+
+    fitRenderer();
+    refreshLayerUI();
+    refreshModelUI();
+    selectBiome('snowfield');
+
+    // ================= RENDER LOOP =================
+    function animate() {
+      requestAnimationFrame(animate);
+      if (window.studioPaused) return; // hidden tab in the Art Studio
+      controls.update();
+      skyGroup.position.copy(camera.position);
+      // keep the sun's shadow box centered on what the camera is looking at
+      const dir = sun.userData.dir || new THREE.Vector3(0, 1, 0);
+      sun.target.position.copy(controls.target);
+      sun.position.copy(controls.target).addScaledVector(dir, 250);
+      if (models[selModel]) { selBox.setFromObject(models[selModel].object); selBox.visible = true; } else selBox.visible = false;
+      renderer.render(scene, camera);
+      drawOverlay();
+    }
+    animate();
+  </script>
+</body>
+</html>

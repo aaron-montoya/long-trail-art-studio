@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Long Trail Art Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M2.5 19.5l7-11.5 4.2 6.8 2.3-3.3 5.5 8z'/%3E%3C/svg%3E">
+  <script src="icons.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #14141c; font-family: 'Segoe UI', sans-serif; color: #ddd; }
+    body { display: flex; flex-direction: column; }
+
+    header {
+      flex: 0 0 auto; display: flex; align-items: center; gap: 18px;
+      padding: 0 16px; height: 48px; background: #0e0e15; border-bottom: 1px solid #334;
+    }
+    h1 { margin: 0; font-size: 1rem; color: #fff; white-space: nowrap; letter-spacing: 0.02em; display: flex; align-items: center; gap: 8px; }
+    h1 .icon { color: #818cf8; width: 1.3em; height: 1.3em; }
+    nav { display: flex; gap: 6px; }
+    nav button {
+      display: inline-flex; align-items: center; background: #22222e; color: #ccc; border: 1px solid #3a3a4d;
+      border-radius: 6px; padding: 7px 16px; font-size: 0.85rem; cursor: pointer; transition: 0.15s;
+    }
+    nav button:hover { background: #2e2e40; color: #fff; }
+    nav button.active { background: #4f46e5; border-color: #6366f1; color: #fff; }
+    .spacer { flex: 1; }
+    .steps { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #8a8aa0; white-space: nowrap; }
+    .steps b { color: #c7c7d6; font-weight: 600; }
+    .steps .icon { width: 1em; height: 1em; opacity: 0.6; }
+    @media (max-width: 1100px) { .steps { display: none; } }
+
+    #toast {
+      position: fixed; top: 58px; right: 16px; z-index: 20; display: none; align-items: center; gap: 8px;
+      background: #4f46e5; color: #fff; padding: 9px 14px; border-radius: 6px; font-size: 0.85rem;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    main { flex: 1 1 auto; position: relative; min-height: 0; }
+    /* every tool stays loaded so switching tabs never loses your work */
+    iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; visibility: hidden; }
+    iframe.active { visibility: visible; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><i data-icon="paw"></i>Long Trail Art Studio</h1>
+    <nav>
+      <button data-tab="dog"><i data-icon="dog"></i>Dogs</button>
+      <button data-tab="musher"><i data-icon="person"></i>Mushers</button>
+      <button data-tab="scene"><i data-icon="mountain"></i>Scenes</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="steps">
+      Build a dog or musher <i data-icon="chevron"></i> <b>Send to Scene</b> <i data-icon="chevron"></i>
+      place it on the trail <i data-icon="chevron"></i> <b>Save Card PNG</b>
+    </div>
+  </header>
+  <div id="toast"></div>
+
+  <main>
+    <iframe id="tool-dog" src="dog_generator.html" title="Dog generator"></iframe>
+    <iframe id="tool-musher" src="musher_generator.html" title="Musher generator"></iframe>
+    <iframe id="tool-scene" src="environment_generator.html" title="Scene generator"></iframe>
+  </main>
+
+  <script>
+    // The tools are separate pages; this shell shows one at a time and passes 3D models between them.
+    const frames = { dog: 'tool-dog', musher: 'tool-musher', scene: 'tool-scene' };
+    let currentTab = frames[location.hash.slice(1)] ? location.hash.slice(1) : 'dog';
+
+    function showTab(name) {
+      currentTab = name;
+      for (const key in frames) {
+        const frame = document.getElementById(frames[key]);
+        frame.classList.toggle('active', key === name);
+        // only the visible tool keeps drawing, so three 3D views don't slow the computer down
+        try { frame.contentWindow.studioPaused = key !== name; } catch (e) {}
+      }
+      document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
+    }
+
+    function toast(text) {
+      const t = document.getElementById('toast');
+      t.innerHTML = '<i data-icon="send"></i>';
+      t.append(text);
+      renderIcons(t);
+      t.style.display = 'flex';
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => { t.style.display = 'none'; }, 2600);
+    }
+
+    // Called by the dog and musher tools ("Send to Scene")
+    window.studio = {
+      sendModel(buffer, name) {
+        const scene = document.getElementById('tool-scene').contentWindow;
+        if (!scene || !scene.addModelData) { toast('The scene tool is still loading. Try again in a moment.'); return; }
+        scene.addModelData(buffer, name);
+        showTab('scene');
+        toast(`${name} added to the scene. Drag it into place.`);
+      }
+    };
+
+    document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    // a tool that finishes loading later still needs to know whether it's the visible one
+    for (const key in frames) document.getElementById(frames[key]).addEventListener('load', () => showTab(currentTab));
+    showTab(currentTab);
+  </script>
+</body>
+</html>
