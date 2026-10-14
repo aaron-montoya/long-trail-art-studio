@@ -9,6 +9,8 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 | **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
 | **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
 | **Gear** | Items: Snack, Booties, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
+| **Borders** | Fair Isle knit borders: stack bands of motifs (peeries, OXO, snowflakes, 8-point stars, reindeer, spruce trees, paw prints and more), pick a 4-color palette and a stitch (knit, cross-stitch, low-poly tiles, flat). Makes a card frame with mitered corners, a strip, or an all-over card back |
+| **Banners** | Text banners: ribbon with folded tails, notched strip, plaque or hanging banner, with arch bend, hand-cut edges, low-poly facets, outline, fonts and an optional Fair Isle trim |
 | **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, and card-frame export |
 
 ## Making a card
@@ -23,6 +25,16 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
    focus lines, sunburst and rings behind the model and sparkles in front, all centered on the card frame and sized to it, so they stay put however close you zoom. Each model has its own settings; the looks
    (Sticker, Sparkle, Action, Legendary, Night) match the Gear tab's card styles, and **Use on all models** copies them.
 5. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
+
+## Borders and banners
+
+- **Borders tab:** start from a style (Peerie, Snowflake, Star, Reindeer...), then change the bands, colors and stitch.
+  **Card frame** makes a see-through border for the card, **Strip** a single band, **Card back** the pattern over the whole card.
+  Pick the same **Card frame** shape you use in the Scenes tab.
+- **Banners tab:** type the text (Enter for a new line), pick a shape and a color style, and bend it into an arch if you like.
+- **Save PNG** saves either one with a transparent background. **Send to Scene** puts a border on the Scenes tab's card
+  (under **2D Layers & Card Border**, where you can also load a border PNG) and adds a banner as a 2D layer you can drag and resize.
+  Both are included in **Save Card PNG**.
 
 ## Making a gear card
 
@@ -42,7 +54,8 @@ Placed models and scene settings aren't saved between visits, so keep your `.jso
 ## Files
 
 - `index.html`: the studio (tabs)
-- `dog_generator.html`, `musher_generator.html`, `gear_generator.html`, `environment_generator.html`: the tools; each also works on its own
+- `dog_generator.html`, `musher_generator.html`, `gear_generator.html`, `environment_generator.html`, `border_generator.html`, `banner_generator.html`: the tools; each also works on its own
+- `fairisle.js`: Fair Isle motifs and the stitch painter, shared by the Borders and Banners tabs
 - `camkeys.js`, `studio.css`: shared camera controls and layout
 - `icons.js`: shared SVG icons
 

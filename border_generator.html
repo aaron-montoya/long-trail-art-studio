@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fair Isle Border Generator</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .btn-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    .btn-grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+    button:disabled { opacity: 0.45; cursor: default; }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    select { width: 100%; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0 8px; }
+    .hint { font-size: 0.72rem; color: #8a8aa0; margin: 4px 0 10px; line-height: 1.4; }
+    .val-display { color: #fff; font-weight: bold; }
+    .row { display: flex; gap: 6px; }
+    .row > * { flex: 1; }
+
+    /* palette preset buttons show their colors */
+    .pal-btn { flex-direction: column; gap: 5px; padding: 6px 4px; }
+    .pal-btn .sw { display: flex; height: 10px; width: 100%; border-radius: 2px; overflow: hidden; }
+    .pal-btn .sw span { flex: 1; }
+
+    /* one card per band */
+    .band { border: 1px solid #334; border-radius: 6px; padding: 8px; margin-bottom: 8px; background: #1d1d28; }
+    .band-head { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+    .band-head select { flex: 1; }
+    .band-head button { padding: 6px 7px; }
+    .band-head button .icon { margin: 0; }
+    .slots { display: grid; grid-template-columns: 54px 1fr; gap: 5px 8px; align-items: center; font-size: 0.7rem; color: #8a8aa0; text-transform: uppercase; }
+    .chips { display: flex; gap: 5px; }
+    .chip { width: 24px; height: 18px; padding: 0; border-radius: 3px; border: 2px solid transparent; outline: 1px solid #556; }
+    .chip:hover { border-color: #fff; background: inherit; }
+    .chip.on { border-color: #fff; outline-color: #fff; }
+    .band label.check { margin: 8px 0 0; }
+
+    #canvas-container { flex: 1 1 auto; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+      background: #1b1b24 repeating-conic-gradient(#22222e 0% 25%, #1b1b24 0% 50%) 0 0 / 24px 24px; }
+    #preview { display: block; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); }
+  </style>
+  <script src="icons.js"></script>
+  <script src="fairisle.js"></script>
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Fair Isle Borders</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="btn-grid3" id="modeBtns">
+      <button data-mode="frame" title="A border around the card, open in the middle">Card frame</button>
+      <button data-mode="strip" title="One band, for dividers and trims">Strip</button>
+      <button data-mode="back" title="The pattern over the whole card">Card back</button>
+    </div>
+    <div class="action-row">
+      <button id="randomPattern"><i data-icon="dice"></i>Random Pattern</button>
+      <button id="randomColors"><i data-icon="palette"></i>Random Colors</button>
+    </div>
+
+    <details open>
+      <summary>Border Styles</summary>
+      <div class="details-content"><div class="btn-grid3" id="presetBtns" style="margin-bottom: 0;"></div></div>
+    </details>
+
+    <details open>
+      <summary>Colors</summary>
+      <div class="details-content">
+        <div class="btn-grid4" id="paletteBtns"></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Color 1</label><input type="color" id="pal0"></div>
+          <div class="control-group"><label>Color 2</label><input type="color" id="pal1"></div>
+          <div class="control-group"><label>Color 3</label><input type="color" id="pal2"></div>
+          <div class="control-group"><label>Color 4</label><input type="color" id="pal3"></div>
+        </div>
+        <div class="hint">Each band picks its background, main and accent from these four colors.</div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Stitches</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Stitch</label><select id="style"></select></div>
+        <div class="control-group"><label>Stitches across <span class="val-display" id="across-val">140</span></label><input type="range" id="across" min="40" max="260" step="2" value="140" title="Stitches across the card's width: more stitches = smaller ones"></div>
+        <div class="control-group"><label>Facets <span class="val-display" id="facet-val">1.00</span></label><input type="range" id="facet" min="0" max="1.6" step="0.05" value="1"></div>
+        <div class="control-group" id="fabricGroup"><label>Fabric (cross-stitch)</label><input type="color" id="fabric" value="#F4EEE4"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="mirror" checked> Mirror the bands (same from both edges)</label></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Bands (outer edge first)</summary>
+      <div class="details-content">
+        <div id="bandList"></div>
+        <button id="addBand" style="width: 100%;"><i data-icon="copy"></i>Add band</button>
+      </div>
+    </details>
+
+    <details open id="layoutBox">
+      <summary>Layout</summary>
+      <div class="details-content">
+        <div class="frame-only">
+          <div class="control-group"><label class="check"><input type="checkbox" id="fillCenter"> Fill the middle (otherwise see-through)</label></div>
+          <div class="control-group"><label>Middle color</label><input type="color" id="centerColor" value="#F4EEE4"></div>
+        </div>
+        <div class="strip-only control-group"><label>Strip length (stitches) <span class="val-display" id="stripLen-val">90</span></label><input type="range" id="stripLen" min="12" max="300" step="1" value="90"></div>
+        <div class="back-only control-group"><label class="check"><input type="checkbox" id="backEdge" checked> Solid edge around the card back</label></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="view-col">
+    <div class="topbar">
+      <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+      <label>Name <input type="text" id="designName" value="Fair Isle border" maxlength="40" size="14" title="Used for saved file names"></label>
+      <button id="loadDesign" title="Open a saved border (.json)"><i data-icon="folder"></i>Load</button>
+      <button id="saveDesign" title="Save this border (.json)"><i data-icon="download"></i>Save</button>
+      <input type="file" id="loadDesignFile" accept=".json" style="display: none;">
+      <span class="sep"></span>
+      <label id="aspectLabel">Card frame
+        <select id="aspect">
+          <option value="5:7" selected>Portrait card (2.5 × 3.5)</option>
+          <option value="7:5">Landscape card (3.5 × 2.5)</option>
+          <option value="1:1">Square</option>
+          <option value="4:3">Art box 4:3</option>
+          <option value="16:9">Wide 16:9</option>
+        </select>
+      </label>
+      <label title="1500 px wide = 600 dpi on a 2.5 inch poker card">Width <input type="number" id="exportWidth" value="1500" min="200" max="4000" step="50" style="width: 76px;"> px</label>
+      <span class="grow"></span>
+      <button id="sendToScene" style="display: none;" title="Use it in the Scenes tab"><i data-icon="send"></i>Send to Scene</button>
+      <button class="primary" id="savePng"><i data-icon="image"></i>Save PNG</button>
+    </div>
+    <div id="canvas-container"><canvas id="preview"></canvas></div>
+  </div>
+
+  <script>
+    const FI = window.FairIsle, $ = id => document.getElementById(id);
+
+    // One-click starting points; colors are palette slots (0-3)
+    const B = (motif, bg, fg, accent, shade = false) => ({ motif, bg, fg, accent, shade });
+    const PRESETS = {
+      peerie:    { label: 'Peerie', mirror: true, bands: [B('solid', 0, 2, 2), B('checks', 0, 1, 2), B('zigzag', 0, 1, 2)] },
+      snowflake: { label: 'Snowflake', mirror: true, bands: [B('solid', 0, 2, 2), B('checks', 0, 1, 2), B('flakes', 0, 1, 2)] },
+      oxo:       { label: 'OXO', mirror: true, bands: [B('accent', 0, 1, 2), B('waves', 0, 3, 2), B('oxo', 0, 1, 2, true)] },
+      star:      { label: 'Star', mirror: false, bands: [B('solid', 0, 2, 2), B('triangles', 0, 1, 2), B('star', 0, 1, 2), B('lice', 0, 1, 3)] },
+      reindeer:  { label: 'Reindeer', mirror: true, bands: [B('solid', 0, 1, 1), B('crosses', 0, 1, 2), B('deer', 0, 1, 2)] },
+      trees:     { label: 'Forest', mirror: false, bands: [B('solid', 0, 2, 2), B('trees', 0, 1, 2), B('dots', 0, 3, 2), B('accent', 0, 1, 2)] },
+      paws:      { label: 'Paw prints', mirror: true, bands: [B('dashes', 0, 2, 2), B('diamonds', 0, 1, 2), B('paws', 0, 1, 2)] },
+      lozenge:   { label: 'Diamonds', mirror: true, bands: [B('solid', 0, 2, 2), B('hearts', 0, 3, 2), B('lozenge', 0, 1, 2, true)] },
+      thin:      { label: 'Thin trim', mirror: true, bands: [B('solid', 0, 2, 2), B('diamonds', 0, 1, 2)] }
+    };
+
+    const state = {
+      mode: 'frame', style: 'knit', across: 140, facet: 1, mirror: true, fabric: '#F4EEE4',
+      palette: FI.PALETTES.trail.colors.slice(), fillCenter: false, centerColor: '#F4EEE4', stripLen: 90, backEdge: true,
+      seed: 1, bands: JSON.parse(JSON.stringify(PRESETS.snowflake.bands))
+    };
+
+    // ================= UI =================
+    for (const key in FI.STITCHES) $('style').add(new Option(FI.STITCHES[key].label, key));
+    const motifOptions = (() => { // grouped motif menu, built once and cloned per band
+      const sel = document.createElement('select'), groups = {};
+      for (const key in FI.MOTIFS) {
+        const M = FI.MOTIFS[key];
+        if (!groups[M.group]) { groups[M.group] = document.createElement('optgroup'); groups[M.group].label = M.group; sel.appendChild(groups[M.group]); }
+        groups[M.group].appendChild(new Option(`${M.label} (${M.rows.length} row${M.rows.length > 1 ? 's' : ''})`, key));
+      }
+      return sel;
+    })();
+
+    for (const key in PRESETS) {
+      const b = document.createElement('button');
+      b.textContent = PRESETS[key].label;
+      b.addEventListener('click', () => {
+        state.bands = JSON.parse(JSON.stringify(PRESETS[key].bands));
+        state.mirror = PRESETS[key].mirror;
+        syncUI();
+      });
+      $('presetBtns').appendChild(b);
+    }
+    for (const key in FI.PALETTES) {
+      const P = FI.PALETTES[key], b = document.createElement('button');
+      b.className = 'pal-btn';
+      b.innerHTML = `<span class="sw">${P.colors.map(c => `<span style="background:${c}"></span>`).join('')}</span>${P.label}`;
+      b.addEventListener('click', () => { state.palette = P.colors.slice(); syncUI(); });
+      $('paletteBtns').appendChild(b);
+    }
+
+    function bandCard(band, i) {
+      const el = document.createElement('div');
+      el.className = 'band';
+      const head = document.createElement('div');
+      head.className = 'band-head';
+      const sel = motifOptions.cloneNode(true);
+      sel.value = band.motif;
+      sel.addEventListener('change', () => { band.motif = sel.value; draw(); });
+      head.appendChild(sel);
+      [['up', 'Toward the outer edge', -1], ['down', 'Toward the middle', 1]].forEach(([icon, title, dir]) => {
+        const b = document.createElement('button');
+        b.title = title; b.innerHTML = `<i data-icon="${icon}"></i>`;
+        b.disabled = !state.bands[i + dir];
+        b.addEventListener('click', () => { [state.bands[i], state.bands[i + dir]] = [state.bands[i + dir], state.bands[i]]; syncUI(); });
+        head.appendChild(b);
+      });
+      const rm = document.createElement('button');
+      rm.title = 'Remove band'; rm.innerHTML = '<i data-icon="close"></i>';
+      rm.disabled = state.bands.length < 2;
+      rm.addEventListener('click', () => { state.bands.splice(i, 1); syncUI(); });
+      head.appendChild(rm);
+      el.appendChild(head);
+
+      const slots = document.createElement('div');
+      slots.className = 'slots';
+      [['bg', 'Back'], ['fg', 'Main'], ['accent', 'Accent']].forEach(([key, label]) => {
+        slots.insertAdjacentHTML('beforeend', `<span>${label}</span>`);
+        const chips = document.createElement('div');
+        chips.className = 'chips';
+        state.palette.forEach((c, k) => {
+          const chip = document.createElement('button');
+          chip.className = 'chip' + (band[key] === k ? ' on' : '');
+          chip.style.background = c;
+          chip.title = `Color ${k + 1}`;
+          chip.addEventListener('click', () => { band[key] = k; syncUI(); });
+          chips.appendChild(chip);
+        });
+        slots.appendChild(chips);
+      });
+      el.appendChild(slots);
+      el.insertAdjacentHTML('beforeend', `<label class="check"><input type="checkbox"${band.shade ? ' checked' : ''}> Shade the main color toward the accent</label>`);
+      el.querySelector('input').addEventListener('change', e => { band.shade = e.target.checked; draw(); });
+      return el;
+    }
+
+    // Push the state into every control (after a preset, palette, load or random pick)
+    function syncUI() {
+      $('style').value = state.style;
+      $('across').value = state.across; $('facet').value = state.facet;
+      $('mirror').checked = state.mirror; $('fabric').value = state.fabric;
+      state.palette.forEach((c, k) => $('pal' + k).value = c);
+      $('fillCenter').checked = state.fillCenter; $('centerColor').value = state.centerColor;
+      $('stripLen').value = state.stripLen; $('backEdge').checked = state.backEdge;
+      document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === state.mode));
+      document.querySelectorAll('.frame-only').forEach(e => e.style.display = state.mode === 'frame' ? '' : 'none');
+      document.querySelectorAll('.strip-only').forEach(e => e.style.display = state.mode === 'strip' ? '' : 'none');
+      document.querySelectorAll('.back-only').forEach(e => e.style.display = state.mode === 'back' ? '' : 'none');
+      $('aspectLabel').style.display = state.mode === 'strip' ? 'none' : '';
+      $('fabricGroup').style.display = state.style === 'cross' ? '' : 'none';
+      $('sendToScene').disabled = state.mode === 'back';
+      $('sendToScene').title = state.mode === 'back' ? 'Card backs are saved as PNGs (Save PNG)' : state.mode === 'frame' ? 'Use it as the card border in the Scenes tab' : 'Add it to the Scenes tab as a 2D layer';
+      $('bandList').innerHTML = '';
+      state.bands.forEach((b, i) => $('bandList').appendChild(bandCard(b, i)));
+      renderIcons($('bandList'));
+      refreshLabels();
+      draw();
+    }
+    function refreshLabels() {
+      $('across-val').innerText = state.across;
+      $('facet-val').innerText = (+state.facet).toFixed(2);
+      $('stripLen-val').innerText = state.stripLen;
+    }
+
+    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; syncUI(); }));
+    $('style').addEventListener('change', () => { state.style = $('style').value; syncUI(); });
+    ['across', 'facet', 'stripLen'].forEach(id => $(id).addEventListener('input', () => { state[id] = +$(id).value; refreshLabels(); draw(); }));
+    $('mirror').addEventListener('change', () => { state.mirror = $('mirror').checked; draw(); });
+    $('fillCenter').addEventListener('change', () => { state.fillCenter = $('fillCenter').checked; draw(); });
+    $('backEdge').addEventListener('change', () => { state.backEdge = $('backEdge').checked; draw(); });
+    ['fabric', 'centerColor'].forEach(id => $(id).addEventListener('input', () => { state[id] = $(id).value; draw(); }));
+    [0, 1, 2, 3].forEach(k => {
+      $('pal' + k).addEventListener('input', () => { state.palette[k] = $('pal' + k).value; draw(); });
+      $('pal' + k).addEventListener('change', syncUI); // refresh the band chips once the picker closes
+    });
+    $('aspect').addEventListener('change', draw);
+    $('exportWidth').addEventListener('change', draw);
+    $('addBand').addEventListener('click', () => {
+      const last = state.bands[state.bands.length - 1];
+      state.bands.push({ ...last, motif: 'checks' });
+      syncUI();
+    });
+
+    // Random pattern: an edge rule, a peerie, a main band and maybe another peerie
+    const pick = a => a[Math.floor(Math.random() * a.length)];
+    const ofGroup = g => Object.keys(FI.MOTIFS).filter(k => FI.MOTIFS[k].group === g);
+    $('randomPattern').addEventListener('click', () => {
+      const fg = pick([1, 1, 3]), accent = pick([2, 2, 3]);
+      const bands = [B(pick(ofGroup('Rules')), 0, pick([1, 2]), accent), B(pick(ofGroup('Peerie (small)')), 0, fg, accent)];
+      bands.push(B(pick([...ofGroup('Bands'), ...ofGroup('Bands'), ...ofGroup('Stars (big)')]), 0, 1, accent, Math.random() < 0.35));
+      if (Math.random() < 0.4) bands.push(B(pick(ofGroup('Peerie (small)')), 0, pick([1, 3]), accent));
+      state.bands = bands;
+      state.mirror = Math.random() < 0.7;
+      state.seed = 1 + Math.floor(Math.random() * 1e5);
+      syncUI();
+    });
+    $('randomColors').addEventListener('click', () => {
+      const keys = Object.keys(FI.PALETTES);
+      state.palette = FI.PALETTES[pick(keys)].colors.slice();
+      syncUI();
+    });
+
+    // ================= DRAWING =================
+    const aspectWH = () => $('aspect').value.split(':').map(Number);
+    const exportWidth = () => Math.round(Math.min(4000, Math.max(200, +$('exportWidth').value || 1500)));
+    const resolvedBands = () => state.bands.map(b => ({ motif: b.motif, bg: state.palette[b.bg], fg: state.palette[b.fg], accent: state.palette[b.accent], shade: b.shade }));
+
+    // Output size in pixels plus the stitch row height, for the current mode
+    function layout(W) {
+      const rows = FI.buildRows(resolvedBands(), state.mirror), aspect = FI.STITCHES[state.style].aspect;
+      if (state.mode === 'strip') {
+        const rowH = W / state.stripLen / aspect;
+        return { rows, W, H: Math.max(1, Math.round(rows.length * rowH)), rowH };
+      }
+      const [aw, ah] = aspectWH();
+      return { rows, W, H: Math.round(W * ah / aw), rowH: W / state.across / aspect };
+    }
+
+    function paint(g, L) {
+      const opts = { style: state.style, rowH: L.rowH, facet: state.facet, fabric: state.fabric, seed: state.seed };
+      if (state.mode === 'strip') { FI.drawStrip(g, L.rows, L.W, opts); return; }
+      if (state.mode === 'frame') {
+        const T = L.rows.length * L.rowH;
+        if (state.fillCenter) { g.fillStyle = state.centerColor; g.fillRect(T - 1, T - 1, L.W - 2 * T + 2, L.H - 2 * T + 2); }
+        FI.drawFrame(g, L.rows, L.W, L.H, opts);
+        return;
+      }
+      // card back: the bands repeat down the card, centered so the top and bottom match
+      const T = L.rows.length * L.rowH, n = Math.ceil(L.H / T) + 1, y0 = (L.H - n * T) / 2;
+      g.save();
+      g.beginPath(); g.rect(0, 0, L.W, L.H); g.clip();
+      for (let k = 0; k < n; k++) {
+        g.save(); g.translate(0, y0 + k * T);
+        FI.drawStrip(g, L.rows, L.W, { ...opts, seed: opts.seed + k * 7 });
+        g.restore();
+      }
+      if (state.backEdge) { // a solid band in the outer edge color frames the back
+        const rule = state.bands[0], edge = Math.max(2, L.W * 0.025);
+        g.strokeStyle = state.palette[rule.fg];
+        g.lineWidth = edge * 2;
+        g.strokeRect(0, 0, L.W, L.H);
+      }
+      g.restore();
+    }
+
+    let pending = false;
+    function draw() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => { pending = false; drawNow(); });
+    }
+    function drawNow() {
+      const box = $('canvas-container'), full = layout(exportWidth());
+      // preview at screen size, painted with the same layout so it matches the export
+      const pad = 32, s = Math.min((box.clientWidth - pad * 2) / full.W, (box.clientHeight - pad * 2) / full.H);
+      const dpr = window.devicePixelRatio || 1, c = $('preview');
+      c.width = Math.max(1, Math.round(full.W * s * dpr)); c.height = Math.max(1, Math.round(full.H * s * dpr));
+      c.style.width = Math.round(full.W * s) + 'px'; c.style.height = Math.round(full.H * s) + 'px';
+      const g = c.getContext('2d');
+      g.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
+      g.clearRect(0, 0, full.W, full.H);
+      paint(g, full);
+    }
+    new ResizeObserver(draw).observe($('canvas-container'));
+
+    function renderPNG() {
+      const L = layout(exportWidth()), c = document.createElement('canvas');
+      c.width = L.W; c.height = L.H;
+      paint(c.getContext('2d'), L);
+      return c;
+    }
+
+    // ================= FILES & STUDIO =================
+    const fileBase = () => ($('designName').value.trim() || 'fair-isle').replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-').toLowerCase();
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }
+    $('savePng').addEventListener('click', () => renderPNG().toBlob(b => downloadBlob(b, `${fileBase()}-${state.mode}.png`)));
+    $('saveDesign').addEventListener('click', () => downloadBlob(new Blob([JSON.stringify({
+      type: 'border', version: 1, name: $('designName').value, aspect: $('aspect').value, exportWidth: exportWidth(), ...state
+    }, null, 2)], { type: 'application/json' }), `${fileBase()}.json`));
+    $('loadDesign').addEventListener('click', () => $('loadDesignFile').click());
+    $('loadDesignFile').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try {
+        const d = JSON.parse(await file.text());
+        if (d.type !== 'border') { alert(`That file is a ${d.type || 'different'} file, not a border.`); return; }
+        for (const k in state) if (d[k] !== undefined) state[k] = d[k];
+        if (d.name) $('designName').value = d.name;
+        if (d.aspect) $('aspect').value = d.aspect;
+        if (d.exportWidth) $('exportWidth').value = d.exportWidth;
+        syncUI();
+      } catch (err) { alert('Could not read that border file.'); }
+    });
+
+    // Inside the Art Studio: frames become the Scenes tab's card border, strips a 2D layer
+    const studio = (() => { try { return window.parent !== window && window.parent.studio ? window.parent.studio : null; } catch (e) { return null; } })();
+    if (studio && studio.sendImage) {
+      $('sendToScene').style.display = '';
+      $('sendToScene').addEventListener('click', () => {
+        if (state.mode === 'back') return;
+        studio.sendImage(renderPNG().toDataURL('image/png'), $('designName').value.trim() || 'Fair Isle border', state.mode === 'frame' ? 'border' : 'layer');
+      });
+    }
+
+    function setPanelVisible(visible) {
+      $('ui-panel').classList.toggle('hidden', !visible);
+      $('show-panel').style.display = visible ? 'none' : 'inline-flex';
+      draw();
+    }
+    $('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    $('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
+    });
+
+    syncUI();
+  </script>
+</body>
+</html>

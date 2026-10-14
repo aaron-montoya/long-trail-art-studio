@@ -45,6 +45,8 @@
       <button data-tab="musher"><i data-icon="person"></i>Mushers</button>
       <button data-tab="gear"><i data-icon="lantern"></i>Gear</button>
       <button data-tab="scene"><i data-icon="mountain"></i>Scenes</button>
+      <button data-tab="border"><i data-icon="snowflake"></i>Borders</button>
+      <button data-tab="banner"><i data-icon="ribbon"></i>Banners</button>
     </nav>
   </header>
   <div id="toast"></div>
@@ -54,11 +56,13 @@
     <iframe id="tool-musher" src="musher_generator.html" title="Musher generator"></iframe>
     <iframe id="tool-gear" src="gear_generator.html" title="Gear generator"></iframe>
     <iframe id="tool-scene" src="environment_generator.html" title="Scene generator"></iframe>
+    <iframe id="tool-border" src="border_generator.html" title="Fair Isle border generator"></iframe>
+    <iframe id="tool-banner" src="banner_generator.html" title="Banner generator"></iframe>
   </main>
 
   <script>
     // The tools are separate pages; this shell shows one at a time and passes 3D models between them.
-    const frames = { dog: 'tool-dog', musher: 'tool-musher', gear: 'tool-gear', scene: 'tool-scene' };
+    const frames = { dog: 'tool-dog', musher: 'tool-musher', gear: 'tool-gear', scene: 'tool-scene', border: 'tool-border', banner: 'tool-banner' };
     let currentTab = frames[location.hash.slice(1)] ? location.hash.slice(1) : 'dog';
 
     function showTab(name) {
@@ -93,8 +97,17 @@
         scene.addModelData(buffer, name);
         showTab('scene');
         toast(`${name} added to the scene. Drag it into place.`);
+      },
+      // Borders and Banners tabs: kind 'border' becomes the card border, anything else a 2D layer
+      sendImage(dataUrl, name, kind) {
+        const scene = document.getElementById('tool-scene').contentWindow;
+        if (!scene || !scene.setCardBorder) { toast('The scene tool is still loading. Try again in a moment.'); return; }
+        if (kind === 'border') scene.setCardBorder(dataUrl, name); else scene.addLayerImage(dataUrl, name);
+        showTab('scene');
+        toast(kind === 'border' ? `${name} is now the card border.` : `${name} added to the scene. Drag it into place.`);
       }
     };
+    window.studioToast = toast;
 
     document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
     // if the keyboard is still on the studio page (say, after clicking a tab), pass keys to the visible tool

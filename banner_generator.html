@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banner Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Bree+Serif&family=Cinzel:wght@700&family=Fredoka:wght@600&family=Lilita+One&family=Patrick+Hand&display=swap">
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .btn-grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    select, textarea { width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    textarea { resize: vertical; font-family: inherit; font-size: 0.95rem; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 10px; }
+    .hint { font-size: 0.72rem; color: #8a8aa0; margin: 4px 0 10px; line-height: 1.4; }
+    .val-display { color: #fff; font-weight: bold; }
+
+    /* style buttons show the banner's colors */
+    .look-btn { flex-direction: column; gap: 5px; padding: 6px 4px; }
+    .look-btn .sw { display: flex; height: 10px; width: 100%; border-radius: 2px; overflow: hidden; }
+    .look-btn .sw span { flex: 1; }
+
+    #canvas-container { flex: 1 1 auto; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    #canvas-container.bg-checker { background: #1b1b24 repeating-conic-gradient(#22222e 0% 25%, #1b1b24 0% 50%) 0 0 / 24px 24px; }
+    #canvas-container.bg-snow { background: linear-gradient(#9fc3e6, #e8f1f8 55%, #f7fafc); }
+    #canvas-container.bg-dark { background: #101018; }
+    #preview { display: block; }
+  </style>
+  <script src="icons.js"></script>
+  <script src="fairisle.js"></script>
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Banner Generator</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="btn-grid4" id="shapeBtns"></div>
+    <div class="action-row">
+      <button id="randomLook"><i data-icon="palette"></i>Random Colors</button>
+      <button id="reroll" title="New hand-cut edges and facets"><i data-icon="dice"></i>Reroll Edges</button>
+    </div>
+
+    <details open>
+      <summary>Text</summary>
+      <div class="details-content">
+        <div class="control-group"><textarea id="text" rows="3">May use a gear to
+gain +1 speed.</textarea></div>
+        <div class="control-group"><label>Font</label><select id="font"></select></div>
+        <div class="control-group"><label>Text size <span class="val-display" id="textSize-val">0.80</span></label><input type="range" id="textSize" min="0.3" max="1" step="0.01" value="0.8"></div>
+        <div class="control-group"><label>Text outline <span class="val-display" id="textOutline-val">0.00</span></label><input type="range" id="textOutline" min="0" max="1" step="0.05" value="0"></div>
+        <div class="hint">Press Enter for a new line. The text shrinks to fit the banner.</div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Colors</summary>
+      <div class="details-content">
+        <div class="btn-grid4" id="lookBtns"></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Banner</label><input type="color" id="fill"></div>
+          <div class="control-group"><label>Shade</label><input type="color" id="shade"></div>
+          <div class="control-group"><label>Outline</label><input type="color" id="outline"></div>
+          <div class="control-group"><label>Text</label><input type="color" id="textColor"></div>
+          <div class="control-group"><label>Text outline</label><input type="color" id="textOutlineColor"></div>
+        </div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Shape</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Width <span class="val-display" id="aspect-val">4.20</span></label><input type="range" id="aspect" min="0.5" max="8" step="0.05" value="4.2"></div>
+        <div class="control-group ribbon-only"><label>Tail length <span class="val-display" id="tailLen-val">0.85</span></label><input type="range" id="tailLen" min="0.2" max="1.8" step="0.05" value="0.85"></div>
+        <div class="control-group ribbon-only"><label>Tail drop <span class="val-display" id="tailDrop-val">0.30</span></label><input type="range" id="tailDrop" min="0" max="0.6" step="0.01" value="0.3"></div>
+        <div class="control-group"><label id="notchLabel">Notch <span class="val-display" id="notch-val">0.55</span></label><input type="range" id="notch" min="0" max="1" step="0.05" value="0.55"></div>
+        <div class="control-group"><label>Bend (arch) <span class="val-display" id="bend-val">0.00</span></label><input type="range" id="bend" min="-1" max="1" step="0.02" value="0"></div>
+        <div class="control-group"><label>Hand-cut edges <span class="val-display" id="rough-val">0.35</span></label><input type="range" id="rough" min="0" max="1" step="0.05" value="0.35"></div>
+        <div class="control-group"><label>Facets <span class="val-display" id="facet-val">0.60</span></label><input type="range" id="facet" min="0" max="1.5" step="0.05" value="0.6"></div>
+        <div class="control-group"><label>Outline <span class="val-display" id="outlineW-val">0.50</span></label><input type="range" id="outlineW" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="shadow" checked> Drop shadow</label></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Fair Isle Trim</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="trim"> Knit trim along the edges</label></div>
+        <div class="control-group"><label>Pattern</label><select id="trimMotif"></select></div>
+        <div class="control-group"><label>Where</label>
+          <select id="trimWhere"><option value="both">Top and bottom</option><option value="top">Top</option><option value="bottom">Bottom</option></select></div>
+        <div class="control-group"><label>Stitch</label><select id="trimStyle"></select></div>
+        <div class="control-group"><label>Stitch size <span class="val-display" id="trimSize-val">0.45</span></label><input type="range" id="trimSize" min="0.2" max="1.2" step="0.05" value="0.45"></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Background</label><input type="color" id="trimBg"></div>
+          <div class="control-group"><label>Main</label><input type="color" id="trimFg"></div>
+          <div class="control-group"><label>Accent</label><input type="color" id="trimAccent"></div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div id="view-col">
+    <div class="topbar">
+      <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+      <label>Name <input type="text" id="designName" value="Banner" maxlength="40" size="12" title="Used for saved file names"></label>
+      <button id="loadDesign" title="Open a saved banner (.json)"><i data-icon="folder"></i>Load</button>
+      <button id="saveDesign" title="Save this banner (.json)"><i data-icon="download"></i>Save</button>
+      <input type="file" id="loadDesignFile" accept=".json" style="display: none;">
+      <span class="sep"></span>
+      <label title="Width of the saved PNG">Width <input type="number" id="exportWidth" value="1400" min="200" max="4000" step="50" style="width: 76px;"> px</label>
+      <label>Backdrop
+        <select id="backdrop"><option value="checker">See-through</option><option value="snow">Snowy sky</option><option value="dark">Dark</option></select>
+      </label>
+      <span class="grow"></span>
+      <button id="sendToScene" style="display: none;" title="Add it to the Scenes tab as a 2D layer"><i data-icon="send"></i>Send to Scene</button>
+      <button class="primary" id="savePng"><i data-icon="image"></i>Save PNG</button>
+    </div>
+    <div id="canvas-container" class="bg-checker"><canvas id="preview"></canvas></div>
+  </div>
+
+  <script>
+    const FI = window.FairIsle, $ = id => document.getElementById(id);
+
+    const SHAPES = {
+      ribbon:  { label: 'Ribbon', aspect: 4.2, notch: 0.55 },
+      strip:   { label: 'Strip', aspect: 4.6, notch: 0.5 },
+      plaque:  { label: 'Plaque', aspect: 3, notch: 0.45 },
+      hanging: { label: 'Hanging', aspect: 0.8, notch: 0.6 }
+    };
+    const FONTS = {
+      baloo:   { label: 'Rounded bold (Baloo)', css: '800 1px "Baloo 2", "Arial Rounded MT Bold", "Segoe UI", sans-serif' },
+      lilita:  { label: 'Chunky (Lilita One)', css: '400 1px "Lilita One", "Arial Black", sans-serif' },
+      fredoka: { label: 'Friendly (Fredoka)', css: '600 1px "Fredoka", "Segoe UI", sans-serif' },
+      bree:    { label: 'Storybook serif (Bree)', css: '400 1px "Bree Serif", Georgia, serif' },
+      cinzel:  { label: 'Engraved (Cinzel)', css: '700 1px "Cinzel", "Times New Roman", serif' },
+      hand:    { label: 'Handwritten (Patrick Hand)', css: '400 1px "Patrick Hand", "Comic Sans MS", cursive' },
+      system:  { label: 'Plain (system)', css: '700 1px "Segoe UI", system-ui, sans-serif' }
+    };
+    // banner, shade, outline, text, text outline, then the trim's background, main and accent
+    const LOOKS = {
+      parchment: { label: 'Parchment', c: ['#E9D5AA', '#C8A975', '#3B2A1E', '#3B2A1E', '#F6EAD0', '#3B2A1E', '#F3E6C8', '#B8322A'] },
+      red:       { label: 'Red', c: ['#C8423B', '#8E2A27', '#2A1616', '#FFF6E8', '#5A1A16', '#1E2D4A', '#F2EEE3', '#E6B84C'] },
+      navy:      { label: 'Navy & gold', c: ['#1F2E4D', '#121C33', '#0B1020', '#F2C14E', '#0B1020', '#F2C14E', '#1F2E4D', '#C8423B'] },
+      ice:       { label: 'Ice', c: ['#DCEEF8', '#9EC3DB', '#24425E', '#24425E', '#FFFFFF', '#2E5A87', '#EAF2F8', '#7FB3D5'] },
+      forest:    { label: 'Forest', c: ['#2F5A3F', '#1E3C2A', '#122016', '#F3ECD8', '#122016', '#EDE6D3', '#25402F', '#C9933A'] },
+      cream:     { label: 'Birch', c: ['#F4EEE4', '#D6CAB6', '#2B2B33', '#C8423B', '#FFFFFF', '#C8423B', '#F4EEE4', '#1E2D4A'] },
+      night:     { label: 'Night', c: ['#1B2A4D', '#0D162B', '#050914', '#7FD3C6', '#050914', '#0D1B2E', '#7FD3C6', '#B48CF0'] },
+      gold:      { label: 'Legendary', c: ['#E7B84A', '#B8862A', '#4A3210', '#4A3210', '#FFF1C2', '#4A3210', '#FFE08A', '#C8423B'] }
+    };
+    const COLOR_IDS = ['fill', 'shade', 'outline', 'textColor', 'textOutlineColor', 'trimBg', 'trimFg', 'trimAccent'];
+    const SLIDERS = ['textSize', 'textOutline', 'aspect', 'tailLen', 'tailDrop', 'notch', 'bend', 'rough', 'facet', 'outlineW', 'trimSize'];
+
+    let shape = 'ribbon', seed = 7;
+
+    // ================= UI =================
+    for (const key in FONTS) $('font').add(new Option(FONTS[key].label, key));
+    for (const key in FI.STITCHES) $('trimStyle').add(new Option(FI.STITCHES[key].label, key));
+    for (const key in FI.MOTIFS) {
+      const M = FI.MOTIFS[key];
+      if (M.group === 'Rules' || M.group === 'Peerie (small)') $('trimMotif').add(new Option(`${M.label} (${M.rows.length} row${M.rows.length > 1 ? 's' : ''})`, key));
+    }
+    $('trimMotif').value = 'zigzag';
+    for (const key in SHAPES) {
+      const b = document.createElement('button');
+      b.textContent = SHAPES[key].label;
+      b.dataset.shape = key;
+      b.addEventListener('click', () => {
+        shape = key;
+        $('aspect').value = SHAPES[key].aspect;
+        $('notch').value = SHAPES[key].notch;
+        syncUI();
+      });
+      $('shapeBtns').appendChild(b);
+    }
+    function applyLook(key) {
+      LOOKS[key].c.forEach((c, i) => $(COLOR_IDS[i]).value = c);
+      draw();
+    }
+    for (const key in LOOKS) {
+      const L = LOOKS[key], b = document.createElement('button');
+      b.className = 'look-btn';
+      b.innerHTML = `<span class="sw">${[L.c[0], L.c[1], L.c[3], L.c[6]].map(c => `<span style="background:${c}"></span>`).join('')}</span>${L.label}`;
+      b.addEventListener('click', () => applyLook(key));
+      $('lookBtns').appendChild(b);
+    }
+
+    function syncUI() {
+      document.querySelectorAll('[data-shape]').forEach(b => b.classList.toggle('active', b.dataset.shape === shape));
+      document.querySelectorAll('.ribbon-only').forEach(e => e.style.display = shape === 'ribbon' ? '' : 'none');
+      $('notchLabel').firstChild.textContent = shape === 'plaque' ? 'Corner cut ' : 'Notch ';
+      SLIDERS.forEach(id => $(id + '-val').innerText = (+$(id).value).toFixed(2));
+      draw();
+    }
+    SLIDERS.forEach(id => $(id).addEventListener('input', syncUI));
+    [...COLOR_IDS, 'text', 'exportWidth'].forEach(id => $(id).addEventListener('input', draw));
+    ['font', 'shadow', 'trim', 'trimMotif', 'trimWhere', 'trimStyle'].forEach(id => $(id).addEventListener('change', draw));
+    $('backdrop').addEventListener('change', () => { $('canvas-container').className = 'bg-' + $('backdrop').value; });
+    $('randomLook').addEventListener('click', () => { const keys = Object.keys(LOOKS); applyLook(keys[Math.floor(Math.random() * keys.length)]); });
+    $('reroll').addEventListener('click', () => { seed = 1 + Math.floor(Math.random() * 1e5); draw(); });
+    // web fonts arrive after the first draw
+    if (document.fonts) document.fonts.addEventListener('loadingdone', draw);
+
+    // ================= GEOMETRY =================
+    // Everything is laid out in units where the banner body is 100 tall, centered on (0, 0), y down.
+    const num = id => +$(id).value;
+    function layoutShape() {
+      const H = 100, W = H * num('aspect'), n = num('notch');
+      const parts = []; // drawn in order: { pts, fill, closed }
+      const fill = $('fill').value, shadeC = $('shade').value, fold = FI.shade(shadeC, -0.3);
+      let body, text;
+      if (shape === 'ribbon') {
+        const th = 0.78 * H, d = num('tailDrop') * H, top = -th / 2 + d, bot = th / 2 + d, mid = (top + bot) / 2;
+        const tl = num('tailLen') * H, nd = n * 0.45 * H, fw = 0.22 * H;
+        for (const s of [-1, 1]) { // tails, then the folds where the ribbon tucks behind
+          const x0 = s * W / 2, x1 = s * (W / 2 + tl);
+          parts.push({ pts: [[x0, top], [x1, top], [x1 - s * nd, mid], [x1, bot], [x0, bot]], fill: shadeC });
+          parts.push({ pts: [[x0 - s * fw, H / 2], [x0, H / 2], [x0, bot]], fill: fold });
+        }
+        body = [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H / 2], [-W / 2, H / 2]];
+        text = { x0: -W / 2 + 0.16 * H, x1: W / 2 - 0.16 * H, y0: -H / 2 + 0.1 * H, y1: H / 2 - 0.1 * H };
+      } else if (shape === 'strip') {
+        const nd = n * 0.45 * H;
+        body = [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2 - nd, 0], [W / 2, H / 2], [-W / 2, H / 2], [-W / 2 + nd, 0]];
+        text = { x0: -W / 2 + nd + 0.12 * H, x1: W / 2 - nd - 0.12 * H, y0: -H / 2 + 0.1 * H, y1: H / 2 - 0.1 * H };
+      } else if (shape === 'plaque') {
+        const c = (0.05 + n * 0.3) * H;
+        body = [[-W / 2 + c, -H / 2], [W / 2 - c, -H / 2], [W / 2, -H / 2 + c], [W / 2, H / 2 - c], [W / 2 - c, H / 2], [-W / 2 + c, H / 2], [-W / 2, H / 2 - c], [-W / 2, -H / 2 + c]];
+        text = { x0: -W / 2 + Math.max(c * 0.6, 0.14 * H), x1: W / 2 - Math.max(c * 0.6, 0.14 * H), y0: -H / 2 + 0.14 * H, y1: H / 2 - 0.14 * H };
+      } else { // hanging banner: a rod, two cords, and a swallowtail bottom
+        const nd = n * 0.32 * H, rodOut = 0.09 * W + 0.04 * H, rodY = -H / 2, rodH = 0.07 * H, peak = rodY - 0.18 * H - 0.12 * W;
+        parts.push({ pts: [[-W / 2 - rodOut * 0.6, rodY - rodH / 2], [0, peak], [W / 2 + rodOut * 0.6, rodY - rodH / 2]], stroke: true, closed: false });
+        body = [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H / 2], [0, H / 2 - nd], [-W / 2, H / 2]];
+        text = { x0: -W / 2 + 0.1 * W, x1: W / 2 - 0.1 * W, y0: -H / 2 + 0.12 * H, y1: H / 2 - nd - 0.06 * H };
+        body.bottom = H / 2 - nd; // the trim sits above the notch
+        body.rod = { x0: -W / 2 - rodOut, x1: W / 2 + rodOut, y: rodY, h: rodH };
+      }
+      parts.push({ pts: body, fill, body: true });
+      return { H, W, parts, body, text };
+    }
+
+    // Break every edge into short steps, then push the points in and out a little: hand-cut paper
+    function roughen(pts, closed, amount, k) {
+      const out = [], step = 7;
+      const segs = closed ? pts.length : pts.length - 1;
+      for (let i = 0; i < segs; i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const n = Math.max(1, Math.round(len / step));
+        for (let j = 0; j < n; j++) out.push([a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n, i, j === 0]);
+      }
+      if (!closed) out.push([...pts[pts.length - 1], segs, true]);
+      if (amount <= 0) return out;
+      const ph1 = FI.hash(k, 1, seed) * 6.28, ph2 = FI.hash(k, 2, seed) * 6.28;
+      return out.map((p, i) => {
+        if (p[3]) return p; // corners stay put so the shape keeps its silhouette
+        const prev = out[(i - 1 + out.length) % out.length], next = out[(i + 1) % out.length];
+        let nx = -(next[1] - prev[1]), ny = next[0] - prev[0];
+        const l = Math.hypot(nx, ny) || 1;
+        const wob = (0.55 * Math.sin(i * 0.9 + ph1) + 0.3 * Math.sin(i * 2.3 + ph2) + 0.5 * (FI.hash(i, k, seed) - 0.5)) * amount * 2.6;
+        return [p[0] + nx / l * wob, p[1] + ny / l * wob];
+      });
+    }
+    const pathOf = (g, pts, closed = true) => {
+      g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+      if (closed) g.closePath();
+    };
+
+    // Low-poly light: a jittered triangle grid, each triangle a touch lighter or darker, lit from the top
+    function facets(g, bounds, amount, k) {
+      if (amount <= 0) return;
+      const s = 34, cols = Math.ceil((bounds.x1 - bounds.x0) / s) + 2, rows = Math.ceil((bounds.y1 - bounds.y0) / s) + 2;
+      const P = (i, j) => [bounds.x0 - s + i * s + (FI.hash(i, j, seed + k) - 0.5) * s * 0.7, bounds.y0 - s + j * s + (FI.hash(j, i, seed + k + 9) - 0.5) * s * 0.7];
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const a = P(i, j), b = P(i + 1, j), c = P(i, j + 1), d = P(i + 1, j + 1);
+        [[a, b, d], [a, d, c]].forEach((t, q) => {
+          const v = (FI.hash(i * 2 + q, j, seed + k + 3) - 0.5) * 2 - (t[0][1] + t[1][1] + t[2][1]) / 3 / 140;
+          g.fillStyle = v > 0 ? `rgba(255,255,255,${(v * 0.13 * amount).toFixed(3)})` : `rgba(0,0,0,${(-v * 0.13 * amount).toFixed(3)})`;
+          pathOf(g, t); g.fill();
+        });
+      }
+    }
+
+    // Fit the lines into the text box: as big as Text size allows, shrunk until the widest line fits
+    function layoutText(g, box) {
+      const lines = $('text').value.split('\n').map(l => l.trim()).filter(Boolean);
+      if (!lines.length) return null;
+      const font = FONTS[$('font').value].css, lineH = 1.08;
+      const setSize = px => g.font = font.replace('1px', px.toFixed(2) + 'px');
+      let size = (box.y1 - box.y0) * num('textSize') / (lines.length * lineH - (lineH - 1) * 0.6);
+      setSize(100);
+      const widest = Math.max(...lines.map(l => g.measureText(l).width)) / 100;
+      size = Math.min(size, (box.x1 - box.x0) / widest);
+      setSize(size);
+      const cap = g.measureText('H').actualBoundingBoxAscent || size * 0.7;
+      return { lines, size, lineH: size * lineH, cap };
+    }
+
+    // ================= DRAWING =================
+    // Paint the flat (unbent) banner in units into g
+    function paintFlat(g, L) {
+      const rough = num('rough'), ow = num('outlineW') * 7, outline = $('outline').value;
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      L.parts.forEach((part, k) => {
+        if (part.stroke) { // cords
+          g.strokeStyle = outline; g.lineWidth = Math.max(1.6, ow * 0.5);
+          pathOf(g, part.pts, false); g.stroke();
+          return;
+        }
+        const pts = roughen(part.pts, true, part.body ? rough : rough * 0.8, k + 1);
+        g.fillStyle = part.fill;
+        pathOf(g, pts); g.fill();
+        g.save();
+        pathOf(g, pts); g.clip();
+        const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+        const bounds = { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+        if (part.body) paintBodyDetails(g, L, bounds);
+        facets(g, bounds, num('facet') * (part.body ? 1 : 0.8), k * 17);
+        g.restore();
+        if (ow > 0) { g.strokeStyle = outline; g.lineWidth = ow; pathOf(g, pts); g.stroke(); }
+      });
+      if (L.body.rod) { // hanging rod with round knobs
+        const R = L.body.rod, wood = $('shade').value;
+        g.fillStyle = FI.shade(wood, -0.15);
+        g.fillRect(R.x0, R.y - R.h / 2, R.x1 - R.x0, R.h);
+        [R.x0, R.x1].forEach(x => { g.beginPath(); g.arc(x, R.y, R.h * 0.95, 0, Math.PI * 2); g.fill(); if (ow > 0) { g.strokeStyle = outline; g.lineWidth = ow; g.stroke(); } });
+        if (ow > 0) { g.strokeStyle = outline; g.lineWidth = ow; g.strokeRect(R.x0, R.y - R.h / 2, R.x1 - R.x0, R.h); }
+      }
+      paintText(g, L);
+    }
+
+    function trimRows() {
+      return FI.buildRows([{ motif: $('trimMotif').value, bg: $('trimBg').value, fg: $('trimFg').value, accent: $('trimAccent').value }], false);
+    }
+    const trimThickness = () => $('trim').checked ? trimRows().length * num('trimSize') * 7 : 0;
+
+    function paintBodyDetails(g, L, bounds) {
+      if (shape === 'plaque') { // an inner line a little in from the edge
+        const inset = 9, c = (0.05 + num('notch') * 0.3) * L.H, W = L.W, H = L.H, ci = Math.max(0, c - inset * 0.4);
+        g.strokeStyle = FI.shade($('fill').value, -0.35); g.lineWidth = 2.2;
+        pathOf(g, [[-W / 2 + inset + ci, -H / 2 + inset], [W / 2 - inset - ci, -H / 2 + inset], [W / 2 - inset, -H / 2 + inset + ci], [W / 2 - inset, H / 2 - inset - ci],
+                   [W / 2 - inset - ci, H / 2 - inset], [-W / 2 + inset + ci, H / 2 - inset], [-W / 2 + inset, H / 2 - inset - ci], [-W / 2 + inset, -H / 2 + inset + ci]]);
+        g.stroke();
+      }
+      if (!$('trim').checked) return;
+      const rows = trimRows(), rowH = num('trimSize') * 7, where = $('trimWhere').value, margin = shape === 'plaque' ? 15 : 7;
+      const opts = { style: $('trimStyle').value, rowH, facet: 1, fabric: $('fill').value, seed };
+      const len = bounds.x1 - bounds.x0 + 40;
+      if (where !== 'bottom') { g.save(); g.translate(bounds.x0 - 20, -L.H / 2 + margin); FI.drawStrip(g, rows, len, opts); g.restore(); }
+      if (where !== 'top') { g.save(); g.translate(bounds.x1 + 20, (L.body.bottom || L.H / 2) - margin); g.rotate(Math.PI); FI.drawStrip(g, rows, len, opts); g.restore(); }
+    }
+
+    function paintText(g, L) {
+      const t = trimThickness(), where = $('trimWhere').value;
+      const box = { ...L.text, y0: L.text.y0 + (where !== 'bottom' ? t : 0), y1: L.text.y1 - (where !== 'top' ? t : 0) };
+      const T = layoutText(g, box);
+      if (!T) return;
+      const cy = (box.y0 + box.y1) / 2, cx = (box.x0 + box.x1) / 2;
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      g.lineJoin = 'round';
+      T.lines.forEach((line, i) => {
+        const y = cy + (i - (T.lines.length - 1) / 2) * T.lineH + T.cap / 2;
+        const tow = num('textOutline') * T.size * 0.22;
+        if (tow > 0) { g.strokeStyle = $('textOutlineColor').value; g.lineWidth = tow; g.strokeText(line, cx, y); }
+        g.fillStyle = $('textColor').value;
+        g.fillText(line, cx, y);
+      });
+    }
+
+    // Arch: wrap the flat banner around a circle. Each thin column of the flat image is placed and turned
+    // along the arc. bend > 0 bows up (a smile turned over), bend < 0 bows down.
+    function bendInfo(Wf, Hf, cy) {
+      const b = num('bend'), A = Math.abs(b) * 1.25; // up to ~72° of arc
+      if (A < 0.01) return null;
+      const R0 = Wf / A, up = b > 0, cx = Wf / 2;
+      const map = (x, y) => {
+        const th = (x - cx) / R0, r = up ? R0 - (y - cy) : R0 + (y - cy);
+        return up ? [cx + r * Math.sin(th), cy + R0 - r * Math.cos(th)] : [cx + r * Math.sin(th), cy - R0 + r * Math.cos(th)];
+      };
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (let i = 0; i <= 40; i++) for (const y of [0, Hf]) {
+        const [px, py] = map(Wf * i / 40, y);
+        x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      }
+      return { R0, up, cx, cy, map, x0, x1, y0, y1 };
+    }
+
+    // Render at `scale` pixels per unit. Returns a canvas with the finished banner and its shadow.
+    function renderBanner(widthPx) {
+      const L = layoutShape(), m = 22; // margin for outlines, rough edges and the shadow
+      // measure in units first
+      let ux0 = -L.W / 2, ux1 = L.W / 2, uy0 = -L.H / 2, uy1 = L.H / 2;
+      L.parts.forEach(p => p.pts.forEach(([x, y]) => { ux0 = Math.min(ux0, x); ux1 = Math.max(ux1, x); uy0 = Math.min(uy0, y); uy1 = Math.max(uy1, y); }));
+      if (L.body.rod) { ux0 = Math.min(ux0, L.body.rod.x0 - 8); ux1 = Math.max(ux1, L.body.rod.x1 + 8); }
+      ux0 -= m; ux1 += m; uy0 -= m; uy1 += m;
+      const Wu = ux1 - ux0, Hu = uy1 - uy0, bu = bendInfo(Wu, Hu, -uy0);
+      const outWu = bu ? bu.x1 - bu.x0 : Wu, scale = widthPx / outWu;
+
+      const flat = document.createElement('canvas');
+      flat.width = Math.ceil(Wu * scale); flat.height = Math.ceil(Hu * scale);
+      const g = flat.getContext('2d');
+      g.setTransform(scale, 0, 0, scale, -ux0 * scale, -uy0 * scale);
+      paintFlat(g, L);
+
+      let art = flat;
+      if (bu) {
+        const B = bendInfo(flat.width, flat.height, -uy0 * scale);
+        art = document.createElement('canvas');
+        art.width = Math.ceil(B.x1 - B.x0); art.height = Math.ceil(B.y1 - B.y0);
+        const o = art.getContext('2d'), sw = 2, stretch = 1 + flat.height / B.R0;
+        for (let x = 0; x < flat.width; x += sw) {
+          const [px, py] = B.map(x, B.cy), th = (x - B.cx) / B.R0;
+          o.setTransform(1, 0, 0, 1, px - B.x0, py - B.y0);
+          o.rotate(B.up ? th : -th);
+          o.drawImage(flat, x, 0, sw, flat.height, 0, -B.cy, sw * stretch + 0.6, flat.height);
+        }
+      }
+      const out = document.createElement('canvas');
+      out.width = art.width; out.height = art.height;
+      const og = out.getContext('2d');
+      if ($('shadow').checked) {
+        og.shadowColor = 'rgba(10, 15, 30, 0.35)';
+        og.shadowBlur = 6 * scale; og.shadowOffsetY = 4 * scale;
+      }
+      og.drawImage(art, 0, 0);
+      return out;
+    }
+
+    let pending = false;
+    function draw() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => { pending = false; drawNow(); });
+    }
+    function drawNow() {
+      const box = $('canvas-container'), dpr = window.devicePixelRatio || 1, pad = 40;
+      // render once to learn the shape's proportions, then at the size that fits the view
+      const probe = renderBanner(400), fit = Math.min((box.clientWidth - pad * 2) / probe.width, (box.clientHeight - pad * 2) / probe.height);
+      const w = Math.max(50, Math.round(400 * fit)), art = renderBanner(w * dpr), c = $('preview');
+      c.width = art.width; c.height = art.height;
+      c.style.width = art.width / dpr + 'px'; c.style.height = art.height / dpr + 'px';
+      c.getContext('2d').drawImage(art, 0, 0);
+    }
+    new ResizeObserver(draw).observe($('canvas-container'));
+
+    // ================= FILES & STUDIO =================
+    const exportWidth = () => Math.round(Math.min(4000, Math.max(200, +$('exportWidth').value || 1400)));
+    const fileBase = () => ($('designName').value.trim() || 'banner').replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-').toLowerCase();
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }
+    $('savePng').addEventListener('click', () => renderBanner(exportWidth()).toBlob(b => downloadBlob(b, `${fileBase()}.png`)));
+
+    function bannerState() {
+      const values = {};
+      document.querySelectorAll('#ui-panel input, #ui-panel select, #ui-panel textarea, .topbar input, .topbar select').forEach(el => {
+        if (!el.id || el.type === 'file') return;
+        values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return { type: 'banner', version: 1, shape, seed, values };
+    }
+    $('saveDesign').addEventListener('click', () => downloadBlob(new Blob([JSON.stringify(bannerState(), null, 2)], { type: 'application/json' }), `${fileBase()}.json`));
+    $('loadDesign').addEventListener('click', () => $('loadDesignFile').click());
+    $('loadDesignFile').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try {
+        const d = JSON.parse(await file.text());
+        if (d.type !== 'banner') { alert(`That file is a ${d.type || 'different'} file, not a banner.`); return; }
+        for (const id in d.values) {
+          const el = $(id);
+          if (!el || el.type === 'file') continue;
+          if (el.type === 'checkbox') el.checked = d.values[id]; else el.value = d.values[id];
+        }
+        if (SHAPES[d.shape]) shape = d.shape;
+        if (d.seed) seed = d.seed;
+        $('canvas-container').className = 'bg-' + $('backdrop').value;
+        syncUI();
+      } catch (err) { alert('Could not read that banner file.'); }
+    });
+
+    const studio = (() => { try { return window.parent !== window && window.parent.studio ? window.parent.studio : null; } catch (e) { return null; } })();
+    if (studio && studio.sendImage) {
+      $('sendToScene').style.display = '';
+      $('sendToScene').addEventListener('click', () =>
+        studio.sendImage(renderBanner(exportWidth()).toDataURL('image/png'), $('designName').value.trim() || 'Banner', 'banner'));
+    }
+
+    function setPanelVisible(visible) {
+      $('ui-panel').classList.toggle('hidden', !visible);
+      $('show-panel').style.display = visible ? 'none' : 'inline-flex';
+      draw();
+    }
+    $('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    $('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text'))) return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
+    });
+
+    LOOKS.parchment.c.forEach((c, i) => $(COLOR_IDS[i]).value = c);
+    syncUI();
+  </script>
+</body>
+</html>

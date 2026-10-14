@@ -163,10 +163,10 @@
     </details>
     <!-- LAYERS -->
     <details>
-      <summary>2D Characters (PNG layers)</summary>
+      <summary>2D Layers &amp; Card Border</summary>
       <div class="details-content">
         <div class="control-group"><input type="file" id="layerFiles" accept="image/png,image/webp,image/*" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
-        <div class="hint">Add PNGs saved from the dog and musher generators (or drop them on the view). Drag a character in the view to move it; scroll over it to resize.</div>
+        <div class="hint">Add PNGs saved from the other tabs (or drop them on the view); banners sent from the Banners tab land here too. Drag a layer in the view to move it; scroll over it to resize.</div>
         <div class="control-group"><select id="layerList" size="5"></select></div>
         <div class="control-group"><label>Size <span class="val-display" id="layerSize-val">0.40</span></label><input type="range" id="layerSize" min="0.05" max="1.2" step="0.01" value="0.4"></div>
         <div class="control-group row">
@@ -177,6 +177,13 @@
           <button id="layerUp"><i data-icon="up"></i>Forward</button>
           <button id="layerDown"><i data-icon="down"></i>Back</button>
           <button id="layerRemove"><i data-icon="close"></i>Remove</button>
+        </div>
+        <div class="sub-head">Card border</div>
+        <div class="hint" id="borderName">No border. Make one in the Borders tab and click Send to Scene, or load a border PNG.</div>
+        <div class="control-group"><input type="file" id="borderFile" accept="image/png,image/webp,image/*" style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
+        <div class="row">
+          <label class="check" style="align-self: center;"><input type="checkbox" id="borderShow" checked> Show border</label>
+          <button id="borderRemove"><i data-icon="close"></i>Remove border</button>
         </div>
       </div>
     </details>
@@ -1113,6 +1120,7 @@
       g.beginPath(); g.rect(fr.x, fr.y, fr.w, fr.h); g.clip();
       drawLayers(g, fr, true);
       drawFrost(g, fr, num('frost'));
+      drawBorder(g, fr);
       g.restore();
       g.strokeStyle = 'rgba(255,255,255,0.7)';
       g.lineWidth = 1;
@@ -1216,6 +1224,46 @@
       addLayerFiles(e.dataTransfer.files);   // PNGs become 2D layers
       addModelFiles(e.dataTransfer.files);   // .glb files become 3D models
     });
+
+    // Banners and strips from the Borders and Banners tabs: a layer with no ground shadow, about as wide as the card
+    function addLayerImage(src, name) {
+      const img = new Image();
+      img.onload = () => {
+        const fr = frameRect();
+        layers.push({ img, name, x: 0.5, y: 0.94, size: Math.min(0.6, 0.78 * fr.w / fr.h * img.height / img.width), flip: false, shadow: false });
+        selected = layers.length - 1;
+        refreshLayerUI();
+      };
+      img.src = src;
+    }
+
+    // Card border: drawn over everything, stretched to the card frame (make it in the same card shape)
+    let border = null;
+    function setCardBorder(src, name) {
+      const img = new Image();
+      img.onload = () => {
+        border = { img, name };
+        $('borderShow').checked = true;
+        refreshBorderUI();
+        const [aw, ah] = aspectWH();
+        if (Math.abs(img.width / img.height - aw / ah) > 0.02) toast(`The border is a different shape than the card frame, so it's stretched to fit. Make it with the same Card frame setting in the Borders tab.`);
+      };
+      img.src = src;
+    }
+    function drawBorder(g, fr) {
+      if (border && $('borderShow').checked) g.drawImage(border.img, fr.x, fr.y, fr.w, fr.h);
+    }
+    function refreshBorderUI() {
+      $('borderName').innerText = border ? `Border: ${border.name}` : 'No border. Make one in the Borders tab and click Send to Scene, or load a border PNG.';
+      $('borderShow').disabled = $('borderRemove').disabled = !border;
+    }
+    function toast(text) { try { window.parent.studioToast(text); } catch (e) { console.log(text); } }
+    $('borderFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) setCardBorder(URL.createObjectURL(file), file.name.replace(/\.\w+$/, ''));
+    });
+    $('borderRemove').addEventListener('click', () => { border = null; refreshBorderUI(); });
 
     $('layerFiles').addEventListener('change', e => { addLayerFiles(e.target.files); e.target.value = ''; });
     $('layerList').addEventListener('change', () => { selected = parseInt($('layerList').value); refreshLayerUI(); });
@@ -1678,6 +1726,7 @@
       g.drawImage(renderer.domElement, 0, 0);
       if ($('includeLayers').checked) drawLayers(g, { x: 0, y: 0, w: outW, h: outH }, false);
       drawFrost(g, { x: 0, y: 0, w: outW, h: outH }, num('frost'));
+      drawBorder(g, { x: 0, y: 0, w: outW, h: outH });
 
       camera.fov = oldFov;
       renderer.setPixelRatio(oldRatio);
@@ -1748,6 +1797,7 @@
 
     fitRenderer();
     refreshLayerUI();
+    refreshBorderUI();
     refreshModelUI();
     selectBiome('snowfield');
 
