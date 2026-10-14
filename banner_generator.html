@@ -106,6 +106,7 @@ gain +1 speed.</textarea></div>
         <div class="control-group"><label>Hand-cut edges <span class="val-display" id="rough-val">0.35</span></label><input type="range" id="rough" min="0" max="1" step="0.05" value="0.35"></div>
         <div class="control-group"><label>Facets <span class="val-display" id="facet-val">0.60</span></label><input type="range" id="facet" min="0" max="1.5" step="0.05" value="0.6"></div>
         <div class="control-group"><label>Outline <span class="val-display" id="outlineW-val">0.50</span></label><input type="range" id="outlineW" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="control-group hanging-only"><label class="check"><input type="checkbox" id="hangString" checked> Hanging string</label></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="shadow" checked> Drop shadow</label></div>
       </div>
     </details>
@@ -216,13 +217,14 @@ gain +1 speed.</textarea></div>
     function syncUI() {
       document.querySelectorAll('[data-shape]').forEach(b => b.classList.toggle('active', b.dataset.shape === shape));
       document.querySelectorAll('.ribbon-only').forEach(e => e.style.display = shape === 'ribbon' ? '' : 'none');
+      document.querySelectorAll('.hanging-only').forEach(e => e.style.display = shape === 'hanging' ? '' : 'none');
       $('notchLabel').firstChild.textContent = shape === 'plaque' ? 'Corner cut ' : 'Notch ';
       SLIDERS.forEach(id => $(id + '-val').innerText = (+$(id).value).toFixed(2));
       draw();
     }
     SLIDERS.forEach(id => $(id).addEventListener('input', syncUI));
     [...COLOR_IDS, 'text', 'exportWidth'].forEach(id => $(id).addEventListener('input', draw));
-    ['font', 'shadow', 'trim', 'trimMotif', 'trimWhere', 'trimStyle'].forEach(id => $(id).addEventListener('change', draw));
+    ['font', 'shadow', 'hangString', 'trim', 'trimMotif', 'trimWhere', 'trimStyle'].forEach(id => $(id).addEventListener('change', draw));
     $('backdrop').addEventListener('change', () => { $('canvas-container').className = 'bg-' + $('backdrop').value; });
     $('randomLook').addEventListener('click', () => { const keys = Object.keys(LOOKS); applyLook(keys[Math.floor(Math.random() * keys.length)]); });
     $('reroll').addEventListener('click', () => { seed = 1 + Math.floor(Math.random() * 1e5); draw(); });
@@ -257,7 +259,7 @@ gain +1 speed.</textarea></div>
         text = { x0: -W / 2 + Math.max(c * 0.6, 0.14 * H), x1: W / 2 - Math.max(c * 0.6, 0.14 * H), y0: -H / 2 + 0.14 * H, y1: H / 2 - 0.14 * H };
       } else { // hanging banner: a rod, two cords, and a swallowtail bottom
         const nd = n * 0.32 * H, rodOut = 0.09 * W + 0.04 * H, rodY = -H / 2, rodH = 0.07 * H, peak = rodY - 0.18 * H - 0.12 * W;
-        parts.push({ pts: [[-W / 2 - rodOut * 0.6, rodY - rodH / 2], [0, peak], [W / 2 + rodOut * 0.6, rodY - rodH / 2]], stroke: true, closed: false });
+        if ($('hangString').checked) parts.push({ pts: [[-W / 2 - rodOut * 0.6, rodY - rodH / 2], [0, peak], [W / 2 + rodOut * 0.6, rodY - rodH / 2]], stroke: true, closed: false });
         body = [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H / 2], [0, H / 2 - nd], [-W / 2, H / 2]];
         text = { x0: -W / 2 + 0.1 * W, x1: W / 2 - 0.1 * W, y0: -H / 2 + 0.12 * H, y1: H / 2 - nd - 0.06 * H };
         body.bottom = H / 2 - nd; // the trim sits above the notch
@@ -350,9 +352,11 @@ gain +1 speed.</textarea></div>
       if (L.body.rod) { // hanging rod with round knobs
         const R = L.body.rod, wood = $('shade').value;
         g.fillStyle = FI.shade(wood, -0.15);
+        g.strokeStyle = outline; g.lineWidth = ow;
         g.fillRect(R.x0, R.y - R.h / 2, R.x1 - R.x0, R.h);
-        [R.x0, R.x1].forEach(x => { g.beginPath(); g.arc(x, R.y, R.h * 0.95, 0, Math.PI * 2); g.fill(); if (ow > 0) { g.strokeStyle = outline; g.lineWidth = ow; g.stroke(); } });
-        if (ow > 0) { g.strokeStyle = outline; g.lineWidth = ow; g.strokeRect(R.x0, R.y - R.h / 2, R.x1 - R.x0, R.h); }
+        if (ow > 0) g.strokeRect(R.x0, R.y - R.h / 2, R.x1 - R.x0, R.h);
+        // the knobs go on after the rod, so the rod tucks in behind them
+        [R.x0, R.x1].forEach(x => { g.beginPath(); g.arc(x, R.y, R.h * 0.95, 0, Math.PI * 2); g.fill(); if (ow > 0) g.stroke(); });
       }
       paintText(g, L);
     }
