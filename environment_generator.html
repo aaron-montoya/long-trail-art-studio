@@ -72,6 +72,12 @@
       <button class="primary-btn" id="reseed"><i data-icon="dice"></i>New Layout</button>
     </div>
 
+    <!-- EVENTS -->
+    <details open>
+      <summary>Events</summary>
+      <div class="details-content"><div class="btn-grid3" id="eventBtns" style="margin-bottom: 0;"></div></div>
+    </details>
+
     <!-- 3D MODELS -->
     <details open>
       <summary>3D Models (Dogs, Mushers & Gear)</summary>
@@ -80,6 +86,9 @@
         <div class="control-group"><select id="modelList" size="4"></select></div>
         <div class="control-group"><label>Size <span class="val-display" id="modelScale-val">1.00</span></label><input type="range" id="modelScale" min="0.3" max="3" step="0.05" value="1"></div>
         <div class="control-group"><label>Turn <span class="val-display" id="modelTurn-val">0</span></label><input type="range" id="modelTurn" min="0" max="360" step="1" value="0"></div>
+        <div class="control-group"><label>Tilt <span class="val-display" id="modelTilt-val">0</span></label><input type="range" id="modelTilt" min="-180" max="180" step="1" value="0"></div>
+        <div class="control-group"><label>Roll <span class="val-display" id="modelRoll-val">0</span></label><input type="range" id="modelRoll" min="-180" max="180" step="1" value="0"></div>
+        <div class="control-group"><label>Raise above ground (m) <span class="val-display" id="modelLift-val">0.00</span></label><input type="range" id="modelLift" min="0" max="3" step="0.01" value="0"></div>
         <div class="row">
           <button id="modelToTrail"><i data-icon="trail"></i>Onto trail</button>
           <button id="modelDuplicate"><i data-icon="copy"></i>Duplicate</button>
@@ -114,6 +123,11 @@
         <div class="control-group"><label>Wind <span class="val-display" id="wind-val">0.10</span></label><input type="range" id="wind" min="0" max="1" step="0.05" value="0.1"></div>
         <div class="control-group"><label>Fog / Haze <span class="val-display" id="fog-val">0.25</span></label><input type="range" id="fog" min="0" max="1" step="0.05" value="0.25"></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="clouds"> Sea of clouds below</label></div>
+        <div class="control-group"><label>Sparkle (fresh snow) <span class="val-display" id="sparkle-val">0.00</span></label><input type="range" id="sparkle" min="0" max="1" step="0.05" value="0"></div>
+        <div class="control-group"><label>Frost (bitter cold) <span class="val-display" id="frost-val">0.00</span></label><input type="range" id="frost" min="0" max="1" step="0.05" value="0"></div>
+        <div class="control-group"><label>Tailwind <span class="val-display" id="tailwind-val">0.00</span></label><input type="range" id="tailwind" min="0" max="1" step="0.05" value="0"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="overflow"> Overflow slush on the ice (River Ice)</label></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="trailCovered"> Fresh snow over the trail</label></div>
       </div>
     </details>
 
@@ -553,8 +567,7 @@
           m.receiveShadow = true;
           env.add(m);
         });
-        packedMat.color.copy(snowC).multiplyScalar(0.93).lerp(new THREE.Color('#c9d6e3'), 0.25);
-        trackMat.color.copy(snowC).multiplyScalar(0.78).lerp(new THREE.Color('#8fa5bd'), 0.35);
+        updateTrailColors();
       }
 
       // cracks in river ice
@@ -634,6 +647,7 @@
       env.add(mMesh);
 
       buildClouds();
+      buildOverflow();
       snapModels();
 
       // camera viewpoints along this trail
@@ -839,6 +853,177 @@
       }
     }
 
+    // ================= EVENT EFFECTS =================
+    // Sparkle: glints on fresh snow. Frost: ice crystals in the air plus icy card edges (drawn in 2D so the
+    // exported card gets them too). Tailwind: snow streaming forward down the trail. Overflow: wet slush
+    // seeping over river ice. Covered trail: fresh snow softens the sled tracks.
+    const fxGroup = new THREE.Group(), overflowGroup = new THREE.Group();
+    scene.add(fxGroup, overflowGroup);
+
+    const starTex = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const g = c.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(0.15, 'rgba(255,255,255,0.8)'); grad.addColorStop(0.4, 'rgba(255,255,255,0.1)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+      g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(32, 4); g.lineTo(32, 60); g.moveTo(4, 32); g.lineTo(60, 32); g.stroke(); // four-point glint
+      return new THREE.CanvasTexture(c);
+    })();
+    const streakTex = (() => {
+      const c = document.createElement('canvas'); c.width = 128; c.height = 16;
+      const g = c.getContext('2d');
+      for (let x = 0; x < 128; x++) {
+        const t = x / 127, a = t < 0.25 ? t / 0.25 : Math.max(0, 1 - (t - 0.25) / 0.75);
+        const grad = g.createLinearGradient(0, 0, 0, 16);
+        grad.addColorStop(0, 'rgba(255,255,255,0)'); grad.addColorStop(0.5, `rgba(255,255,255,${a})`); grad.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grad; g.fillRect(x, 0, 1, 16);
+      }
+      return new THREE.CanvasTexture(c);
+    })();
+
+    function buildFx() {
+      clearGroup(fxGroup);
+      const sparkle = num('sparkle'), frost = num('frost'), tail = num('tailwind');
+      ['sparkle', 'frost', 'tailwind'].forEach(id => $(id + '-val').innerText = num(id).toFixed(2));
+      const rng = mulberry32(seed + 313), cam = camera.position.clone(), fwd = new THREE.Vector3();
+      camera.getWorldDirection(fwd);
+      fwd.y = 0; fwd.normalize();
+      const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+      const ahead = (along, across) => cam.clone().addScaledVector(fwd, along).addScaledVector(right, across);
+      const glints = (positions, size, color) => {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        fxGroup.add(new THREE.Points(g, new THREE.PointsMaterial({ color, size, map: starTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })));
+      };
+
+      if (sparkle > 0.01) { // glints lying on the snow, thinning out with distance
+        const pos = [];
+        for (let i = 0; i < Math.round(sparkle * 2400); i++) {
+          const along = 0.8 + Math.pow(rng(), 1.6) * 45, p = ahead(along, (rng() - 0.5) * along * 1.5);
+          pos.push(p.x, terrainH(p.x, p.z) + 0.04, p.z);
+        }
+        glints(pos, 0.15, 0xe6f3ff);
+      }
+      if (frost > 0.01) { // diamond dust: ice crystals hanging in the cold air
+        const pos = [];
+        for (let i = 0; i < Math.round(frost * 900); i++) {
+          const along = 1 + Math.pow(rng(), 1.4) * 30, p = ahead(along, (rng() - 0.5) * along * 1.4);
+          pos.push(p.x, cam.y - 2 + rng() * 9, p.z);
+        }
+        glints(pos, 0.07, 0xdff1ff);
+      }
+      if (tail > 0.01) { // streaks of snow blowing away from the camera down the trail, thickest near the ground
+        const n = Math.round(tail * 900), geo = new THREE.PlaneGeometry(1, 1);
+        geo.translate(0.5, 0, 0);
+        const mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ map: streakTex, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }), n);
+        const m = new THREE.Matrix4(), toCam = new THREE.Vector3(), zAxis = new THREE.Vector3(), yAxis = new THREE.Vector3();
+        for (let i = 0; i < n; i++) {
+          const along = 2.5 + Math.pow(rng(), 1.3) * 35, base = ahead(along, (rng() - 0.5) * along * 1.2);
+          base.y = terrainH(base.x, base.z) + 0.03 + Math.pow(rng(), 2.5) * 2;   // mostly hugging the snow
+          const dir = fwd.clone().addScaledVector(right, (rng() - 0.5) * 0.2).add(new THREE.Vector3(0, (rng() - 0.6) * 0.08, 0)).normalize();
+          toCam.subVectors(cam, base).normalize();
+          zAxis.copy(toCam).addScaledVector(dir, -toCam.dot(dir)).normalize();   // streak faces the camera
+          yAxis.crossVectors(zAxis, dir);
+          m.makeBasis(dir, yAxis, zAxis).scale(new THREE.Vector3(0.4 + rng() * 1.2 * (0.5 + tail), 0.01 + rng() * 0.018, 1)).setPosition(base);
+          mesh.setMatrixAt(i, m);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        fxGroup.add(mesh);
+      }
+    }
+
+    // Icy vignette and frost ferns growing in from the card edges. Seeded, and sized from the frame,
+    // so the export matches what you see.
+    function drawFrost(g, fr, amount) {
+      if (amount < 0.01) return;
+      g.save();
+      g.beginPath(); g.rect(fr.x, fr.y, fr.w, fr.h); g.clip();
+      g.fillStyle = `rgba(120, 170, 225, ${0.16 * amount})`;                // cold blue cast
+      g.fillRect(fr.x, fr.y, fr.w, fr.h);
+      const cx = fr.x + fr.w / 2, cy = fr.y + fr.h / 2, R = Math.hypot(fr.w, fr.h) / 2;
+      const grad = g.createRadialGradient(cx, cy, R * 0.45, cx, cy, R);
+      grad.addColorStop(0, 'rgba(235, 246, 255, 0)');
+      grad.addColorStop(1, `rgba(235, 246, 255, ${0.85 * amount})`);
+      g.fillStyle = grad;
+      g.fillRect(fr.x, fr.y, fr.w, fr.h);
+      const rng = mulberry32(seed + 919), unit = Math.min(fr.w, fr.h);
+      g.strokeStyle = `rgba(255, 255, 255, ${0.55 * amount})`;
+      g.lineCap = 'round';
+      const fern = (x, y, ang, len, depth) => {
+        if (depth > 3 || len < unit * 0.006) return;
+        const pts = [];
+        g.lineWidth = Math.max(0.6, unit * 0.004 * (4 - depth) / 4);
+        g.beginPath(); g.moveTo(x, y);
+        for (let k = 0; k < 5; k++) { ang += (rng() - 0.5) * 0.5; x += Math.cos(ang) * len / 5; y += Math.sin(ang) * len / 5; g.lineTo(x, y); pts.push([x, y, ang]); }
+        g.stroke();
+        pts.forEach(([bx, by, ba]) => { if (rng() < 0.55) fern(bx, by, ba + (rng() < 0.5 ? 1 : -1) * (0.5 + rng() * 0.6), len * 0.45, depth + 1); });
+      };
+      for (let k = 0, n = Math.round(14 + 26 * amount); k < n; k++) {
+        const side = Math.floor(rng() * 4), t = rng(), len = unit * (0.08 + 0.18 * rng()) * Math.sqrt(amount);
+        const [x, y, ang] = side === 0 ? [fr.x + t * fr.w, fr.y, Math.PI / 2] : side === 1 ? [fr.x + fr.w, fr.y + t * fr.h, Math.PI]
+                         : side === 2 ? [fr.x + t * fr.w, fr.y + fr.h, -Math.PI / 2] : [fr.x, fr.y + t * fr.h, 0];
+        fern(x, y, ang + (rng() - 0.5) * 0.9, len, 0);
+      }
+      g.restore();
+    }
+
+    function buildOverflow() {
+      clearGroup(overflowGroup);
+      const B = biome();
+      if (!$('overflow').checked || !B.ice) return;
+      const rng = mulberry32(seed + 515), ice = new THREE.Color($('colIce').value);
+      const wet = new THREE.MeshStandardMaterial({ color: ice.clone().multiplyScalar(0.5).lerp(new THREE.Color('#2f4d63'), 0.4), roughness: 0.06, metalness: 0.3, flatShading: true });
+      const slush = new THREE.MeshStandardMaterial({ color: ice.clone().lerp(new THREE.Color('#e8f0f5'), 0.5), roughness: 0.95, flatShading: true });
+      const patch = (r, y, material, x, z, k) => {
+        const geo = new THREE.CircleGeometry(r, 10), p = geo.attributes.position;
+        for (let i = 1; i < p.count; i++) { const f = 0.65 + 0.6 * hash2(i % 10, k, 5); p.setXY(i, p.getX(i) * f, p.getY(i) * f); }
+        geo.rotateX(-Math.PI / 2);
+        const m = new THREE.Mesh(geo, material);
+        m.position.set(x, y, z);
+        m.receiveShadow = true;
+        overflowGroup.add(m);
+      };
+      for (let k = 0; k < 13; k++) {
+        const z = 12 - rng() * 60 * (k < 4 ? 0.2 : 1), x = trailX(z) + (rng() - 0.5) * B.ice.half * (k < 4 ? 0.6 : 1.5), r = 0.8 + rng() * 2.6;
+        patch(r * 1.18, 0.012, slush, x, z, k);   // slushy rim
+        patch(r, 0.02, wet, x, z, k + 50);        // glossy water on top
+      }
+    }
+
+    function updateTrailColors() {
+      const snowC = new THREE.Color($('colSnow').value), cover = $('trailCovered').checked;
+      packedMat.color.copy(snowC).multiplyScalar(0.93).lerp(new THREE.Color('#c9d6e3'), 0.25).lerp(snowC, cover ? 0.8 : 0);
+      trackMat.color.copy(snowC).multiplyScalar(0.78).lerp(new THREE.Color('#8fa5bd'), 0.35).lerp(snowC, cover ? 0.7 : 0);
+    }
+
+    // One-click presets for the event cards. Each sets the time of day, weather and effects; Overflow also
+    // switches to River Ice. Characters and the camera stay where they are.
+    const EVENTS = {
+      clearSkies:     { label: 'Clear Skies', time: 'day', sky: { top: '#2F6DB8' }, w: { snowfall: 0, wind: 0.05, fog: 0.1 } },
+      northernLights: { label: 'Northern Lights', time: 'night', w: { snowfall: 0.04, fog: 0.12, sparkle: 0.35 } },
+      freshSnow:      { label: 'Fresh Snow', time: 'day', sky: { top: '#7A9BD3', horizon: '#ECE7E0', sun: '#FFE4C2', el: 16, sunInt: 0.95, amb: 0.55 }, w: { snowfall: 0.25, fog: 0.22, sparkle: 0.9, covered: true } },
+      bitterCold:     { label: 'Bitter Cold', time: 'day', sky: { top: '#5E86B8', horizon: '#D9E8F5', sun: '#DDEBFF', el: 10, sunInt: 0.8, amb: 0.7 }, w: { snowfall: 0.04, wind: 0.1, fog: 0.25, frost: 0.85, sparkle: 0.3 } },
+      blizzard:       { label: 'Blizzard', time: 'overcast', w: { snowfall: 1, wind: 0.95, fog: 0.75, frost: 0.2 } },
+      whiteout:       { label: 'Whiteout', time: 'overcast', sky: { top: '#E6EBF0', horizon: '#F4F6F8', sunInt: 0.15, amb: 1.15 }, w: { snowfall: 0.8, wind: 0.5, fog: 1 } },
+      tailwind:       { label: 'Tailwind', time: 'golden', w: { snowfall: 0.15, fog: 0.25, tailwind: 0.9 } },
+      overflow:       { label: 'Overflow', biome: 'riverIce', time: 'overcast', sky: { sunInt: 0.45, amb: 0.85 }, w: { snowfall: 0.05, wind: 0.05, fog: 0.3, overflow: true } }
+    };
+
+    function applyEvent(key) {
+      const E = EVENTS[key];
+      if (E.biome && biomeKey !== E.biome) selectBiome(E.biome);
+      applyTime(E.time);
+      const S = E.sky || {};
+      [['top', 'skyTop'], ['horizon', 'skyHorizon'], ['sun', 'sunColor'], ['el', 'sunEl'], ['sunInt', 'sunInt'], ['amb', 'ambInt']]
+        .forEach(([k, id]) => { if (S[k] !== undefined) $(id).value = S[k]; });
+      const W = { snowfall: 0, wind: 0, fog: 0.25, sparkle: 0, frost: 0, tailwind: 0, overflow: false, covered: false, ...E.w };
+      ['snowfall', 'wind', 'fog', 'sparkle', 'frost', 'tailwind'].forEach(id => $(id).value = W[id]);
+      $('overflow').checked = W.overflow;
+      $('trailCovered').checked = W.covered;
+      updateSky(); buildSnow(); buildFx(); buildOverflow(); updateTrailColors();
+      document.querySelectorAll('[data-event]').forEach(b => b.classList.toggle('active', b.dataset.event === key));
+    }
+
     // ================= CAMERA =================
     function applyCamera(key) {
       const c = camPresets[key];
@@ -850,6 +1035,7 @@
       controls.update();
       document.querySelectorAll('[data-cam]').forEach(b => b.classList.toggle('active', b.dataset.cam === key));
       buildSnow();
+      buildFx();
     }
     function updateFov() {
       camera.fov = num('fov');
@@ -911,6 +1097,7 @@
       g.save();
       g.beginPath(); g.rect(fr.x, fr.y, fr.w, fr.h); g.clip();
       drawLayers(g, fr, true);
+      drawFrost(g, fr, num('frost'));
       g.restore();
       g.strokeStyle = 'rgba(255,255,255,0.7)';
       g.lineWidth = 1;
@@ -1043,10 +1230,17 @@
     scene.add(selBox);
     const gltfLoader = new THREE.GLTFLoader();
 
+    // Turn spins it, Tilt tips it forward/back, Roll tips it sideways. Whatever the angle, the model is
+    // re-seated so its lowest point rests on the ground (plus Raise, for something hanging or tossed).
+    const D2R = THREE.MathUtils.degToRad;
     function applyModel(M) {
-      M.object.scale.setScalar(M.unitScale * M.userScale);
-      M.object.rotation.y = THREE.MathUtils.degToRad(M.turn);
-      M.object.position.y = terrainH(M.object.position.x, M.object.position.z);
+      const o = M.object;
+      o.scale.setScalar(M.unitScale * M.userScale);
+      o.rotation.set(D2R(M.tilt || 0), D2R(M.turn), D2R(M.roll || 0), 'YXZ');
+      o.position.y = 0;
+      o.updateMatrixWorld(true);
+      const lowest = new THREE.Box3().setFromObject(o).min.y;
+      o.position.y = terrainH(o.position.x, o.position.z) - lowest + (M.lift || 0);
     }
     function snapModels() { models.forEach(applyModel); }
 
@@ -1080,7 +1274,7 @@
       object.position.set(pos.x, 0, pos.z);
       // face 3/4 toward the camera
       const turn = (THREE.MathUtils.radToDeg(Math.atan2(camera.position.x - pos.x, camera.position.z - pos.z)) + 35 + 360) % 360;
-      const M = { name, object, unitScale: info.unitScale || 1, userScale: 1, turn: Math.round(turn), type: info.type };
+      const M = { name, object, unitScale: info.unitScale || 1, userScale: 1, turn: Math.round(turn), tilt: 0, roll: 0, lift: 0, type: info.type };
       modelGroup.add(object);
       models.push(M);
       applyModel(M);
@@ -1109,10 +1303,13 @@
       models.forEach((M, i) => list.add(new Option(`${M.name} (${M.type})`, i)));
       list.value = selModel >= 0 ? String(selModel) : '';
       const M = models[selModel];
-      ['modelScale', 'modelTurn', 'modelToTrail', 'modelDuplicate', 'modelRemove'].forEach(id => $(id).disabled = !M);
+      ['modelScale', 'modelTurn', 'modelTilt', 'modelRoll', 'modelLift', 'modelToTrail', 'modelDuplicate', 'modelRemove'].forEach(id => $(id).disabled = !M);
       if (M) {
         $('modelScale').value = M.userScale; $('modelScale-val').innerText = M.userScale.toFixed(2);
         $('modelTurn').value = M.turn; $('modelTurn-val').innerText = M.turn;
+        $('modelTilt').value = M.tilt; $('modelTilt-val').innerText = M.tilt;
+        $('modelRoll').value = M.roll; $('modelRoll-val').innerText = M.roll;
+        $('modelLift').value = M.lift; $('modelLift-val').innerText = M.lift.toFixed(2);
       }
     }
 
@@ -1135,10 +1332,11 @@
       const M = models[selModel]; if (!M) return;
       M.userScale = num('modelScale'); $('modelScale-val').innerText = M.userScale.toFixed(2); applyModel(M);
     });
-    $('modelTurn').addEventListener('input', () => {
-      const M = models[selModel]; if (!M) return;
-      M.turn = num('modelTurn'); $('modelTurn-val').innerText = M.turn; applyModel(M);
-    });
+    [['modelTurn', 'turn', 0], ['modelTilt', 'tilt', 0], ['modelRoll', 'roll', 0], ['modelLift', 'lift', 2]].forEach(([id, key, digits]) =>
+      $(id).addEventListener('input', () => {
+        const M = models[selModel]; if (!M) return;
+        M[key] = num(id); $(id + '-val').innerText = M[key].toFixed(digits); applyModel(M);
+      }));
     $('modelToTrail').addEventListener('click', () => {
       const M = models[selModel]; if (!M) return;
       M.object.position.x = trailX(M.object.position.z); applyModel(M);
@@ -1190,6 +1388,7 @@
       const g = c.getContext('2d');
       g.drawImage(renderer.domElement, 0, 0);
       if ($('includeLayers').checked) drawLayers(g, { x: 0, y: 0, w: outW, h: outH }, false);
+      drawFrost(g, { x: 0, y: 0, w: outW, h: outH }, num('frost'));
 
       camera.fov = oldFov;
       renderer.setPixelRatio(oldRatio);
@@ -1204,6 +1403,13 @@
       b.dataset.biome = key;
       b.addEventListener('click', () => selectBiome(key));
       $('biomeBtns').appendChild(b);
+    }
+    for (const key in EVENTS) {
+      const b = document.createElement('button');
+      b.textContent = EVENTS[key].label;
+      b.dataset.event = key;
+      b.addEventListener('click', () => applyEvent(key));
+      $('eventBtns').appendChild(b);
     }
     for (const key in TIMES) {
       const b = document.createElement('button');
@@ -1234,6 +1440,9 @@
     $('fog').addEventListener('input', updateFog);
     ['snowfall', 'wind'].forEach(id => $(id).addEventListener('input', buildSnow));
     $('clouds').addEventListener('change', buildClouds);
+    ['sparkle', 'frost', 'tailwind'].forEach(id => $(id).addEventListener('input', buildFx));
+    $('overflow').addEventListener('change', buildOverflow);
+    $('trailCovered').addEventListener('change', updateTrailColors);
     ['treeDensity', 'treeSnow'].forEach(id => $(id).addEventListener('input', () => $(id + '-val').innerText = num(id).toFixed(2)));
     ['treeDensity', 'treeSnow', 'colSnow', 'colTree', 'colRock', 'colIce', 'showTrail'].forEach(id => $(id).addEventListener('change', () => { buildEnvironment(); updateSky(); }));
 
