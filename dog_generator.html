@@ -234,9 +234,9 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     const cameraKeys = enableCameraKeys(camera, controls, { speed: 3 }); // WASD + Q/E
+    enableClickOrbit(camera, controls, () => [dogRig]); // drag turns around the point you clicked
     // AIM CAMERAS TO TARGET THE HEAD (Y: 1.4 for the head, not the paws)
     controls.target.set(0.2, 1.35, 0.5);
-    controls.maxPolarAngle = Math.PI / 2 + 0.05;
 
     // --- LIGHTING ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);

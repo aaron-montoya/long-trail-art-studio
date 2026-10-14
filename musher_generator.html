@@ -268,8 +268,8 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     const cameraKeys = enableCameraKeys(camera, controls, { speed: 1.5 }); // WASD + Q/E
+    enableClickOrbit(camera, controls, () => [rig]); // drag turns around the point you clicked
     controls.target.set(0, 0.95, 0);
-    controls.maxPolarAngle = Math.PI / 2 + 0.05;
 
     // --- LIGHTING ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);

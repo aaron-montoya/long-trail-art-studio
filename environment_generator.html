@@ -8,7 +8,7 @@
     body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
     #canvas-container { flex: 1 1 auto; min-width: 0; height: 100vh; position: relative; background: #111; }
     #canvas-container canvas { display: block; }
-    #overlay { position: absolute; inset: 0; pointer-events: none; }
+    #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
     #ui-panel {
       flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
@@ -163,6 +163,7 @@
       <summary>Camera</summary>
       <div class="details-content">
         <div class="btn-grid" style="margin-bottom: 10px;">
+          <button class="primary-btn" id="resetView"><i data-icon="reset"></i>Reset View</button>
           <button data-cam="trail">Trail level</button>
           <button data-cam="low">Low & dramatic</button>
           <button data-cam="high">High</button>
@@ -208,7 +209,7 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     const cameraKeys = enableCameraKeys(camera, controls, { speed: 6 }); // WASD + Q/E
-    controls.maxPolarAngle = Math.PI / 2 + 0.2;
+    enableClickOrbit(camera, controls, () => [env, modelGroup, cloudGroup]); // drag turns around the point you clicked
 
     function fitRenderer() {
       const w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
@@ -218,6 +219,8 @@
       const dpr = window.devicePixelRatio;
       overlay.width = Math.round(w * dpr);
       overlay.height = Math.round(h * dpr);
+      overlay.style.width = w + 'px';   // keep the frame guide the same size as the 3D view on scaled (125%, 150%) displays
+      overlay.style.height = h + 'px';
     }
     new ResizeObserver(fitRenderer).observe(canvasContainer);
 
@@ -1230,6 +1233,7 @@
     $('reseed').addEventListener('click', () => { seed = 1 + Math.floor(Math.random() * 100000); buildEnvironment(); applyCamera(currentCam); });
     $('saveCard').addEventListener('click', exportCard);
     document.querySelectorAll('[data-cam]').forEach(b => b.addEventListener('click', () => { currentCam = b.dataset.cam; applyCamera(currentCam); }));
+    $('resetView').addEventListener('click', () => applyCamera(currentCam)); // back to the last chosen viewpoint
     $('fov').addEventListener('input', updateFov);
     ['skyTop', 'skyHorizon', 'sunColor', 'sunAz', 'sunEl', 'sunInt', 'ambInt'].forEach(id => $(id).addEventListener('input', updateSky));
     $('aurora').addEventListener('change', updateSky);

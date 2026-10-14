@@ -77,6 +77,8 @@
         try { frame.contentWindow.studioPaused = key !== name; } catch (e) {}
       }
       document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      // hand the keyboard to the tool so WASD works without clicking into it first
+      try { document.getElementById(frames[name]).contentWindow.focus(); } catch (e) {}
       if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
     }
 
@@ -102,6 +104,13 @@
     };
 
     document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    // if the keyboard is still on the studio page (say, after clicking a tab), pass keys to the visible tool
+    ['keydown', 'keyup'].forEach(type => window.addEventListener(type, e => {
+      try {
+        const win = document.getElementById(frames[currentTab]).contentWindow;
+        win.dispatchEvent(new win.KeyboardEvent(type, { key: e.key, code: e.code, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey }));
+      } catch (err) {}
+    }));
     // a tool that finishes loading later still needs to know whether it's the visible one
     for (const key in frames) document.getElementById(frames[key]).addEventListener('load', () => showTab(currentTab));
     showTab(currentTab);
