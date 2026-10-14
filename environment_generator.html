@@ -1435,7 +1435,7 @@
       }
     }
 
-    // The rig faces the camera, centered on the model and scaled to its radius, so 1 unit = the model's radius
+    // The rig faces the camera, centered on the view and scaled to the model's radius, so 1 unit = the model's radius
     function buildModelRig(M) {
       const F = M.fx, rig = M.rig, r = mulberry32(M.fxSeed * 7919 + 13), far = 80;
       clearRig(rig);
@@ -1580,9 +1580,9 @@
       applyModelFx(M);
     }
 
-    // Center and radius of the model as seen from the camera, at the model's distance, from its own box
-    // (which turns with it): a dog seen head-on gets a tighter ring than side-on. Null when part of it is
-    // behind the camera.
+    // Where a model's effects go: the middle of the camera's view (the middle of the card), at the model's
+    // distance, sized to the model as seen from the camera. The size comes from its own box (which turns
+    // with it), so a dog seen head-on gets a tighter ring than side-on. Null when part of it is behind the camera.
     const _corner = new THREE.Vector3();
     function screenFit(M, out) {
       const inv = camera.matrixWorldInverse, b = M.localBox;
@@ -1595,7 +1595,7 @@
         x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
       }
       const depth = -_corner.copy(M.sphere.center).applyMatrix4(inv).z;
-      out.center.set((x0 + x1) / 2 * depth, (y0 + y1) / 2 * depth, -depth).applyMatrix4(camera.matrixWorld);
+      out.center.set(0, 0, -depth).applyMatrix4(camera.matrixWorld);
       out.radius = Math.min(M.sphere.radius, Math.hypot(x1 - x0, y1 - y0) / 2 * depth);
       return out;
     }

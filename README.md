@@ -20,7 +20,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
    Drag to turn the view around the point you clicked, right-drag to pan, scroll to zoom. The camera bar under the
    view has **Reset View**, the preset viewpoints and the lens.
 4. To make a model stand out, use **Outline & effects** under the model sliders: an outline in any color, plus glow,
-   focus lines, sunburst and rings behind the model and sparkles around it. Each model has its own settings; the looks
+   focus lines, sunburst and rings behind the model and sparkles in front, all centered on the camera view. Each model has its own settings; the looks
    (Sticker, Sparkle, Action, Legendary, Night) match the Gear tab's card styles, and **Use on all models** copies them.
 5. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
 
