@@ -57,10 +57,9 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="icons.js"></script>
   <script src="camkeys.js"></script>
+  <link rel="stylesheet" href="studio.css">
 </head>
 <body>
-
-  <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
 
   <div id="ui-panel">
     <div class="panel-header">
@@ -71,26 +70,7 @@
     <div class="btn-grid3" id="biomeBtns"></div>
     <div class="btn-grid">
       <button class="primary-btn" id="reseed"><i data-icon="dice"></i>New Layout</button>
-      <button class="primary-btn" id="saveCard"><i data-icon="image"></i>Save Card PNG</button>
     </div>
-
-    <!-- CARD FRAME -->
-    <details open>
-      <summary>Card Frame & Export</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Frame Shape</label>
-          <select id="aspect">
-            <option value="5:7" selected>Portrait card (2.5 × 3.5)</option>
-            <option value="7:5">Landscape card (3.5 × 2.5)</option>
-            <option value="1:1">Square</option>
-            <option value="4:3">Art box 4:3</option>
-            <option value="16:9">Wide 16:9</option>
-          </select></div>
-        <div class="control-group"><label>Export Width (px)</label><input type="number" id="exportWidth" value="1500" min="300" max="4000" step="50"></div>
-        <div class="hint">1500 px wide = 600 dpi on a 2.5" poker card.</div>
-        <div class="control-group"><label class="check"><input type="checkbox" id="includeLayers" checked> Include character layers in export</label></div>
-      </div>
-    </details>
 
     <!-- 3D MODELS -->
     <details open>
@@ -105,26 +85,6 @@
           <button id="modelToTrail"><i data-icon="trail"></i>Onto trail</button>
           <button id="modelDuplicate"><i data-icon="copy"></i>Duplicate</button>
           <button id="modelRemove"><i data-icon="close"></i>Remove</button>
-        </div>
-      </div>
-    </details>
-
-    <!-- LAYERS -->
-    <details>
-      <summary>2D Characters (PNG layers)</summary>
-      <div class="details-content">
-        <div class="control-group"><input type="file" id="layerFiles" accept="image/png,image/webp,image/*" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
-        <div class="hint">Add PNGs saved from the dog and musher generators (or drop them on the view). Drag a character in the view to move it; scroll over it to resize.</div>
-        <div class="control-group"><select id="layerList" size="5"></select></div>
-        <div class="control-group"><label>Size <span class="val-display" id="layerSize-val">0.40</span></label><input type="range" id="layerSize" min="0.05" max="1.2" step="0.01" value="0.4"></div>
-        <div class="control-group row">
-          <label class="check"><input type="checkbox" id="layerFlip"> Flip</label>
-          <label class="check"><input type="checkbox" id="layerShadow" checked> Ground shadow</label>
-        </div>
-        <div class="row">
-          <button id="layerUp"><i data-icon="up"></i>Forward</button>
-          <button id="layerDown"><i data-icon="down"></i>Back</button>
-          <button id="layerRemove"><i data-icon="close"></i>Remove</button>
         </div>
       </div>
     </details>
@@ -158,22 +118,6 @@
       </div>
     </details>
 
-    <!-- CAMERA -->
-    <details open>
-      <summary>Camera</summary>
-      <div class="details-content">
-        <div class="btn-grid" style="margin-bottom: 10px;">
-          <button class="primary-btn" id="resetView"><i data-icon="reset"></i>Reset View</button>
-          <button data-cam="trail">Trail level</button>
-          <button data-cam="low">Low & dramatic</button>
-          <button data-cam="high">High</button>
-          <button data-cam="wide">Wide</button>
-        </div>
-        <div class="control-group"><label>Lens (field of view) <span class="val-display" id="fov-val">45</span></label><input type="range" id="fov" min="20" max="75" step="1" value="45"></div>
-        <div class="hint"><b>W A S D</b> to move, <b>E</b> / <b>Q</b> to rise and lower, hold <b>Shift</b> for speed. Drag empty space to look around, scroll to zoom, right-drag to pan.</div>
-      </div>
-    </details>
-
     <!-- LANDSCAPE -->
     <details>
       <summary>Landscape Details</summary>
@@ -189,9 +133,60 @@
         </div>
       </div>
     </details>
+    <!-- LAYERS -->
+    <details>
+      <summary>2D Characters (PNG layers)</summary>
+      <div class="details-content">
+        <div class="control-group"><input type="file" id="layerFiles" accept="image/png,image/webp,image/*" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
+        <div class="hint">Add PNGs saved from the dog and musher generators (or drop them on the view). Drag a character in the view to move it; scroll over it to resize.</div>
+        <div class="control-group"><select id="layerList" size="5"></select></div>
+        <div class="control-group"><label>Size <span class="val-display" id="layerSize-val">0.40</span></label><input type="range" id="layerSize" min="0.05" max="1.2" step="0.01" value="0.4"></div>
+        <div class="control-group row">
+          <label class="check"><input type="checkbox" id="layerFlip"> Flip</label>
+          <label class="check"><input type="checkbox" id="layerShadow" checked> Ground shadow</label>
+        </div>
+        <div class="row">
+          <button id="layerUp"><i data-icon="up"></i>Forward</button>
+          <button id="layerDown"><i data-icon="down"></i>Back</button>
+          <button id="layerRemove"><i data-icon="close"></i>Remove</button>
+        </div>
+      </div>
+    </details>
   </div>
 
-  <div id="canvas-container"><canvas id="overlay"></canvas></div>
+  <div id="view-col">
+    <div class="topbar">
+      <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+      <label>Card frame
+        <select id="aspect">
+          <option value="5:7" selected>Portrait card (2.5 × 3.5)</option>
+            <option value="7:5">Landscape card (3.5 × 2.5)</option>
+            <option value="1:1">Square</option>
+            <option value="4:3">Art box 4:3</option>
+            <option value="16:9">Wide 16:9</option>
+        </select>
+      </label>
+      <label title="1500 px wide = 600 dpi on a 2.5 inch poker card">Export width
+        <input type="number" id="exportWidth" value="1500" min="300" max="4000" step="50" style="width: 76px;"> px
+      </label>
+      <label title="Also paint the 2D PNG layers onto the exported card"><input type="checkbox" id="includeLayers" checked> Include 2D layers</label>
+      <span class="grow"></span>
+      <button class="primary" id="saveCard"><i data-icon="image"></i>Save Card PNG</button>
+    </div>
+    <div id="canvas-container"><canvas id="overlay"></canvas></div>
+    <div class="camstrip">
+      <button class="primary" id="resetView" title="Back to the last chosen viewpoint"><i data-icon="reset"></i>Reset View</button>
+      <span class="sep"></span>
+      <button data-cam="trail">Trail level</button>
+      <button data-cam="low">Low</button>
+      <button data-cam="high">High</button>
+      <button data-cam="wide">Wide</button>
+      <span class="sep"></span>
+      <label>Lens <input type="range" id="fov" min="20" max="75" step="1" value="45"> <span class="val-display" id="fov-val">45</span></label>
+      <span class="grow"></span>
+      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan</span>
+    </div>
+  </div>
 
   <script>
     // ================= SETUP =================

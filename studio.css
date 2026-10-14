@@ -1,0 +1,46 @@
+/* Shared layout for the Long Trail tools: a top bar of file/export actions above the 3D view,
+   camera controls on or under the view, and the design sidebar on the left. */
+
+#view-col { flex: 1 1 auto; min-width: 0; height: 100vh; display: flex; flex-direction: column; }
+#view-col > #canvas-container { flex: 1 1 auto; height: auto; min-height: 0; position: relative; }
+
+.topbar, .camstrip {
+  flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 7px 12px; background: #14141c; font-size: 0.8rem; color: #aaa;
+}
+.topbar { border-bottom: 1px solid #334; }
+.camstrip { border-top: 1px solid #334; }
+.topbar .sep, .camstrip .sep { width: 1px; align-self: stretch; background: #334; margin: 0 4px; }
+.topbar .grow, .camstrip .grow { flex: 1 1 auto; }
+
+/* compact inline labels (override the stacked, uppercase sidebar labels) */
+.topbar label, .camstrip label {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  text-transform: none; font-size: 0.8rem; color: #aaa; white-space: nowrap;
+}
+.topbar input[type=text], .topbar input[type=number], .topbar select, .camstrip select {
+  width: auto; flex: none; background: #2a2a38; color: #fff; border: 1px solid #556;
+  border-radius: 4px; padding: 5px 7px; font-size: 0.82rem;
+}
+.topbar button, .camstrip button, .viewbar button { padding: 6px 10px; }
+.camstrip input[type=range] { width: 110px; }
+button.primary { background: #4f46e5; border-color: #6366f1; font-weight: bold; }
+button.primary:hover { background: #5b53f0; }
+
+/* the "show controls" button lives in the top bar while the sidebar is hidden */
+.topbar #show-panel { position: static; display: none; padding: 6px 10px; background: #3a3a4d; border-color: #556; }
+
+.keys { font-size: 0.72rem; color: #8a8aa0; white-space: nowrap; }
+.keys b { color: #c7c7d6; font-weight: 600; }
+
+/* floating bits over the 3D view (never part of exported images) */
+.viewbar {
+  position: absolute; left: 12px; bottom: 12px; z-index: 5; display: flex; align-items: center; gap: 10px;
+  background: rgba(14, 14, 21, 0.82); border: 1px solid #334; border-radius: 8px; padding: 6px 10px 6px 6px;
+}
+.float-br { position: absolute; right: 16px; bottom: 16px; z-index: 5; padding: 11px 18px; font-size: 0.9rem;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+
+/* sidebar: two-up action buttons under the presets */
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+.action-row button { background: #4f46e5; border-color: #6366f1; font-weight: bold; padding: 9px 6px; }

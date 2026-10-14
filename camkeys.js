@@ -1,21 +1,26 @@
 // Camera controls shared by the Long Trail tools.
-//   Keys:  W/S forward and back, A/D left and right, E up, Q down; hold Shift to move faster.
+//   Keys:  W/S forward and back, A/D left and right, E up, Q down, arrow keys look around;
+//          hold Shift to go faster.
 //   Mouse: left-drag turns the view around the point you clicked (or the current center when
 //          you click empty sky); right-drag pans; scroll zooms.
 // OrbitControls still handles pan and zoom; its target is kept in front of the camera so the two agree.
 
-function enableCameraKeys(camera, controls, { speed = 5 } = {}) {
+function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {}) {
   const held = new Set();
   const KEYS = ['w', 'a', 's', 'd', 'q', 'e'];
+  const ARROWS = ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'];
   // letters typed into a name field or menu shouldn't fly the camera around
   const typing = el => el && (el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' ||
                               (el.tagName === 'INPUT' && ['text', 'number', 'search'].includes(el.type)));
+  // a focused slider keeps using the arrow keys for itself
+  const usesArrows = el => typing(el) || (el && el.tagName === 'INPUT' && el.type === 'range');
 
   window.addEventListener('keydown', e => {
     if (e.key === 'Shift') { held.add('shift'); return; }
-    if (typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (KEYS.includes(k)) { held.add(k); e.preventDefault(); }
+    if (KEYS.includes(k) && !typing(e.target)) { held.add(k); e.preventDefault(); }
+    if (ARROWS.includes(k) && !usesArrows(e.target)) { held.add(k); e.preventDefault(); }
   });
   window.addEventListener('keyup', e => held.delete(e.key === 'Shift' ? 'shift' : e.key.toLowerCase()));
   window.addEventListener('blur', () => held.clear());
@@ -34,6 +39,22 @@ function enableCameraKeys(camera, controls, { speed = 5 } = {}) {
     last = now;
     move.set(0, 0, 0);
     if (!held.size) return;
+    const fast = held.has('shift') ? 2.5 : 1;
+
+    // Arrow keys: turn the view in place (left/right, up/down), keeping the orbit center ahead
+    const yaw = ((held.has('arrowleft') ? 1 : 0) - (held.has('arrowright') ? 1 : 0)) * lookSpeed * dt * fast;
+    const pitch = ((held.has('arrowup') ? 1 : 0) - (held.has('arrowdown') ? 1 : 0)) * lookSpeed * dt * fast;
+    if (yaw || pitch) {
+      const dist = Math.max(0.5, camera.position.distanceTo(controls.target));
+      camera.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
+      const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      camera.getWorldDirection(fwd);
+      if (Math.abs(fwd.clone().applyAxisAngle(rightAxis, pitch).y) < 0.97) // never flip over the top
+        camera.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(rightAxis, pitch));
+      camera.getWorldDirection(fwd);
+      controls.target.copy(camera.position).addScaledVector(fwd, dist);
+    }
+
     camera.getWorldDirection(fwd);
     fwd.y = 0;
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1); // looking straight down: treat "forward" as into the scene
@@ -46,7 +67,7 @@ function enableCameraKeys(camera, controls, { speed = 5 } = {}) {
     if (held.has('e')) move.y += 1;
     if (held.has('q')) move.y -= 1;
     if (!move.lengthSq()) return;
-    move.normalize().multiplyScalar(speed * dt * (held.has('shift') ? 3 : 1));
+    move.normalize().multiplyScalar(speed * dt * (fast > 1 ? 3 : 1));
     camera.position.add(move);
     controls.target.add(move);
   };

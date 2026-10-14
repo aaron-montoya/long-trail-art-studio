@@ -15,9 +15,10 @@ Open `index.html` (or the GitHub Pages site) to use all three tools in one place
 1. Build a dog or musher and pose it.
 2. Click **Send to Scene**. The 3D model appears on the trail in the Scenes tab with the scene's lighting and shadows.
 3. Drag it into place (scroll over it to turn it), pick the scene, time of day and camera.
-   Line up the shot with **W A S D** (move), **E / Q** (up / down) and **Shift** (faster).
-   Drag to turn the view around the point you clicked, right-drag to pan, scroll to zoom, and **Reset View** to start over.
-4. Click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
+   Line up the shot with **W A S D** (move), **E / Q** (up / down), **arrow keys** (look around) and **Shift** (faster).
+   Drag to turn the view around the point you clicked, right-drag to pan, scroll to zoom. The camera bar under the
+   view has **Reset View**, the preset viewpoints and the lens.
+4. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
 
 ## Saving your work
 

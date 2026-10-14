@@ -53,10 +53,9 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
   <script src="camkeys.js"></script>
+  <link rel="stylesheet" href="studio.css">
 </head>
 <body>
-
-  <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
 
   <div id="ui-panel">
     <div class="panel-header">
@@ -64,28 +63,15 @@
       <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
     </div>
 
-    <div class="control-group"><label>Name (used for saved files)</label><input type="text" id="charName" value="Dog" maxlength="40"
-      style="width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.9rem;"></div>
-
     <div class="preset-btns">
       <button onclick="applyPreset('husky')">Husky</button>
       <button onclick="applyPreset('malamute')">Malamute</button>
       <button onclick="applyPreset('hound')">Droopy Hound</button>
       <button onclick="applyPreset('mut')">Scruffy Mut</button>
-      <button class="primary-btn" id="randomize"><i data-icon="dice"></i>Randomize Dog</button>
-      <button class="primary-btn" id="randomizeColors"><i data-icon="palette"></i>Randomize Colors & Pattern</button>
-      <button class="primary-btn" id="savePng"><i data-icon="image"></i>Save PNG</button>
-      <div class="primary-btn" style="display: flex; gap: 8px; align-items: center; background: none; border: none; padding: 0; font-weight: normal;">
-        <span style="font-size: 0.75rem; color: #aaa; white-space: nowrap;">PNG size (no background)</span>
-        <select id="exportScale" style="flex: 1; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px;">
-          <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
-        </select>
-      </div>
-      <button id="saveChar"><i data-icon="download"></i>Save Character</button>
-      <button id="loadChar"><i data-icon="folder"></i>Load Character</button>
-      <button class="primary-btn" id="sendToScene" style="display: none;"><i data-icon="send"></i>Send to Scene</button>
-      <button class="primary-btn" id="export3d"><i data-icon="cube"></i>Export 3D Model (.glb)</button>
-      <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
+    </div>
+    <div class="action-row">
+      <button id="randomize"><i data-icon="dice"></i>Randomize Dog</button>
+      <button id="randomizeColors"><i data-icon="palette"></i>Colors & Pattern</button>
     </div>
 
     <!-- POSE -->
@@ -102,8 +88,6 @@
           <button data-pose="howl">Howl</button>
           <button data-pose="lie">Lie Down</button>
           <button data-pose="bow">Play Bow</button>
-          <div class="wide-btn" style="font-size: 0.72rem; color: #8a8aa0; text-align: center;">Camera: W A S D move, E / Q up and down, Shift for speed, drag to orbit</div>
-          <button class="wide-btn" id="centerCam"><i data-icon="target"></i>Center Camera on Dog</button>
         </div>
         <div class="control-group"><label>Body Tilt <span class="val-display" id="posePitch-val">0.00</span></label><input type="range" id="posePitch" min="-0.8" max="1.0" step="0.05" value="0"></div>
         <div class="control-group"><label>Crouch <span class="val-display" id="poseDrop-val">0.00</span></label><input type="range" id="poseDrop" min="0" max="0.6" step="0.02" value="0"></div>
@@ -114,19 +98,6 @@
         <div class="control-group"><label>Mouth Open <span class="val-display" id="poseJaw-val">0.00</span></label><input type="range" id="poseJaw" min="0" max="0.7" step="0.05" value="0"></div>
         <div class="control-group"><label>Ears Back <span class="val-display" id="poseEars-val">0.00</span></label><input type="range" id="poseEars" min="-0.4" max="1.2" step="0.05" value="0"></div>
         <div class="control-group"><label>Tail Lift <span class="val-display" id="poseTail-val">0.00</span></label><input type="range" id="poseTail" min="-2.0" max="1.5" step="0.05" value="0"></div>
-      </div>
-    </details>
-
-    <!-- SCENE & LIGHTING -->
-    <details>
-      <summary>Background & Sun</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>
-        <div class="control-group"><label>Sun Direction <span class="val-display" id="sunAz-val">45</span></label><input type="range" id="sunAz" min="0" max="360" step="1" value="45"></div>
-        <div class="control-group"><label>Sun Height <span class="val-display" id="sunEl-val">55</span></label><input type="range" id="sunEl" min="-20" max="90" step="1" value="55"></div>
-        <div class="control-group"><label>Sun Color</label><input type="color" id="sunColor" value="#FFF5E6"></div>
-        <div class="control-group"><label>Sun Strength <span class="val-display" id="sunInt-val">0.90</span></label><input type="range" id="sunInt" min="0" max="2.5" step="0.05" value="0.9"></div>
-        <div class="control-group"><label>Ambient Light <span class="val-display" id="ambInt-val">0.60</span></label><input type="range" id="ambInt" min="0" max="1.5" step="0.05" value="0.6"></div>
       </div>
     </details>
 
@@ -163,7 +134,7 @@
 
     <!-- CORE BODY -->
     <details>
-      <summary>Core Torso</summary>
+      <summary>Body</summary>
       <div class="details-content">
         <div class="control-group"><label>Torso Length <span class="val-display" id="bodyLen-val">1.80</span></label><input type="range" id="bodyLen" min="1.4" max="2.4" step="0.1" value="1.8"></div>
         <div class="control-group"><label>Chest Girth <span class="val-display" id="chestSize-val">0.90</span></label><input type="range" id="chestSize" min="0.7" max="1.3" step="0.05" value="0.9"></div>
@@ -201,9 +172,43 @@
         <div class="control-group"><label>Tail Curl <span class="val-display" id="tailCurl-val">0.30</span></label><input type="range" id="tailCurl" min="-0.8" max="1.0" step="0.1" value="0.3"></div>
       </div>
     </details>
+
+    <!-- SCENE & LIGHTING -->
+    <details>
+      <summary>Background & Sun</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>
+        <div class="control-group"><label>Sun Direction <span class="val-display" id="sunAz-val">45</span></label><input type="range" id="sunAz" min="0" max="360" step="1" value="45"></div>
+        <div class="control-group"><label>Sun Height <span class="val-display" id="sunEl-val">55</span></label><input type="range" id="sunEl" min="-20" max="90" step="1" value="55"></div>
+        <div class="control-group"><label>Sun Color</label><input type="color" id="sunColor" value="#FFF5E6"></div>
+        <div class="control-group"><label>Sun Strength <span class="val-display" id="sunInt-val">0.90</span></label><input type="range" id="sunInt" min="0" max="2.5" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Ambient Light <span class="val-display" id="ambInt-val">0.60</span></label><input type="range" id="ambInt" min="0" max="1.5" step="0.05" value="0.6"></div>
+      </div>
+    </details>
   </div>
 
-  <div id="canvas-container"></div>
+  <div id="view-col">
+    <div class="topbar">
+      <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+      <label>Name <input type="text" id="charName" value="Dog" maxlength="40" size="12" title="Used for saved file names"></label>
+      <button id="loadChar" title="Open a saved character (.json)"><i data-icon="folder"></i>Load</button>
+      <button id="saveChar" title="Save this character (.json)"><i data-icon="download"></i>Save</button>
+      <span class="sep"></span>
+      <button id="savePng" title="Transparent PNG of just the dog"><i data-icon="image"></i>Save PNG</button>
+      <select id="exportScale" title="PNG size">
+        <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
+      </select>
+      <button id="export3d" title="3D model for the scene tool or Blender (.glb)"><i data-icon="cube"></i>Export 3D</button>
+      <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
+    </div>
+    <div id="canvas-container">
+      <div class="viewbar">
+        <button id="centerCam" title="Frame the dog in the view"><i data-icon="target"></i>Center</button>
+        <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan</span>
+      </div>
+      <button class="primary float-br" id="sendToScene" style="display: none;"><i data-icon="send"></i>Send to Scene</button>
+    </div>
+  </div>
 
   <script>
     // --- SCENE SETUP ---
@@ -1193,7 +1198,7 @@
 
     function characterState() {
       const values = {};
-      document.querySelectorAll('#ui-panel input, #ui-panel select').forEach(el => {
+      document.querySelectorAll('#ui-panel input, #ui-panel select, .topbar input, .topbar select').forEach(el => {
         if (!el.id || el.type === 'file') return;
         values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
       });
