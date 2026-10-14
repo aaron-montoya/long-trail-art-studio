@@ -56,6 +56,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="icons.js"></script>
+  <script src="camkeys.js"></script>
 </head>
 <body>
 
@@ -168,7 +169,7 @@
           <button data-cam="wide">Wide</button>
         </div>
         <div class="control-group"><label>Lens (field of view) <span class="val-display" id="fov-val">45</span></label><input type="range" id="fov" min="20" max="75" step="1" value="45"></div>
-        <div class="hint">You can also orbit with the mouse (drag empty space, scroll to zoom, right-drag to pan).</div>
+        <div class="hint"><b>W A S D</b> to move, <b>E</b> / <b>Q</b> to rise and lower, hold <b>Shift</b> for speed. Drag empty space to look around, scroll to zoom, right-drag to pan.</div>
       </div>
     </details>
 
@@ -206,6 +207,7 @@
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6 }); // WASD + Q/E
     controls.maxPolarAngle = Math.PI / 2 + 0.2;
 
     function fitRenderer() {
@@ -1248,6 +1250,7 @@
     function animate() {
       requestAnimationFrame(animate);
       if (window.studioPaused) return; // hidden tab in the Art Studio
+      cameraKeys();
       controls.update();
       skyGroup.position.copy(camera.position);
       // keep the sun's shadow box centered on what the camera is looking at

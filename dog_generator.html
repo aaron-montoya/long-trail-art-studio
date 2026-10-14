@@ -52,6 +52,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
+  <script src="camkeys.js"></script>
 </head>
 <body>
 
@@ -101,6 +102,7 @@
           <button data-pose="howl">Howl</button>
           <button data-pose="lie">Lie Down</button>
           <button data-pose="bow">Play Bow</button>
+          <div class="wide-btn" style="font-size: 0.72rem; color: #8a8aa0; text-align: center;">Camera: W A S D move, E / Q up and down, Shift for speed, drag to orbit</div>
           <button class="wide-btn" id="centerCam"><i data-icon="target"></i>Center Camera on Dog</button>
         </div>
         <div class="control-group"><label>Body Tilt <span class="val-display" id="posePitch-val">0.00</span></label><input type="range" id="posePitch" min="-0.8" max="1.0" step="0.05" value="0"></div>
@@ -231,6 +233,7 @@
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 3 }); // WASD + Q/E
     // AIM CAMERAS TO TARGET THE HEAD (Y: 1.4 for the head, not the paws)
     controls.target.set(0.2, 1.35, 0.5);
     controls.maxPolarAngle = Math.PI / 2 + 0.05;
@@ -1314,6 +1317,7 @@
     function animate() {
       requestAnimationFrame(animate);
       if (window.studioPaused) return; // hidden tab in the Art Studio
+      cameraKeys();
       controls.update();
       renderer.render(scene, camera);
     }
