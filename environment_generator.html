@@ -1062,6 +1062,15 @@
       return camera.position.clone().addScaledVector(fwd, dist).addScaledVector(right, side);
     }
 
+    // Where a new model lands: the ground the camera sees just below the middle of the card
+    // (works on slopes, where "a few steps ahead" can be out of view)
+    function dropPoint(side) {
+      raycaster.setFromCamera(new THREE.Vector2(side * 0.3, -0.35), camera);
+      const hit = nearTerrain && raycaster.intersectObject(nearTerrain)[0];
+      if (hit && hit.distance < 30) return hit.point;
+      return groundAhead(6, side * 1.5);
+    }
+
     function addModelObject(object, info, name) {
       object.traverse(o => {
         if (!o.isMesh) return;
@@ -1070,7 +1079,7 @@
         // glTF has no flat-shading flag; turn it back on for the faceted look
         (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.flatShading = true; m.needsUpdate = true; });
       });
-      const pos = groundAhead(info.type === 'dog' ? 4.5 : 6, [0, -1.5, 1.5][models.length % 3]); // first one lands mid-card
+      const pos = dropPoint([0, -1, 1][models.length % 3]); // first one lands mid-card
       object.position.set(pos.x, 0, pos.z);
       // face 3/4 toward the camera
       const turn = (THREE.MathUtils.radToDeg(Math.atan2(camera.position.x - pos.x, camera.position.z - pos.z)) + 35 + 360) % 360;
