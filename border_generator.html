@@ -107,7 +107,7 @@
       <summary>Stitches</summary>
       <div class="details-content">
         <div class="control-group"><label>Stitch</label><select id="style"></select></div>
-        <div class="control-group"><label>Stitches across <span class="val-display" id="across-val">140</span></label><input type="range" id="across" min="40" max="260" step="2" value="140" title="Stitches across the card's width: more stitches = smaller ones"></div>
+        <div class="control-group" id="acrossGroup"><label>Stitches across <span class="val-display" id="across-val">140</span></label><input type="range" id="across" min="40" max="260" step="2" value="140" title="Stitches across the card's width: more stitches = smaller ones"></div>
         <div class="control-group"><label>Facets <span class="val-display" id="facet-val">1.00</span></label><input type="range" id="facet" min="0" max="1.6" step="0.05" value="1"></div>
         <div class="control-group" id="fabricGroup"><label>Fabric (cross-stitch)</label><input type="color" id="fabric" value="#F4EEE4"></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="mirror" checked> Mirror the bands (same from both edges)</label></div>
@@ -129,7 +129,11 @@
           <div class="control-group"><label class="check"><input type="checkbox" id="fillCenter"> Fill the middle (otherwise see-through)</label></div>
           <div class="control-group"><label>Middle color</label><input type="color" id="centerColor" value="#F4EEE4"></div>
         </div>
-        <div class="strip-only control-group"><label>Strip length (stitches) <span class="val-display" id="stripLen-val">90</span></label><input type="range" id="stripLen" min="12" max="300" step="1" value="90"></div>
+        <div class="strip-only">
+          <div class="control-group"><label>Repeats <span class="val-display" id="stripRepeats-val">2</span></label><input type="range" id="stripRepeats" min="1" max="12" step="1" value="2"></div>
+          <div class="hint" id="repeatInfo"></div>
+          <div class="control-group"><label class="check"><input type="checkbox" id="tilePreview" checked> Preview copies side by side</label></div>
+        </div>
         <div class="back-only control-group"><label class="check"><input type="checkbox" id="backEdge" checked> Solid edge around the card back</label></div>
       </div>
     </details>
@@ -179,7 +183,7 @@
 
     const state = {
       mode: 'frame', style: 'knit', across: 140, facet: 1, mirror: true, fabric: '#F4EEE4',
-      palette: FI.PALETTES.trail.colors.slice(), fillCenter: false, centerColor: '#F4EEE4', stripLen: 90, backEdge: true,
+      palette: FI.PALETTES.trail.colors.slice(), fillCenter: false, centerColor: '#F4EEE4', stripRepeats: 2, backEdge: true,
       seed: 1, bands: JSON.parse(JSON.stringify(PRESETS.snowflake.bands))
     };
 
@@ -220,7 +224,7 @@
       head.className = 'band-head';
       const sel = motifOptions.cloneNode(true);
       sel.value = band.motif;
-      sel.addEventListener('change', () => { band.motif = sel.value; draw(); });
+      sel.addEventListener('change', () => { band.motif = sel.value; refreshLabels(); draw(); });
       head.appendChild(sel);
       [['up', 'Toward the outer edge', -1], ['down', 'Toward the middle', 1]].forEach(([icon, title, dir]) => {
         const b = document.createElement('button');
@@ -265,13 +269,14 @@
       $('mirror').checked = state.mirror; $('fabric').value = state.fabric;
       state.palette.forEach((c, k) => $('pal' + k).value = c);
       $('fillCenter').checked = state.fillCenter; $('centerColor').value = state.centerColor;
-      $('stripLen').value = state.stripLen; $('backEdge').checked = state.backEdge;
+      $('stripRepeats').value = state.stripRepeats; $('backEdge').checked = state.backEdge;
       document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === state.mode));
       document.querySelectorAll('.frame-only').forEach(e => e.style.display = state.mode === 'frame' ? '' : 'none');
       document.querySelectorAll('.strip-only').forEach(e => e.style.display = state.mode === 'strip' ? '' : 'none');
       document.querySelectorAll('.back-only').forEach(e => e.style.display = state.mode === 'back' ? '' : 'none');
       $('aspectLabel').style.display = state.mode === 'strip' ? 'none' : '';
       $('fabricGroup').style.display = state.style === 'cross' ? '' : 'none';
+      $('acrossGroup').style.display = state.mode === 'strip' ? 'none' : ''; // a strip's size comes from its repeats
       $('sendToScene').disabled = state.mode === 'back';
       $('sendToScene').title = state.mode === 'back' ? 'Card backs are saved as PNGs (Save PNG)' : state.mode === 'frame' ? 'Use it as the card border in the Scenes tab' : 'Add it to the Scenes tab as a 2D layer';
       $('bandList').innerHTML = '';
@@ -283,13 +288,17 @@
     function refreshLabels() {
       $('across-val').innerText = state.across;
       $('facet-val').innerText = (+state.facet).toFixed(2);
-      $('stripLen-val').innerText = state.stripLen;
+      $('stripRepeats-val').innerText = state.stripRepeats;
+      const R = FI.repeatWidth(FI.buildRows(resolvedBands(), state.mirror));
+      $('repeatInfo').innerText = `The strip ends exactly where the pattern starts over, so saved copies line up end to end. One repeat is ${R} stitches; this strip is ${R * state.stripRepeats}.` +
+        (R > 300 ? ' That repeat is long because the bands have different widths; bands with matching widths make a shorter one.' : '');
     }
 
     document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { state.mode = b.dataset.mode; syncUI(); }));
     $('style').addEventListener('change', () => { state.style = $('style').value; syncUI(); });
-    ['across', 'facet', 'stripLen'].forEach(id => $(id).addEventListener('input', () => { state[id] = +$(id).value; refreshLabels(); draw(); }));
-    $('mirror').addEventListener('change', () => { state.mirror = $('mirror').checked; draw(); });
+    ['across', 'facet', 'stripRepeats'].forEach(id => $(id).addEventListener('input', () => { state[id] = +$(id).value; refreshLabels(); draw(); }));
+    $('mirror').addEventListener('change', () => { state.mirror = $('mirror').checked; refreshLabels(); draw(); });
+    $('tilePreview').addEventListener('change', draw);
     $('fillCenter').addEventListener('change', () => { state.fillCenter = $('fillCenter').checked; draw(); });
     $('backEdge').addEventListener('change', () => { state.backEdge = $('backEdge').checked; draw(); });
     ['fabric', 'centerColor'].forEach(id => $(id).addEventListener('input', () => { state[id] = $(id).value; draw(); }));
@@ -333,8 +342,9 @@
     function layout(W) {
       const rows = FI.buildRows(resolvedBands(), state.mirror), aspect = FI.STITCHES[state.style].aspect;
       if (state.mode === 'strip') {
-        const rowH = W / state.stripLen / aspect;
-        return { rows, W, H: Math.max(1, Math.round(rows.length * rowH)), rowH };
+        // a whole number of repeats, so the right end runs straight into the left end of the next copy
+        const count = FI.repeatWidth(rows) * state.stripRepeats, rowH = W / count / aspect;
+        return { rows, W, H: Math.max(1, Math.round(rows.length * rowH)), rowH, count };
       }
       const [aw, ah] = aspectWH();
       return { rows, W, H: Math.round(W * ah / aw), rowH: W / state.across / aspect };
@@ -342,7 +352,7 @@
 
     function paint(g, L) {
       const opts = { style: state.style, rowH: L.rowH, facet: state.facet, fabric: state.fabric, seed: state.seed };
-      if (state.mode === 'strip') { FI.drawStrip(g, L.rows, L.W, opts); return; }
+      if (state.mode === 'strip') { FI.drawStrip(g, L.rows, L.W, { ...opts, count: L.count, rowH: L.H / L.rows.length }); return; }
       if (state.mode === 'frame') {
         const T = L.rows.length * L.rowH;
         if (state.fillCenter) { g.fillStyle = state.centerColor; g.fillRect(T - 1, T - 1, L.W - 2 * T + 2, L.H - 2 * T + 2); }
@@ -375,15 +385,18 @@
     }
     function drawNow() {
       const box = $('canvas-container'), full = layout(exportWidth());
+      // in Strip mode the preview can show three copies end to end, to check the joins
+      const copies = state.mode === 'strip' && $('tilePreview').checked ? 3 : 1;
       // preview at screen size, painted with the same layout so it matches the export
-      const pad = 32, s = Math.min((box.clientWidth - pad * 2) / full.W, (box.clientHeight - pad * 2) / full.H);
+      const pad = 32, s = Math.min((box.clientWidth - pad * 2) / (full.W * copies), (box.clientHeight - pad * 2) / full.H);
       const dpr = window.devicePixelRatio || 1, c = $('preview');
-      c.width = Math.max(1, Math.round(full.W * s * dpr)); c.height = Math.max(1, Math.round(full.H * s * dpr));
-      c.style.width = Math.round(full.W * s) + 'px'; c.style.height = Math.round(full.H * s) + 'px';
+      c.width = Math.max(1, Math.round(full.W * copies * s * dpr)); c.height = Math.max(1, Math.round(full.H * s * dpr));
+      c.style.width = Math.round(full.W * copies * s) + 'px'; c.style.height = Math.round(full.H * s) + 'px';
       const g = c.getContext('2d');
-      g.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
-      g.clearRect(0, 0, full.W, full.H);
-      paint(g, full);
+      for (let k = 0; k < copies; k++) {
+        g.setTransform(s * dpr, 0, 0, s * dpr, k * full.W * s * dpr, 0);
+        paint(g, full);
+      }
     }
     new ResizeObserver(draw).observe($('canvas-container'));
 

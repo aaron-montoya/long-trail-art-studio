@@ -29,7 +29,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 ## Borders and banners
 
 - **Borders tab:** start from a style (Peerie, Snowflake, Star, Reindeer...), then change the bands, colors and stitch.
-  **Card frame** makes a see-through border for the card, **Strip** a single band, **Card back** the pattern over the whole card.
+  **Card frame** makes a see-through border for the card, **Strip** a single band that is a whole number of pattern repeats, so saved copies line up end to end, **Card back** the pattern over the whole card.
   Pick the same **Card frame** shape you use in the Scenes tab.
 - **Banners tab:** type the text (Enter for a new line), pick a shape and a color style, and bend it into an arch if you like.
 - **Save PNG** saves either one with a transparent background. **Send to Scene** puts a border on the Scenes tab's card

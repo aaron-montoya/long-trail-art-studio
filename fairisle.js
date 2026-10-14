@@ -269,7 +269,7 @@
   // opts: { style, rowH, facet, fabric (cross-stitch background), seed }. Returns the strip's thickness.
   function drawStrip(g, rows, length, opts) {
     const style = opts.style || 'knit', rowH = opts.rowH, facet = opts.facet == null ? 1 : opts.facet;
-    const count = Math.max(1, Math.round(length / (rowH * STITCHES[style].aspect))), w = length / count;
+    const count = opts.count || Math.max(1, Math.round(length / (rowH * STITCHES[style].aspect))), w = length / count;
     const thick = rows.length * rowH, seed = opts.seed || 1;
     if (style === 'cross') { // fabric with a faint weave
       g.fillStyle = opts.fabric;
@@ -294,6 +294,13 @@
     return thick;
   }
 
+  // Stitches before every band's pattern starts over together (the least common multiple of their widths).
+  // A strip this long, or a whole number of these, lines up end to end with copies of itself.
+  function repeatWidth(rows) {
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    return rows.reduce((l, row) => l / gcd(l, row.chartRow.length) * row.chartRow.length, 1);
+  }
+
   // A card frame: one strip per edge, rotated around the card and mitered at 45° in the corners
   function drawFrame(g, rows, W, H, opts) {
     const T = rows.length * opts.rowH;
@@ -315,5 +322,5 @@
     return T;
   }
 
-  window.FairIsle = { MOTIFS, PALETTES, STITCHES, buildRows, drawStrip, drawFrame, shade, mix, hash };
+  window.FairIsle = { MOTIFS, PALETTES, STITCHES, buildRows, repeatWidth, drawStrip, drawFrame, shade, mix, hash };
 })();
