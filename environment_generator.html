@@ -1386,7 +1386,7 @@
     // The Gear tab's card effects, for any placed model. They're objects in the scene, so the view and
     // Save Card PNG match. Each model draws in its own slot, farthest model first: the background effects
     // (sunburst, rings, focus lines, glow) over the scenery, then the outline, then the model, then sparkles.
-    // The effects ignore depth so they read as a card graphic around the model. The outline is the model
+    // The effects ignore depth and sit in the middle of the card, like the Gear tab. The outline is the model
     // pushed out a fixed width on screen and drawn just before it, so the model covers all but the outer edge.
     const modelFxGroup = new THREE.Group();
     scene.add(modelFxGroup);
@@ -1435,40 +1435,44 @@
       }
     }
 
-    // The rig faces the camera, centered on the view and scaled to the model's radius, so 1 unit = the model's radius
+    // The effects are a card graphic: the rig sits in the middle of the card frame, facing the camera, and
+    // 1 unit = the card's short side. Sizes follow the Gear tab, where an item at its default size spans 70%
+    // of the card's height, so they never depend on where the camera or the model is.
     function buildModelRig(M) {
-      const F = M.fx, rig = M.rig, r = mulberry32(M.fxSeed * 7919 + 13), far = 80;
+      const F = M.fx, rig = M.rig, r = mulberry32(M.fxSeed * 7919 + 13);
+      const [aw, ah] = aspectWH(), w = aw / Math.min(aw, ah), h = ah / Math.min(aw, ah);
+      const R = 0.35 * h, diag = Math.hypot(w, h); // the space a centered model gets, and the reach to the corners
       clearRig(rig);
       const add = (mesh, layer) => { mesh.userData.fxLayer = layer; mesh.frustumCulled = false; rig.add(mesh); };
       if (F.burst > 0.01) { // sunburst wedges out past the card edges
         const n = 18, rot = r() * Math.PI, pos = [];
         for (let k = 0; k < n; k += 2) {
           const a0 = rot + k / n * Math.PI * 2, a1 = a0 + Math.PI * 2 / n;
-          pos.push(0, 0, 0, Math.cos(a0) * far, Math.sin(a0) * far, 0, Math.cos(a1) * far, Math.sin(a1) * far, 0);
+          pos.push(0, 0, 0, Math.cos(a0) * diag, Math.sin(a0) * diag, 0, Math.cos(a1) * diag, Math.sin(a1) * diag, 0);
         }
         add(flatMesh(pos, fxMat(F.burstColor, 0.28 * F.burst)), FX_LAYER.burst);
       }
       if (F.rings > 0.01) for (let i = 0; i < 4; i++) {
-        const rad = 1.2 + i * 0.32, w = 0.02 - i * 0.003;
-        add(new THREE.Mesh(new THREE.RingGeometry(rad - w / 2, rad + w / 2, 128), fxMat(F.ringsColor, F.rings * (0.7 - i * 0.14))), FX_LAYER.rings);
+        const rad = R * (1.2 + i * 0.32), lw = 0.007 - i * 0.001;
+        add(new THREE.Mesh(new THREE.RingGeometry(rad - lw / 2, rad + lw / 2, 128), fxMat(F.ringsColor, F.rings * (0.7 - i * 0.14))), FX_LAYER.rings);
       }
-      if (F.focus > 0.01) { // speed lines rushing in from outside the card, leaving the model clear
+      if (F.focus > 0.01) { // speed lines rushing in from the card edges, leaving the middle clear
         const pos = [];
         for (let k = 0, n = Math.round(50 + 110 * F.focus); k < n; k++) {
-          const ang = r() * Math.PI * 2, inner = 0.9 + r() * 0.6, hw = (0.0025 + r() * 0.0085) * (far - inner);
+          const ang = r() * Math.PI * 2, inner = 0.3 + r() * 0.22, wide = 0.003 + r() * 0.011;
           const dx = Math.cos(ang), dy = Math.sin(ang);
-          pos.push(dx * inner, dy * inner, 0, dx * far - dy * hw, dy * far + dx * hw, 0, dx * far + dy * hw, dy * far - dx * hw, 0);
+          pos.push(dx * inner, dy * inner, 0, dx * diag - dy * wide, dy * diag + dx * wide, 0, dx * diag + dy * wide, dy * diag - dx * wide, 0);
         }
         add(flatMesh(pos, fxMat(F.focusColor, 0.85 * F.focus)), FX_LAYER.focus);
       }
       if (F.glow > 0.01) {
-        const s = 1.4 + F.glow * 1.2;
+        const s = R * (1.4 + F.glow * 1.2);
         add(new THREE.Mesh(new THREE.PlaneGeometry(s * 2, s * 2), fxMat(F.glowColor, 0.95 * F.glow, glowTex)), FX_LAYER.glow);
       }
       if (F.sparkle > 0.01) {
         const pos = [], uv = [], corners = [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]];
         for (let k = 0, n = Math.round(6 + 26 * F.sparkle); k < n; k++) {
-          const ang = r() * Math.PI * 2, d = 0.75 + r() * 1.35, s = (0.034 + r() * 0.1) * (0.6 + F.sparkle * 0.6) * 1.6;
+          const ang = r() * Math.PI * 2, d = R * (0.75 + r() * 1.35), s = (0.012 + r() * 0.035) * (0.6 + F.sparkle * 0.6) * 1.6;
           const x = Math.cos(ang) * d, y = Math.sin(ang) * d;
           corners.forEach(([a, b]) => { pos.push(x + a * s, y + b * s, 0); uv.push((a + 1) / 2, (b + 1) / 2); });
         }
@@ -1563,14 +1567,6 @@
         });
         o.userData.fxLayer = matsOf(o).some(m => m.userData.seeThrough) ? FX_LAYER.seeThrough : FX_LAYER.model;
       });
-      // the model's box in its own space, before Turn/Tilt/Roll
-      M.object.updateMatrixWorld(true);
-      const toLocal = M.object.matrixWorld.clone().invert(), rel = new THREE.Matrix4();
-      M.localBox = new THREE.Box3();
-      M.meshes.forEach(o => {
-        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-        M.localBox.union(o.geometry.boundingBox.clone().applyMatrix4(rel.multiplyMatrices(toLocal, o.matrixWorld)));
-      });
       M.fx = { ...FX_DEFAULTS, ...M.fx };
       M.fxSeed = M.fxSeed || 1 + Math.floor(Math.random() * 100000);
       M.hulls = null;
@@ -1580,30 +1576,10 @@
       applyModelFx(M);
     }
 
-    // Where a model's effects go: the middle of the camera's view (the middle of the card), at the model's
-    // distance, sized to the model as seen from the camera. The size comes from its own box (which turns
-    // with it), so a dog seen head-on gets a tighter ring than side-on. Null when part of it is behind the camera.
-    const _corner = new THREE.Vector3();
-    function screenFit(M, out) {
-      const inv = camera.matrixWorldInverse, b = M.localBox;
-      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-      for (let i = 0; i < 8; i++) {
-        _corner.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)
-          .applyMatrix4(M.object.matrixWorld).applyMatrix4(inv);
-        if (_corner.z > -camera.near) return null;
-        const sx = _corner.x / -_corner.z, sy = _corner.y / -_corner.z;
-        x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
-      }
-      const depth = -_corner.copy(M.sphere.center).applyMatrix4(inv).z;
-      out.center.set(0, 0, -depth).applyMatrix4(camera.matrixWorld);
-      out.radius = Math.min(M.sphere.radius, Math.hypot(x1 - x0, y1 - y0) / 2 * depth);
-      return out;
-    }
-
-    // Every frame (and for the export): order the models far to near, face each rig to the camera, and set
-    // the outline width. outlineScale is the outline width at full strength, as a fraction of half the view height.
-    const _fit = new THREE.Sphere();
-    function updateModelFx(outlineScale) {
+    // Every frame (and for the export): order the models far to near, put each rig on the card, and set the
+    // outline width. cardFrac is the card's short side as a fraction of the view height.
+    function updateModelFx(cardFrac) {
+      const unit = cardFrac * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2); // card's short side, in world units 1 m ahead
       camera.updateMatrixWorld();
       const ranked = models.filter(M => M.sphere)
         .map(M => [M, camera.position.distanceToSquared(M.sphere.center)])
@@ -1613,20 +1589,16 @@
         M.meshes.forEach(o => o.renderOrder = slot + o.userData.fxLayer);
         if (M.hulls) {
           M.hulls.forEach(h => h.renderOrder = slot + FX_LAYER.outline);
-          M.hullMat.uniforms.thick.value = M.fx.outline * outlineScale;
+          M.hullMat.uniforms.thick.value = M.fx.outline * 0.028 * cardFrac; // 1.4% of the short side, like the Gear tab
           M.hullMat.uniforms.aspect.value = camera.aspect;
         }
-        const rig = M.rig, sp = rig.children.length ? screenFit(M, _fit) : null;
-        rig.visible = !!sp;
-        if (!sp) return;
-        rig.position.copy(sp.center);
+        const rig = M.rig;
+        rig.position.set(0, 0, -1).applyMatrix4(camera.matrixWorld); // the middle of the view is the middle of the card
         rig.quaternion.copy(camera.quaternion);
-        rig.scale.setScalar(sp.radius);
+        rig.scale.setScalar(unit);
         rig.children.forEach(o => o.renderOrder = slot + o.userData.fxLayer);
       });
     }
-    // Outline width matches the Gear tab: 1.4% of the card's short side at full strength
-    const outlineScale = (cardW, cardH, viewH) => 0.028 * Math.min(cardW, cardH) / viewH;
 
     function refreshModelFxUI() {
       const M = models[selModel];
@@ -1664,6 +1636,7 @@
         if (key === 'outline') updateOutline(M); else buildModelRig(M);
       });
     }
+    $('aspect').addEventListener('change', () => models.forEach(buildModelRig)); // effects are sized to the card
     $('mfxReroll').addEventListener('click', () => {
       const M = models[selModel]; if (!M) return;
       M.fxSeed = 1 + Math.floor(Math.random() * 100000);
@@ -1695,7 +1668,7 @@
       skyGroup.position.copy(camera.position);
       const boxWas = selBox.visible;
       selBox.visible = false;
-      updateModelFx(outlineScale(outW, outH, outH));
+      updateModelFx(Math.min(outW, outH) / outH);
       renderer.render(scene, camera);
       selBox.visible = boxWas;
 
@@ -1791,7 +1764,7 @@
       sun.position.copy(controls.target).addScaledVector(dir, 250);
       if (models[selModel]) { selBox.setFromObject(models[selModel].object); selBox.visible = true; } else selBox.visible = false;
       const fr = frameRect();
-      updateModelFx(outlineScale(fr.w, fr.h, canvasContainer.clientHeight));
+      updateModelFx(Math.min(fr.w, fr.h) / canvasContainer.clientHeight);
       renderer.render(scene, camera);
       drawOverlay();
     }
