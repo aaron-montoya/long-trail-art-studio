@@ -17,6 +17,12 @@
     #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
     #ui-panel.hidden { display: none; }
     #show-panel { display: none; }
+    /* card mode: a 2D canvas paints the finished card over the (invisible) 3D view */
+    #cardCanvas { position: absolute; inset: 0; display: none; pointer-events: none; z-index: 1; }
+    .fx-row { display: grid; grid-template-columns: 1fr 46px; gap: 8px; align-items: end; }
+    .fx-row input[type=color] { height: 28px; margin-bottom: 12px; }
+    .card-only { display: none !important; }
+    body.card .card-only { display: inline-flex !important; }
 
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
     h2 { margin: 0; font-size: 1.2rem; color: #fff; }
@@ -60,6 +66,41 @@
       <button id="randomizeColors"><i data-icon="palette"></i>Randomize Colors</button>
       <button id="resetColors"><i data-icon="reset"></i>Default Colors</button>
     </div>
+
+    <!-- CARD -->
+    <details open>
+      <summary>Card Background</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="cardMode"> Card mode: background, effects, Save Card PNG</label></div>
+        <div id="cardControls" style="display: none;">
+          <div class="item-grid" id="cardStyleBtns"></div>
+          <div class="control-group"><label>Background</label>
+            <select id="cardBg">
+              <option value="facets">Low-poly facets</option>
+              <option value="snow">Snowy</option>
+              <option value="radial">Radial glow</option>
+              <option value="paper">Paper</option>
+              <option value="night">Night sky</option>
+              <option value="solid">Solid color</option>
+            </select></div>
+          <div class="color-grid">
+            <div class="control-group"><label>Color 1</label><input type="color" id="cardC1" value="#DCE8F2"></div>
+            <div class="control-group"><label>Color 2</label><input type="color" id="cardC2" value="#93AFC6"></div>
+          </div>
+          <div class="control-group"><label>Item size <span class="val-display" id="cardSize-val">0.70</span></label><input type="range" id="cardSize" min="0.3" max="0.95" step="0.01" value="0.7"></div>
+          <div class="fx-row"><div class="control-group"><label>Outline <span class="val-display" id="fxOutline-val">0.50</span></label><input type="range" id="fxOutline" min="0" max="1" step="0.05" value="0.5"></div><input type="color" id="fxOutlineColor" value="#FFFFFF" title="Outline color"></div>
+          <div class="fx-row"><div class="control-group"><label>Glow <span class="val-display" id="fxGlow-val">0.00</span></label><input type="range" id="fxGlow" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxGlowColor" value="#FFFFFF" title="Glow color"></div>
+          <div class="fx-row"><div class="control-group"><label>Sparkles <span class="val-display" id="fxSparkle-val">0.00</span></label><input type="range" id="fxSparkle" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxSparkleColor" value="#FFFFFF" title="Sparkles color"></div>
+          <div class="fx-row"><div class="control-group"><label>Focus lines <span class="val-display" id="fxFocus-val">0.00</span></label><input type="range" id="fxFocus" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxFocusColor" value="#1D1F26" title="Focus lines color"></div>
+          <div class="fx-row"><div class="control-group"><label>Sunburst <span class="val-display" id="fxBurst-val">0.00</span></label><input type="range" id="fxBurst" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxBurstColor" value="#FFFFFF" title="Sunburst color"></div>
+          <div class="fx-row"><div class="control-group"><label>Rings <span class="val-display" id="fxRings-val">0.00</span></label><input type="range" id="fxRings" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxRingsColor" value="#FFFFFF" title="Rings color"></div>
+          <div class="control-group"><label>Vignette <span class="val-display" id="fxVignette-val">0.25</span></label><input type="range" id="fxVignette" min="0" max="1" step="0.05" value="0.25"></div>
+          <div class="fx-row"><div class="control-group"><label>Border <span class="val-display" id="fxBorder-val">0.40</span></label><input type="range" id="fxBorder" min="0" max="1" step="0.05" value="0.4"></div><input type="color" id="fxBorderColor" value="#FFFFFF" title="Border color"></div>
+          <div class="control-group"><label class="check"><input type="checkbox" id="cardShadow" checked> Soft shadow under the item</label></div>
+          <button id="rerollCard" style="width: 100%;" title="New sparkle and background layout"><i data-icon="dice"></i>Reroll sparkles &amp; pattern</button>
+        </div>
+      </div>
+    </details>
 
     <!-- STYLE -->
     <details open>
@@ -107,9 +148,21 @@
         <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
       </select>
       <button id="export3d" title="3D model for the scene tool or Blender (.glb)"><i data-icon="cube"></i>Export 3D</button>
+      <span class="sep card-only"></span>
+      <label class="card-only">Card frame
+        <select id="cardAspect">
+          <option value="5:7" selected>Portrait card (2.5 × 3.5)</option>
+          <option value="7:5">Landscape card (3.5 × 2.5)</option>
+          <option value="1:1">Square</option>
+          <option value="4:3">Art box 4:3</option>
+        </select>
+      </label>
+      <label class="card-only" title="1500 px wide = 600 dpi on a 2.5 inch poker card">Width <input type="number" id="cardWidth" value="1500" min="300" max="4000" step="50" style="width: 76px;"> px</label>
+      <button class="primary card-only" id="saveCard"><i data-icon="image"></i>Save Card PNG</button>
       <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
     </div>
     <div id="canvas-container">
+      <canvas id="cardCanvas"></canvas>
       <div class="viewbar">
         <button id="centerCam" title="Frame the item in the view"><i data-icon="target"></i>Center</button>
         <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan</span>
@@ -164,13 +217,15 @@
     fillLight.position.set(-8, 3, -8);
     scene.add(fillLight);
 
+    const bgColor = new THREE.Color();
     function updateScene() {
       const az = THREE.MathUtils.degToRad(+$('sunAz').value), el = THREE.MathUtils.degToRad(+$('sunEl').value);
       keyLight.position.set(6 * Math.cos(el) * Math.sin(az), 0.1 + 6 * Math.sin(el), 6 * Math.cos(el) * Math.cos(az));
       keyLight.color.set($('sunColor').value);
       keyLight.intensity = +$('sunInt').value;
       ambientLight.intensity = +$('ambInt').value;
-      scene.background.set($('bgColor').value);
+      bgColor.set($('bgColor').value);
+      scene.background = cardOn() ? null : bgColor; // the card paints its own background
       ['sunAz', 'sunEl'].forEach(id => $(id + '-val').innerText = $(id).value);
       ['sunInt', 'ambInt'].forEach(id => $(id + '-val').innerText = (+$(id).value).toFixed(2));
     }
@@ -726,7 +781,7 @@
       if ($('charName').value === 'Gear' || Object.values(ITEMS).some(d => d.label === $('charName').value)) $('charName').value = ITEMS[key].label;
       refreshStyleUI();
       buildItem();
-      if (frame) centerCamera();
+      if (frame) frameItem();
     }
 
     function centerCamera() {
@@ -754,11 +809,11 @@
         $('itemButtons').appendChild(b);
       });
     }
-    $('variant').addEventListener('change', () => { stateOf(currentItem).variant = $('variant').value; buildItem(); centerCamera(); });
+    $('variant').addEventListener('change', () => { stateOf(currentItem).variant = $('variant').value; buildItem(); frameItem(); });
     ['glow', 'steam', 'snowBase'].forEach(id => $(id).addEventListener('change', buildItem));
     $('turn').addEventListener('input', () => { $('turn-val').innerText = $('turn').value; buildItem(); });
     ['bgColor', 'sunAz', 'sunEl', 'sunColor', 'sunInt', 'ambInt'].forEach(id => $(id).addEventListener('input', updateScene));
-    $('centerCam').addEventListener('click', centerCamera);
+    $('centerCam').addEventListener('click', () => frameItem());
 
     // Random colors that still read as gear: a bright main color, dark or light trim
     const brights = ['#D9482B', '#E5482F', '#2F6FD6', '#F2C12E', '#2E8B57', '#6A3D9A', '#0E7C86', '#C46A1A', '#B8322A', '#4FA3D9', '#D4A837'];
@@ -851,7 +906,7 @@
         if (!el.id || el.type === 'file') return;
         values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
       });
-      return { type: 'gear', version: 1, item: currentItem, itemSettings: stateOf(currentItem), values };
+      return { type: 'gear', version: 1, item: currentItem, itemSettings: stateOf(currentItem), cardSeed, values };
     }
 
     function applyGearState(state) {
@@ -866,9 +921,11 @@
       $('turn-val').innerText = $('turn').value;
       updateScene();
       currentItem = state.item;
+      if (state.cardSeed) cardSeed = state.cardSeed;
       refreshStyleUI();
       buildItem();
-      centerCamera();
+      refreshFxLabels();
+      updateCardMode();
     }
 
     $('saveChar').addEventListener('click', () => downloadBlob(new Blob([JSON.stringify(gearState(), null, 2)], { type: 'application/json' }), `${fileBase()}.json`));
@@ -911,6 +968,325 @@
       sendBtn.addEventListener('click', () => export3D((buffer, name) => studio.sendModel(buffer, name)));
     }
 
+    // ================= CARD MODE =================
+    // The item is rendered with a transparent background and painted onto a 2D card: background, effects
+    // behind the item, the item (optionally outlined), then effects in front. The live preview and
+    // Save Card PNG use the same drawing code, sized from the card frame, so they match.
+    const cardCanvas = $('cardCanvas');
+    const cardOn = () => $('cardMode').checked;
+    const fxv = id => +$(id).value;
+    let cardSeed = 1;
+    const outlineA = document.createElement('canvas'), outlineB = document.createElement('canvas');
+
+    function cardFrameRect() { // CSS pixels inside the 3D view
+      const cw = canvasContainer.clientWidth, ch = canvasContainer.clientHeight;
+      const [aw, ah] = $('cardAspect').value.split(':').map(Number), m = 24;
+      let h = ch - m * 2, w = h * aw / ah;
+      if (w > cw - m * 2) { w = cw - m * 2; h = w * ah / aw; }
+      return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+    }
+
+    function itemSphere() {
+      itemGroup.updateMatrixWorld(true);
+      return new THREE.Box3().setFromObject(itemGroup).getBoundingSphere(new THREE.Sphere());
+    }
+
+    // Where the item sits on screen (center + radius in pixels of a w x h view) for a given camera
+    function projectItem(cam, w, h) {
+      const sp = itemSphere(), p = sp.center.clone().project(cam);
+      const dist = cam.position.distanceTo(sp.center);
+      return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h,
+               r: (sp.radius / dist) / Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * (h / 2) };
+    }
+
+    // Pull the camera along its view line so the item fills "Item size" of the card's height
+    function fitToCard() {
+      const sp = itemSphere(), fr = cardFrameRect(), ch = canvasContainer.clientHeight;
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const d = sp.radius * ch / (fxv('cardSize') * fr.h * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+      controls.target.copy(sp.center);
+      camera.position.copy(sp.center).addScaledVector(dir, -d);
+      controls.update();
+    }
+    function frameItem() { if (cardOn()) fitToCard(); else centerCamera(); }
+
+    const rgba = (hex, a) => { const c = new THREE.Color(hex); return `rgba(${Math.round(c.r * 255)}, ${Math.round(c.g * 255)}, ${Math.round(c.b * 255)}, ${a})`; };
+    const mix = (h1, h2, t, light = 1) => { const c = new THREE.Color(h1).lerp(new THREE.Color(h2), THREE.MathUtils.clamp(t, 0, 1)).multiplyScalar(light); return `rgb(${Math.round(Math.min(1, c.r) * 255)}, ${Math.round(Math.min(1, c.g) * 255)}, ${Math.round(Math.min(1, c.b) * 255)})`; };
+
+    function drawBackground(g, fr, r) {
+      const c1 = $('cardC1').value, c2 = $('cardC2').value, style = $('cardBg').value;
+      const { x, y, w, h } = fr, unit = Math.min(w, h);
+      if (style === 'solid') { g.fillStyle = c1; g.fillRect(x, y, w, h); return; }
+      if (style === 'radial') {
+        const grad = g.createRadialGradient(x + w / 2, y + h * 0.45, 0, x + w / 2, y + h * 0.45, Math.hypot(w, h) * 0.6);
+        grad.addColorStop(0, c1); grad.addColorStop(1, c2);
+        g.fillStyle = grad; g.fillRect(x, y, w, h); return;
+      }
+      if (style === 'facets') { // low-poly triangles shading from color 1 (top) to color 2 (bottom)
+        const cols = 6, rows = Math.max(4, Math.round(cols * h / w)), cw = w / cols, rh = h / rows, pts = [];
+        for (let j = 0; j <= rows; j++) {
+          pts.push([]);
+          for (let i = 0; i <= cols; i++) {
+            const edge = i === 0 || j === 0 || i === cols || j === rows;
+            pts[j].push([x + i * cw + (edge ? 0 : (r() - 0.5) * cw * 0.7), y + j * rh + (edge ? 0 : (r() - 0.5) * rh * 0.7)]);
+          }
+        }
+        const tri = (a, b, c) => {
+          const t = ((a[1] + b[1] + c[1]) / 3 - y) / h;
+          g.fillStyle = mix(c1, c2, t + (r() - 0.5) * 0.25, 0.94 + r() * 0.12);
+          g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...c); g.closePath(); g.fill();
+          g.strokeStyle = g.fillStyle; g.lineWidth = 1; g.stroke(); // hide hairline seams
+        };
+        for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+          const p = pts[j][i], q = pts[j][i + 1], s = pts[j + 1][i], t2 = pts[j + 1][i + 1];
+          if ((i + j) % 2) { tri(p, q, t2); tri(p, t2, s); } else { tri(p, q, s); tri(q, t2, s); }
+        }
+        return;
+      }
+      if (style === 'snow') {
+        const grad = g.createLinearGradient(x, y, x, y + h);
+        grad.addColorStop(0, c2); grad.addColorStop(1, c1);
+        g.fillStyle = grad; g.fillRect(x, y, w, h);
+        for (let k = 0; k < 260; k++) { // falling flakes
+          g.fillStyle = `rgba(255, 255, 255, ${0.25 + r() * 0.6})`;
+          g.beginPath(); g.arc(x + r() * w, y + r() * h, unit * (0.002 + r() * 0.007), 0, Math.PI * 2); g.fill();
+        }
+        g.fillStyle = 'rgba(255, 255, 255, 0.85)'; // a drift along the bottom
+        g.beginPath(); g.moveTo(x, y + h);
+        for (let k = 0; k <= 8; k++) g.lineTo(x + w * k / 8, y + h * (0.86 + Math.sin(k * 1.7 + r()) * 0.03));
+        g.lineTo(x + w, y + h); g.closePath(); g.fill();
+        return;
+      }
+      if (style === 'paper') {
+        g.fillStyle = c1; g.fillRect(x, y, w, h);
+        for (let k = 0; k < 2200; k++) {
+          g.fillStyle = r() < 0.5 ? `rgba(0, 0, 0, ${r() * 0.05})` : `rgba(255, 255, 255, ${r() * 0.08})`;
+          g.fillRect(x + r() * w, y + r() * h, unit * 0.004, unit * 0.004);
+        }
+        const burn = g.createRadialGradient(x + w / 2, y + h / 2, unit * 0.3, x + w / 2, y + h / 2, Math.hypot(w, h) * 0.55);
+        burn.addColorStop(0, rgba(c2, 0)); burn.addColorStop(1, rgba(c2, 0.55));
+        g.fillStyle = burn; g.fillRect(x, y, w, h);
+        return;
+      }
+      if (style === 'night') {
+        const grad = g.createLinearGradient(x, y, x, y + h);
+        grad.addColorStop(0, c2); grad.addColorStop(1, c1);
+        g.fillStyle = grad; g.fillRect(x, y, w, h);
+        for (let k = 0; k < 220; k++) {
+          g.fillStyle = `rgba(255, 255, 255, ${0.3 + r() * 0.7})`;
+          const s = unit * (0.001 + r() * r() * 0.006);
+          g.beginPath(); g.arc(x + r() * w, y + r() * h * 0.85, s, 0, Math.PI * 2); g.fill();
+        }
+      }
+    }
+
+    function star(g, cx, cy, s, color) { // four-point sparkle
+      const i = s * 0.18;
+      g.save();
+      g.fillStyle = color; g.shadowColor = color; g.shadowBlur = s * 0.9;
+      g.beginPath();
+      g.moveTo(cx, cy - s); g.quadraticCurveTo(cx + i, cy - i, cx + s, cy); g.quadraticCurveTo(cx + i, cy + i, cx, cy + s);
+      g.quadraticCurveTo(cx - i, cy + i, cx - s, cy); g.quadraticCurveTo(cx - i, cy - i, cx, cy - s);
+      g.fill();
+      g.restore();
+    }
+
+    function roundRectPath(g, x, y, w, h, rad) {
+      g.beginPath();
+      g.moveTo(x + rad, y); g.arcTo(x + w, y, x + w, y + h, rad); g.arcTo(x + w, y + h, x, y + h, rad);
+      g.arcTo(x, y + h, x, y, rad); g.arcTo(x, y, x + w, y, rad); g.closePath();
+    }
+
+    // The item image with a solid outline: color the silhouette, stamp it in a ring, put the item on top
+    function outlinedItem(src, t, color) {
+      if (t < 0.5) return src;
+      [outlineA, outlineB].forEach(c => { if (c.width !== src.width || c.height !== src.height) { c.width = src.width; c.height = src.height; } });
+      const a = outlineA.getContext('2d'), b = outlineB.getContext('2d'), W = src.width, H = src.height;
+      a.globalCompositeOperation = 'source-over'; a.clearRect(0, 0, W, H); a.drawImage(src, 0, 0);
+      a.globalCompositeOperation = 'source-in'; a.fillStyle = color; a.fillRect(0, 0, W, H);
+      a.globalCompositeOperation = 'source-over';
+      b.clearRect(0, 0, W, H);
+      for (const [rad, n] of [[t, 20], [t * 0.5, 10]]) for (let k = 0; k < n; k++) { const ang = k / n * Math.PI * 2; b.drawImage(outlineA, Math.cos(ang) * rad, Math.sin(ang) * rad); }
+      b.drawImage(src, 0, 0);
+      return outlineB;
+    }
+
+    // Paint the full card into rect fr. src is the transparent item render covering srcRect;
+    // it = item center/radius in the same pixel space; pxScale = src pixels per drawing pixel.
+    function composeCard(g, fr, src, srcRect, it, pxScale) {
+      const r = rng(cardSeed * 7919 + 13), unit = Math.min(fr.w, fr.h), cx = it.x, cy = it.y, R = Math.max(it.r, unit * 0.05);
+      const diag = Math.hypot(fr.w, fr.h);
+      g.save();
+      g.beginPath(); g.rect(fr.x, fr.y, fr.w, fr.h); g.clip();
+      drawBackground(g, fr, r);
+
+      const burst = fxv('fxBurst');
+      if (burst > 0.01) { // sunburst wedges from the item
+        g.fillStyle = rgba($('fxBurstColor').value, 0.28 * burst);
+        const n = 18, rot = r() * Math.PI;
+        for (let k = 0; k < n; k += 1) {
+          if (k % 2) continue;
+          const a0 = rot + k / n * Math.PI * 2, a1 = a0 + Math.PI * 2 / n;
+          g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a0) * diag, cy + Math.sin(a0) * diag); g.lineTo(cx + Math.cos(a1) * diag, cy + Math.sin(a1) * diag); g.closePath(); g.fill();
+        }
+      }
+      const rings = fxv('fxRings');
+      if (rings > 0.01) {
+        for (let i = 0; i < 4; i++) {
+          g.strokeStyle = rgba($('fxRingsColor').value, rings * (0.7 - i * 0.14));
+          g.lineWidth = unit * (0.007 - i * 0.001);
+          g.beginPath(); g.arc(cx, cy, R * (1.2 + i * 0.32), 0, Math.PI * 2); g.stroke();
+        }
+      }
+      const focus = fxv('fxFocus');
+      if (focus > 0.01) { // speed lines rushing in from the edges toward the item
+        g.fillStyle = rgba($('fxFocusColor').value, 0.85 * focus);
+        for (let k = 0, n = Math.round(50 + 110 * focus); k < n; k++) {
+          const ang = r() * Math.PI * 2, inner = unit * (0.3 + r() * 0.22), wide = unit * (0.003 + r() * 0.011); // clear space in the middle for the item
+          const dx = Math.cos(ang), dy = Math.sin(ang), px = -dy, py = dx;
+          g.beginPath();
+          g.moveTo(cx + dx * inner, cy + dy * inner);
+          g.lineTo(cx + dx * diag + px * wide, cy + dy * diag + py * wide);
+          g.lineTo(cx + dx * diag - px * wide, cy + dy * diag - py * wide);
+          g.closePath(); g.fill();
+        }
+      }
+      const glow = fxv('fxGlow');
+      if (glow > 0.01) {
+        const grad = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * (1.4 + glow * 1.2));
+        grad.addColorStop(0, rgba($('fxGlowColor').value, 0.95 * glow)); grad.addColorStop(1, rgba($('fxGlowColor').value, 0));
+        g.fillStyle = grad; g.fillRect(fr.x, fr.y, fr.w, fr.h);
+      }
+      if ($('cardShadow').checked) {
+        g.save();
+        g.filter = `blur(${Math.max(1, unit * 0.012)}px)`;
+        g.fillStyle = 'rgba(20, 30, 50, 0.3)';
+        g.beginPath(); g.ellipse(cx, cy + R * 0.92, R * 0.75, R * 0.12, 0, 0, Math.PI * 2); g.fill();
+        g.restore();
+      }
+
+      // the item itself
+      const outline = fxv('fxOutline');
+      g.drawImage(outlinedItem(src, outline * unit * 0.014 * pxScale, $('fxOutlineColor').value), srcRect.x, srcRect.y, srcRect.w, srcRect.h);
+
+      const spark = fxv('fxSparkle');
+      if (spark > 0.01) {
+        for (let k = 0, n = Math.round(6 + 26 * spark); k < n; k++) {
+          const ang = r() * Math.PI * 2, d = R * (0.75 + r() * 1.35);
+          star(g, cx + Math.cos(ang) * d, cy + Math.sin(ang) * d, unit * (0.012 + r() * 0.035) * (0.6 + spark * 0.6), $('fxSparkleColor').value);
+        }
+      }
+      const vig = fxv('fxVignette');
+      if (vig > 0.01) {
+        const grad = g.createRadialGradient(fr.x + fr.w / 2, fr.y + fr.h / 2, unit * 0.35, fr.x + fr.w / 2, fr.y + fr.h / 2, diag * 0.6);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)'); grad.addColorStop(1, `rgba(0, 0, 0, ${0.65 * vig})`);
+        g.fillStyle = grad; g.fillRect(fr.x, fr.y, fr.w, fr.h);
+      }
+      const border = fxv('fxBorder');
+      if (border > 0.01) {
+        const inset = unit * 0.035;
+        g.strokeStyle = $('fxBorderColor').value;
+        g.lineWidth = unit * 0.02 * border;
+        roundRectPath(g, fr.x + inset, fr.y + inset, fr.w - inset * 2, fr.h - inset * 2, unit * 0.04);
+        g.stroke();
+      }
+      g.restore();
+    }
+
+    // live preview: drawn every frame over the (invisible) 3D canvas
+    function drawCardPreview() {
+      const dpr = window.devicePixelRatio, cw = canvasContainer.clientWidth, ch = canvasContainer.clientHeight;
+      if (cardCanvas.width !== Math.round(cw * dpr) || cardCanvas.height !== Math.round(ch * dpr)) {
+        cardCanvas.width = Math.round(cw * dpr); cardCanvas.height = Math.round(ch * dpr);
+        cardCanvas.style.width = cw + 'px'; cardCanvas.style.height = ch + 'px';
+      }
+      const g = cardCanvas.getContext('2d');
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, cardCanvas.width, cardCanvas.height);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const fr = cardFrameRect();
+      g.fillStyle = '#1b1b24'; g.fillRect(0, 0, cw, ch);          // around the card
+      composeCard(g, fr, renderer.domElement, { x: 0, y: 0, w: cw, h: ch }, projectItem(camera, cw, ch), renderer.domElement.width / cw);
+      g.strokeStyle = 'rgba(255, 255, 255, 0.5)'; g.lineWidth = 1;
+      g.strokeRect(fr.x + 0.5, fr.y + 0.5, fr.w - 1, fr.h - 1);
+    }
+
+    // Save Card PNG: render the item for exactly the card area at print size, then paint the card
+    function renderCardPNG() {
+      const [aw, ah] = $('cardAspect').value.split(':').map(Number);
+      const outW = Math.round(THREE.MathUtils.clamp(+$('cardWidth').value || 1500, 300, 4000)), outH = Math.round(outW * ah / aw);
+      const fr = cardFrameRect(), ch = canvasContainer.clientHeight, oldFov = camera.fov, oldRatio = renderer.getPixelRatio();
+      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(oldFov) / 2) * fr.h / ch));
+      camera.aspect = outW / outH;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(1);
+      renderer.setSize(outW, outH, false);
+      renderer.render(scene, camera);
+      const c = document.createElement('canvas');
+      c.width = outW; c.height = outH;
+      composeCard(c.getContext('2d'), { x: 0, y: 0, w: outW, h: outH }, renderer.domElement, { x: 0, y: 0, w: outW, h: outH }, projectItem(camera, outW, outH), 1);
+      camera.fov = oldFov;
+      renderer.setPixelRatio(oldRatio);
+      fitRenderer();
+      return c;
+    }
+
+    // One-click looks to start from; every value can be adjusted afterwards
+    const CARD_STYLES = {
+      clean:     { label: 'Clean', cardBg: 'facets', cardC1: '#DCE8F2', cardC2: '#93AFC6', fxOutline: 0.5, fxOutlineColor: '#FFFFFF', fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0.25, fxBorder: 0.4, fxBorderColor: '#FFFFFF', cardShadow: true },
+      sparkle:   { label: 'Sparkle', cardBg: 'snow', cardC1: '#EAF3FB', cardC2: '#9EBEDB', fxOutline: 0.4, fxOutlineColor: '#FFFFFF', fxGlow: 0.7, fxGlowColor: '#FFFFFF', fxSparkle: 0.8, fxSparkleColor: '#FFFFFF', fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0.2, fxBorder: 0.4, fxBorderColor: '#FFFFFF', cardShadow: true },
+      action:    { label: 'Action', cardBg: 'radial', cardC1: '#FFF4D6', cardC2: '#E5482F', fxOutline: 0.7, fxOutlineColor: '#1D1F26', fxGlow: 0.3, fxGlowColor: '#FFFFFF', fxSparkle: 0, fxFocus: 0.8, fxFocusColor: '#1D1F26', fxBurst: 0, fxRings: 0, fxVignette: 0.3, fxBorder: 0.5, fxBorderColor: '#1D1F26', cardShadow: false },
+      legendary: { label: 'Legendary', cardBg: 'radial', cardC1: '#FFF1C2', cardC2: '#B8862A', fxOutline: 0.6, fxOutlineColor: '#FFF6D8', fxGlow: 0.8, fxGlowColor: '#FFE08A', fxSparkle: 0.7, fxSparkleColor: '#FFF6D8', fxFocus: 0, fxBurst: 0.8, fxBurstColor: '#FFFFFF', fxRings: 0, fxVignette: 0.35, fxBorder: 0.7, fxBorderColor: '#D4A837', cardShadow: false },
+      night:     { label: 'Night', cardBg: 'night', cardC1: '#1B2A4D', cardC2: '#040817', fxOutline: 0.4, fxOutlineColor: '#9FD8FF', fxGlow: 0.6, fxGlowColor: '#7FD3C6', fxSparkle: 0.5, fxSparkleColor: '#CFF5FF', fxFocus: 0, fxBurst: 0, fxRings: 0.5, fxRingsColor: '#7FD3C6', fxVignette: 0.3, fxBorder: 0.4, fxBorderColor: '#7FD3C6', cardShadow: false },
+      paper:     { label: 'Field Guide', cardBg: 'paper', cardC1: '#EFE3C8', cardC2: '#8C5A35', fxOutline: 0.5, fxOutlineColor: '#3A2A1E', fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0.35, fxRingsColor: '#8C5A35', fxVignette: 0.15, fxBorder: 0.5, fxBorderColor: '#3A2A1E', cardShadow: true }
+    };
+
+    function applyCardStyle(key) {
+      const st = CARD_STYLES[key];
+      for (const id in st) {
+        if (id === 'label') continue;
+        const el = $(id);
+        if (el.type === 'checkbox') el.checked = st[id]; else el.value = st[id];
+      }
+      if (!cardOn()) { $('cardMode').checked = true; updateCardMode(); }
+      refreshFxLabels();
+      document.querySelectorAll('[data-card-style]').forEach(b => b.classList.toggle('active', b.dataset.cardStyle === key));
+    }
+
+    const FX_SLIDERS = ['cardSize', 'fxOutline', 'fxGlow', 'fxSparkle', 'fxFocus', 'fxBurst', 'fxRings', 'fxVignette', 'fxBorder'];
+    function refreshFxLabels() { FX_SLIDERS.forEach(id => $(id + '-val').innerText = fxv(id).toFixed(2)); }
+
+    function updateCardMode() {
+      const on = cardOn();
+      document.body.classList.toggle('card', on);
+      $('cardControls').style.display = on ? '' : 'none';
+      renderer.domElement.style.opacity = on ? 0 : 1;   // still there to receive the mouse; the card canvas shows the result
+      cardCanvas.style.display = on ? 'block' : 'none';
+      updateScene();
+      frameItem();
+    }
+
+    for (const key in CARD_STYLES) {
+      const b = document.createElement('button');
+      b.textContent = CARD_STYLES[key].label;
+      b.dataset.cardStyle = key;
+      b.addEventListener('click', () => applyCardStyle(key));
+      $('cardStyleBtns').appendChild(b);
+    }
+    $('cardMode').addEventListener('change', updateCardMode);
+    FX_SLIDERS.forEach(id => $(id).addEventListener('input', refreshFxLabels));
+    $('cardSize').addEventListener('input', fitToCard);
+    $('cardAspect').addEventListener('change', fitToCard);
+    $('rerollCard').addEventListener('click', () => { cardSeed = 1 + Math.floor(Math.random() * 100000); });
+    $('saveCard').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = `${fileBase()}-card.png`;
+      link.href = renderCardPNG().toDataURL('image/png');
+      link.click();
+    });
+    refreshFxLabels();
+
     updateScene();
     selectItem(currentItem);
 
@@ -921,6 +1297,7 @@
       cameraKeys();
       controls.update();
       renderer.render(scene, camera);
+      if (cardOn()) drawCardPreview();   // same frame, while the 3D image is still in the canvas
     }
     animate();
   </script>

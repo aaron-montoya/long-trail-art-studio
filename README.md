@@ -21,6 +21,13 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
    view has **Reset View**, the preset viewpoints and the lens.
 4. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
 
+## Making a gear card
+
+In the Gear tab, turn on **Card mode** (or click one of the card styles: Clean, Sparkle, Action, Legendary, Night, Field Guide).
+Pick a background (low-poly facets, snowy, radial glow, paper, night sky, solid) and mix effects: outline, glow, sparkles,
+focus lines, sunburst, rings, vignette, border and shadow. **Item size** fits the item to the card; drag to choose the angle.
+Then pick the card frame in the top bar and click **Save Card PNG**.
+
 ## Saving your work
 
 - **Save Character / Load Character** stores a dog or musher as a small `.json` file.
