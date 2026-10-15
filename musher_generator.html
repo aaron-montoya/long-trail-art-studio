@@ -132,7 +132,7 @@
         <div class="control-group"><label>Beard <span class="val-display" id="beard-val">0.00</span></label><input type="range" id="beard" min="0" max="1" step="0.05" value="0"></div>
         <div class="control-group"><label>Nose Size <span class="val-display" id="nose-val">1.00</span></label><input type="range" id="nose" min="0.6" max="1.6" step="0.05" value="1"></div>
         <div class="control-group"><label>Goggles</label>
-          <select id="goggles"><option value="none">None</option><option value="eyes">Over eyes</option><option value="forehead">Pushed up on forehead</option></select></div>
+          <select id="goggles"><option value="none">None</option><option value="eyes">Over eyes</option><option value="forehead">Pushed up on forehead</option><option value="nv">Night vision goggles</option><option value="nvUp">Night vision, flipped up</option></select></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="rosy" checked> Rosy cold cheeks</label></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="lashes"> Eyelashes</label></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="lips"> Lip color</label><input type="color" id="colLips" value="#B5525C"></div>
@@ -148,6 +148,8 @@
             <option value="trapper">Fur trapper hat</option>
             <option value="beanie">Beanie with pompom</option>
             <option value="headlamp">Beanie with headlamp</option>
+            <option value="coonskin">Coonskin cap</option>
+            <option value="crown">Crown</option>
             <option value="bare">No hat</option>
           </select></div>
         <div class="color-grid">
@@ -320,6 +322,12 @@
     mats.dark = new THREE.MeshStandardMaterial({ color: 0x202024, flatShading: true, roughness: 0.6 });
     mats.lens = new THREE.MeshStandardMaterial({ color: 0x2a3550, flatShading: true, roughness: 0.1, metalness: 0.6, emissive: 0x0d1a33 });
     mats.lamp = new THREE.MeshStandardMaterial({ color: 0xfff3c4, emissive: 0xffe08a, emissiveIntensity: 0.9, flatShading: true });
+    mats.gold = new THREE.MeshStandardMaterial({ color: 0xE7B84A, emissive: 0x3a2600, flatShading: true, roughness: 0.3, metalness: 0.55 });
+    mats.gem = new THREE.MeshStandardMaterial({ color: 0xC8232C, emissive: 0x3a0508, flatShading: true, roughness: 0.15, metalness: 0.2 });
+    mats.gemBlue = new THREE.MeshStandardMaterial({ color: 0x2F6FD6, emissive: 0x08183a, flatShading: true, roughness: 0.15, metalness: 0.2 });
+    mats.hatDark = new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.9 });   // coonskin tail rings, from the hat color
+    mats.nvBody = new THREE.MeshStandardMaterial({ color: 0x3B4033, flatShading: true, roughness: 0.6, metalness: 0.2 });
+    mats.nvLens = new THREE.MeshStandardMaterial({ color: 0x2f6b3a, emissive: 0x3cff6a, emissiveIntensity: 0.55, flatShading: true, roughness: 0.1 });
 
     // Race bib: drawn on a canvas so the number can be anything
     const bibCanvas = document.createElement('canvas');
@@ -347,6 +355,7 @@
 
     function updateColors() {
       for (const key in COLOR_INPUTS) mats[key].color.set(document.getElementById(COLOR_INPUTS[key]).value);
+      mats.hatDark.color.copy(mats.hat.color).multiplyScalar(0.35);
       mats.mouth.color.set(document.getElementById('lips').checked ? document.getElementById('colLips').value : '#6b3a3a');
       drawBib();
     }
@@ -641,9 +650,49 @@
           createBone(box, mats.dark, head, [H(0.04), H(0.03), H(0.022)], [0, H(0.2), H(0.124)]);
           createBone(icosa, mats.lamp, head, [H(0.014), H(0.014), H(0.006)], [0, H(0.2), H(0.136)]);
         }
+      } else if (hat === 'crown') {
+        // a gold band with eight points, a ball on each tip, and jewels around the band
+        const cy = H(0.225), R = H(0.112);
+        createBone(tube, mats.gold, head, [R, H(0.05), R * 1.04], [0, cy, H(-0.01)]);
+        createBone(sphere, mats.gem, head, [R * 0.92, H(0.04), R * 0.95], [0, cy + H(0.02), H(-0.01)]); // red velvet cap inside
+        for (let k = 0; k < 8; k++) {
+          const a = k / 8 * Math.PI * 2, x = Math.sin(a) * R, z = H(-0.01) + Math.cos(a) * R * 1.04, tall = k % 2 ? 0.055 : 0.075;
+          createBone(new THREE.ConeGeometry(1, 1, 4), mats.gold, head, [H(0.026), H(tall), H(0.012)], [x, cy + H(0.025 + tall / 2), z], [0, a, 0]);
+          createBone(icosa, mats.gold, head, [H(0.011), H(0.011), H(0.011)], [x, cy + H(0.027 + tall), z]);
+          if (k % 2 === 0) createBone(icosa, k === 0 ? mats.gem : mats.gemBlue, head, [H(0.014), H(0.016), H(0.008)], [Math.sin(a) * R * 1.03, cy, H(-0.01) + Math.cos(a) * R * 1.07], [0, a, 0]);
+        }
+      } else if (hat === 'coonskin') {
+        // a furry dome with the ringed tail hanging down the back
+        createBone(sphere, mats.hat, head, [H(0.12), H(0.105), H(0.125)], [0, H(0.19), H(-0.008)]);
+        createBone(tube, mats.hat, head, [H(0.123), H(0.045), H(0.128)], [0, H(0.175), H(-0.008)]);
+        createBone(sphere, mats.hatDark, head, [H(0.05), H(0.03), H(0.05)], [0, H(0.27), H(-0.02)]); // dark crown patch
+        // the tail: overlapping segments with dark rings, a dark tip, swinging down behind one shoulder
+        const tail = new THREE.CatmullRomCurve3([[0.02, 0.2, -0.11], [0.05, 0.12, -0.16], [0.07, 0.0, -0.18], [0.08, -0.12, -0.165], [0.08, -0.22, -0.13]].map(([x, y, z]) => new THREE.Vector3(H(x), H(y), H(z))));
+        for (let k = 0; k <= 16; k++) {
+          const t = k / 16, pt = tail.getPoint(t), tan = tail.getTangent(t), r = H(0.05 - 0.018 * t);
+          const ring = t > 0.92 || Math.floor(t * 9) % 2 === 1;
+          const m = createBone(sphere, ring ? mats.hatDark : mats.hat, head, [r, H(0.032), r], [pt.x, pt.y, pt.z]);
+          m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+        }
       }
 
-      if (goggles !== 'none') {
+      if (goggles === 'nv' || goggles === 'nvUp') {
+        // night vision: a strap and forehead mount, with twin tubes down over the eyes or swung up
+        const up = goggles === 'nvUp';
+        createBone(tube, mats.nvBody, head, [H(0.118), H(0.022), H(0.123)], [0, H(0.2), H(-0.005)], [-0.15, 0, 0]);
+        createBone(box, mats.nvBody, head, [H(0.05), H(0.04), H(0.03)], [0, H(0.205), H(0.118)]);
+        const mount = new THREE.Group();
+        mount.position.set(0, H(0.205), H(0.13));
+        mount.rotation.x = up ? -1.25 : 0;
+        head.add(mount);
+        createBone(box, mats.nvBody, mount, [H(0.03), H(0.06), H(0.025)], [0, H(-0.03), H(0.012)]);
+        createBone(box, mats.nvBody, mount, [H(0.1), H(0.03), H(0.04)], [0, H(-0.065), H(0.02)]);
+        [1, -1].forEach(sd => {
+          createBone(tube, mats.nvBody, mount, [H(0.024), H(0.08), H(0.024)], [sd * H(0.038), H(-0.07), H(0.05)], [Math.PI / 2, 0, 0]);
+          createBone(tube, mats.dark, mount, [H(0.027), H(0.012), H(0.027)], [sd * H(0.038), H(-0.07), H(0.09)], [Math.PI / 2, 0, 0]);
+          createBone(tube, mats.nvLens, mount, [H(0.02), H(0.004), H(0.02)], [sd * H(0.038), H(-0.07), H(0.097)], [Math.PI / 2, 0, 0]);
+        });
+      } else if (goggles !== 'none') {
         const up = goggles === 'forehead';
         const gy = up ? H(0.215) : H(0.135);
         createBone(tube, mats.dark, head, [H(0.116), H(0.02), H(0.121)], [0, gy, H(-0.003)], up ? [-0.2, 0, 0] : null);
@@ -655,7 +704,7 @@
     function buildHair(head, H, hat, p) {
       const style = document.getElementById('hairStyle').value;
       const len = p.hairLen;
-      const hood = hat === 'hood', bare = hat === 'bare';
+      const hood = hat === 'hood', bare = hat === 'bare' || hat === 'crown'; // a crown sits on top of the hair
       if (style === 'bald') return;
       if (style === 'buzz') {
         if (bare) createBone(sphere, mats.hair, head, [H(0.108), H(0.118), H(0.113)], [0, H(0.135), H(-0.006)]);
@@ -784,6 +833,12 @@
 
     [...inputs, ...poseInputs].forEach(id => document.getElementById(id).addEventListener('input', rebuild));
     ['hat', 'goggles', 'parkaStyle'].forEach(id => document.getElementById(id).addEventListener('change', rebuild));
+    // a coonskin cap starts out raccoon colored (change it after if you like)
+    document.getElementById('hat').addEventListener('change', () => {
+      if (document.getElementById('hat').value !== 'coonskin') return;
+      document.getElementById('colHat').value = '#7D6B57';
+      updateColors();
+    });
     ['rosy', 'scarf', 'showBib', 'bangs', 'lashes', 'lips', 'hairStyle'].forEach(id => document.getElementById(id).addEventListener('change', rebuild));
     document.getElementById('colLips').addEventListener('input', updateColors);
     document.getElementById('showSled').addEventListener('change', () => { rebuild(); centerCamera(); });
