@@ -376,7 +376,7 @@
       sit:   { legs: [SIT_F, SIT_F, SIT_R, SIT_R],
                s: { posePitch: 0.6, poseDrop: 0, poseNeck: 0.3, poseHead: 0, poseTurn: 0.15, poseTilt: 0.1, poseJaw: 0, poseEars: 0, poseTail: -0.8 } },
       howl:  { legs: [SIT_F, SIT_F, SIT_R, SIT_R],
-               s: { posePitch: 0.6, poseDrop: 0, poseNeck: 0.0, poseHead: 1.0, poseTurn: 0, poseTilt: 0, poseJaw: 0.3, poseEars: 0.3, poseTail: -0.8 } },
+               s: { posePitch: 0.6, poseDrop: 0, poseNeck: 0.0, poseHead: 1.0, poseTurn: 0, poseTilt: 0, poseJaw: 0.3, poseEars: -0.3, poseTail: -0.8 } },
       lie:   { legs: [LIE_F, LIE_F, LIE_R, LIE_R],
                s: { posePitch: 0, poseDrop: 0, poseNeck: 0.75, poseHead: 0, poseTurn: 0.25, poseTilt: 0, poseJaw: 0.1, poseEars: 0.2, poseTail: -1.3 } },
       bow:   { legs: [LIE_F, LIE_F, { a: [0.25, -0.5, 0.15], paw: 0 }, { a: [0.25, -0.5, 0.15], paw: 0 }],
@@ -466,7 +466,14 @@
       const sn = Math.sin(th), cs = Math.cos(th), e = s.e || 0.85;
       let y = (cs >= 0 ? s.t : -s.b) * Math.sign(cs) * Math.abs(cs) ** e;
       if (s.brow) { const a = th > Math.PI ? Math.PI * 2 - th : th; y += s.brow * Math.exp(-(((a - 0.8) / 0.32) ** 2)); }
-      return new THREE.Vector3(s.w * Math.sign(sn) * Math.abs(sn) ** e, y, s.z);
+      let x = s.w * Math.sign(sn) * Math.abs(sn) ** e;
+      if (s.bumps) { // muscles and bones: [angle from the top, how far out, how wide], mirrored on both sides
+        const a = th > Math.PI ? Math.PI * 2 - th : th, len = Math.hypot(x, y) || 1;
+        let push = 0;
+        s.bumps.forEach(([at, amt, wid]) => push += amt * Math.exp(-(((a - at) / wid) ** 2)));
+        x += x / len * push; y += y / len * push;
+      }
+      return new THREE.Vector3(x, y + (s.cy || 0), s.z);
     }
     // A point on the lofted surface at depth z and ring angle th (between stations it's a straight blend)
     function surfaceAt(st, z, th) {
@@ -481,7 +488,7 @@
       const b = surfaceAt(st, z, th + dth).sub(surfaceAt(st, z, th - dth));
       const n = new THREE.Vector3().crossVectors(b, a).normalize();
       const p = surfaceAt(st, z, th);
-      if (n.dot(new THREE.Vector3(p.x, p.y, 0)) < 0) n.negate(); // point away from the middle
+      if (n.dot(new THREE.Vector3(p.x, p.y - (st[0].cy || 0), 0)) < 0) n.negate(); // point away from the middle
       return n;
     }
     // Solid through the station rings, optionally capped at either end
@@ -494,7 +501,7 @@
       }
       const cap = (s, dir) => {
         const ci = pos.length / 3, base = st.indexOf(s) * N;
-        pos.push(0, (s.t + s.b) / 2, s.z + dir * Math.min(s.w, s.t) * 0.25); // a slight dome
+        pos.push(0, (s.t + s.b) / 2 + (s.cy || 0), s.z + dir * Math.min(s.w, s.t) * 0.25); // a slight dome
         for (let k = 0; k < N; k++) dir > 0 ? idx.push(base + (k + 1) % N, base + k, ci) : idx.push(base + k, base + (k + 1) % N, ci);
       };
       if (capStart) cap(st[0], -1);
@@ -534,22 +541,32 @@
       const pelvisOffset = pelvisY - chestY;
       const body = (mesh, shag = { mode: 'radial', amt: 1 }) => coat(mesh, 'body', torso, { pelvisOffset, shag });
       // Dogs are deep and narrow through the chest, not round: these shapes are shared with the fur tufts
-      const chestC = new THREE.Vector3(0, p.chestSize*0.05, p.bodyLen/2), chestR = [p.chestSize*0.75, p.chestSize*0.85, p.chestSize];
-      const pelvisC = new THREE.Vector3(0, pelvisOffset, -p.bodyLen/2), pelvisR = [p.pelvisSize*0.8, p.pelvisSize*0.85, p.pelvisSize*0.95];
-      tag(body(createBone(bodyIco, matCoat, torso, chestR, chestC.toArray())), 'front');
-      tag(body(createBone(bodyIco, matCoat, torso, [chestR[0]*0.9, chestR[1]*0.75, chestR[2]*0.9], [0, -p.chestSize*0.2, p.bodyLen/2])), 'front');
-
-      tag(body(createBone(bodyIco, matCoat, torso, pelvisR, pelvisC.toArray())), 'rear');
-      tag(body(createBone(bodyIco, matCoat, torso, [pelvisR[0]*0.9, pelvisR[1]*0.8, pelvisR[2]*0.9], [0, pelvisOffset - p.pelvisSize*0.2, -p.bodyLen/2])), 'rear');
-
-      const abdomenRot = Math.atan2(pelvisOffset, p.bodyLen);
-      body(createBone(cyl, matCoat, torso, [p.chestSize*0.55, p.bodyLen, p.pelvisSize*0.65], [0, pelvisOffset/2, 0], [Math.PI/2 - abdomenRot, 0, 0]), { mode: 'tube', amt: 0.8 });
-
-      // Shoulder blades: slabs on the upper front of the chest, top tipped back toward the withers
-      [1, -1].forEach(side => {
-        body(createBone(bodyIco, matCoat, torso, [p.chestSize*0.17, p.chestSize*0.5, p.chestSize*0.32],
-                        [side * p.chestSize*0.6, p.chestSize*0.28, p.bodyLen/2 + p.chestSize*0.1], [-0.45, 0, side * 0.12]), { mode: 'radial', amt: 0.6 });
-      });
+      const chestC = new THREE.Vector3(0, p.chestSize*0.12, p.bodyLen/2), chestR = [p.chestSize*0.62, p.chestSize*0.74, p.chestSize*0.95];
+      const pelvisC = new THREE.Vector3(0, pelvisOffset, -p.bodyLen/2), pelvisR = [p.pelvisSize*0.68, p.pelvisSize*0.72, p.pelvisSize*0.95];
+      // One sculpted torso lofted from the tail to the forechest. Each ring is a cross-section with its own bumps:
+      // a spine ridge, shoulder blades and withers, elbows, a keeled brisket, hip points and heavy haunches.
+      // The topline rises from the croup to the withers, and the belly tucks up at the waist. It's two pieces
+      // sharing the middle ring so sitting and lying still rest on the right end.
+      const P = p.pelvisSize, L = p.bodyLen, cS = p.chestSize, avg = (cS + P) / 2, po = pelvisOffset;
+      // ring from absolute top, bottom and the height where it's widest
+      const R = (z, w, top, bot, wy, e, bumps) => ({ z, w, cy: wy, t: top - wy, b: bot - wy, e, bumps });
+      const lerp = THREE.MathUtils.lerp, backTop = t => lerp(po + 0.8 * P, 0.9 * cS, t), belly = t => lerp(po - 0.45 * P, -0.6 * cS, t);
+      const torsoSt = [
+        R(-L / 2 - 0.95 * P, 0.24 * P, po + 0.55 * P, po - 0.08 * P, po + 0.25 * P, 0.85),                                    // tail set
+        R(-L / 2 - 0.7 * P, 0.54 * P, po + 0.7 * P, po - 0.45 * P, po + 0.08 * P, 0.85, [[2.0, 0.12 * P, 0.45]]),             // buttocks
+        R(-L / 2 - 0.3 * P, 0.66 * P, po + 0.8 * P, po - 0.58 * P, po + 0.05 * P, 0.85,
+          [[0, 0.04 * P, 0.15], [0.75, 0.08 * P, 0.25], [1.9, 0.15 * P, 0.5]]),                                                // croup, hip points, haunches
+        R(-L / 2 + 0.15 * P, 0.58 * P, po + 0.8 * P, po - 0.32 * P, po + 0.18 * P, 0.85, [[0, 0.03 * P, 0.15], [2.0, 0.12 * P, 0.45]]), // flank and thigh
+        R(-L / 4, 0.42 * avg, backTop(0.3), belly(0.3) + 0.5 * avg, lerp(po, 0.05 * cS, 0.3) + 0.22 * avg, 0.9, [[0, 0.025 * avg, 0.15]]), // waist, tucked up
+        R(0, 0.55 * cS, backTop(0.5) - 0.03 * cS, belly(0.55) + 0.32 * cS, lerp(po, 0.05 * cS, 0.5) + 0.14 * cS, 0.88, [[0, 0.025 * cS, 0.15]]), // loin
+        R(L / 2 - 0.45 * cS, 0.62 * cS, 0.86 * cS, -0.62 * cS, 0.1 * cS, 0.85, [[0, 0.02 * cS, 0.15], [Math.PI, 0.04 * cS, 0.3]]),   // ribcage
+        R(L / 2 - 0.1 * cS, 0.6 * cS, 0.98 * cS, -0.66 * cS, 0.12 * cS, 0.85,
+          [[0, 0.05 * cS, 0.2], [0.55, 0.1 * cS, 0.25], [1.75, 0.1 * cS, 0.35], [Math.PI, 0.08 * cS, 0.25]]),                  // withers, shoulder blades, elbows, brisket
+        R(L / 2 + 0.3 * cS, 0.54 * cS, 0.8 * cS, -0.6 * cS, 0.1 * cS, 0.85, [[1.25, 0.1 * cS, 0.3], [Math.PI, 0.12 * cS, 0.25]]),   // points of the shoulder, keel
+        R(L / 2 + 0.68 * cS, 0.32 * cS, 0.56 * cS, -0.42 * cS, 0.1 * cS, 0.9, [[Math.PI, 0.1 * cS, 0.3]])];                      // forechest
+      const torsoN = document.getElementById('fineFacets').checked ? 22 : 16, shagAxis = { mode: 'axis', amt: 1, st: torsoSt };
+      tag(body(createBone(loftGeo(torsoSt.slice(0, 6), torsoN, true, false), matCoat, torso, [1, 1, 1], [0, 0, 0]), shagAxis), 'rear');
+      tag(body(createBone(loftGeo(torsoSt.slice(5), torsoN, false, true), matCoat, torso, [1, 1, 1], [0, 0, 0]), shagAxis), 'front');
 
       // 2. HEAD & NECK (pose angles are world-relative, so cancel out the body tilt)
       const neckJoint = new THREE.Group();
@@ -589,6 +606,20 @@
       const jawSt = [S(0, 0.22 * h, 0.06 * h, -0.09 * h, 0.8), S(0.09 * h + 0.3 * m, 0.19 * h, 0.05 * h, -0.12 * h, 0.7), S(0.09 * h + 0.78 * m, 0.135 * h, 0.04 * h, -0.085 * h, 0.7)];
       coat(createBone(loftGeo(jawSt, ringN, true, true), matCoat, jaw, [1, 1, 1], [0, 0, 0]), 'muzzle', headJoint, { jaw: true, mz0: zs, mzLen: m });
       if (ps.poseJaw > 0.05) createBone(box, matTongue, jaw, [h * 0.15, h * 0.03, m * 0.75], [0, h * 0.02, 0.09 * h + 0.4 * m]);
+
+      // Mouth line along each side of the upper muzzle, curling up a touch at the corner
+      [1, -1].forEach(side => {
+        const th = side > 0 ? 2.15 : Math.PI * 2 - 2.15, pts = [];
+        for (let k = 0; k <= 5; k++) {
+          const t = k / 5, z = zs + m * (0.06 + 0.84 * t);
+          const pt = surfaceAt(muzzleSt, z, th).addScaledVector(surfaceNormal(muzzleSt, z, th), h * 0.008);
+          pt.y += h * 0.035 * (1 - t) ** 3; // the corner lifts
+          pts.push(pt);
+        }
+        const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, h * 0.011, 4, false);
+        tempGeos.push(g);
+        createBone(g, matDark, headJoint, [1, 1, 1], [0, 0, 0]);
+      });
 
       // Nose: a chunky faceted button on the end of the muzzle
       createBone(noseGeo, matDark, headJoint, [h * 0.1, h * 0.068, h * 0.072], [0, h * 0.095, zs + m + h * 0.016], [-0.2, 0, 0]);
@@ -962,7 +993,22 @@
     // --- FUR ---
     // Low-poly fur = lumpy silhouettes (shagginess) + spiky tufts that follow the direction the fur lies.
     // Tufts are coat meshes, so they take their colors from the active coat pattern.
-    const tuftGeo = new THREE.ConeGeometry(1, 1, 4, 1); // four-sided spike
+    // A fur clump: a folded leaf, wide at the root and lifted along a ridge. +y runs root to tip, +z faces out.
+    const tuftGeo = (() => {
+      const V = [[-1, 0, 0], [1, 0, 0], [0, 0.04, -0.45], [0, 0.45, 0.42], [0, 1, 0.08]]; // left, right, under, ridge, tip
+      const F = [[0, 3, 4], [3, 1, 4], [0, 1, 3], [0, 4, 2], [4, 1, 2], [0, 2, 1]];
+      const inside = new THREE.Vector3(0, 0.35, 0), pos = [];
+      F.forEach(f => {
+        const [a, b, c] = f.map(i => new THREE.Vector3(...V[i]));
+        const n = new THREE.Vector3().crossVectors(b.clone().sub(a), c.clone().sub(a));
+        const tri = n.dot(a.clone().add(b).add(c).divideScalar(3).sub(inside)) < 0 ? [a, c, b] : [a, b, c]; // face outward
+        tri.forEach(v => pos.push(v.x, v.y, v.z));
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.computeVertexNormals();
+      return g;
+    })();
 
     function mulberry32(a) {
       return () => {
@@ -994,12 +1040,18 @@
 
     const flowDir = (n, flow, mix) => n.clone().multiplyScalar(1 - mix).addScaledVector(flow, mix).normalize();
 
-    function addTuft(parent, frame, region, base, dir, len, width, spin, extra) {
+    // out: the surface's outward direction, so the clump's wide face lies along the body (a number spins it instead)
+    function addTuft(parent, frame, region, base, dir, len, width, out, extra) {
       const mesh = new THREE.Mesh(ownGeo(tuftGeo), matCoat);
       const d = dir.clone().normalize();
-      mesh.scale.set(width, len, width * 0.45);
-      mesh.quaternion.setFromUnitVectors(UP, d).multiply(new THREE.Quaternion().setFromAxisAngle(UP, spin));
-      mesh.position.copy(base).addScaledVector(d, len * 0.35); // root sunk into the body
+      mesh.scale.set(width * 1.15, len, width * 0.8);
+      if (out && out.isVector3) {
+        const z = out.clone().addScaledVector(d, -out.dot(d));
+        if (z.lengthSq() < 1e-6) z.set(0, 0, 1).addScaledVector(d, -d.z);
+        z.normalize();
+        mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(d, z), d, z));
+      } else mesh.quaternion.setFromUnitVectors(UP, d).multiply(new THREE.Quaternion().setFromAxisAngle(UP, out || 0));
+      mesh.position.copy(base).addScaledVector(d, -len * 0.1); // root sunk into the body
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       parent.add(mesh);
@@ -1007,12 +1059,18 @@
     }
 
     // Push vertices in/out with smooth noise. Same position -> same push, so faces never crack apart.
-    function shagMesh(mesh, amp, mode, offset) {
+    function shagMesh(mesh, amp, mode, offset, st) {
       const pos = mesh.geometry.attributes.position;
       for (let k = 0; k < pos.count; k++) {
         const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k);
         const f = 1 + (noise3(x * 2.7 + offset, y * 2.7, z * 2.7, 4242) - 0.5) * 2 * amp;
-        if (mode === 'tube') pos.setXYZ(k, x * f, y, z * f);
+        if (mode === 'axis') { // lofted torso: push out from its center line, which rises and falls along z
+          let i = 0;
+          while (i < st.length - 2 && st[i + 1].z < z) i++;
+          const cy = THREE.MathUtils.lerp(st[i].cy, st[i + 1].cy, THREE.MathUtils.clamp((z - st[i].z) / (st[i + 1].z - st[i].z), 0, 1));
+          pos.setXYZ(k, x * f, cy + (y - cy) * f, z);
+        }
+        else if (mode === 'tube') pos.setXYZ(k, x * f, y, z * f);
         else pos.setXYZ(k, x * f, y * f, z * f);
       }
       pos.needsUpdate = true;
@@ -1028,7 +1086,7 @@
       const amp = 0.35 * p.furShag;
       if (amp > 0) coatMeshes.forEach((m, k) => {
         const s = m.userData.coat.shag;
-        if (s) shagMesh(m, amp * s.amt, s.mode, k * 7.3);
+        if (s) shagMesh(m, amp * s.amt, s.mode, k * 7.3, s.st);
       });
 
       // 2. Neck ruff: over the front of the chest, plus a ring around the base of the neck
@@ -1036,9 +1094,9 @@
         const rng = mulberry32(101);
         const flow = new THREE.Vector3(0, -0.8, -0.5).normalize();
         const center = chestC, radii = chestR;
-        for (let k = 0; k < 26; k++) {
+        for (let k = 0; k < 22; k++) {
           const { p: at, n } = ellipsoidPoint(center, radii, randomDir(rng, d => d.z > 0.1 && d.y > -0.45));
-          addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.45), c * 0.42 * p.furRuff * jitter(rng), c * 0.16 * jitter(rng), rng() * 6.28, { pelvisOffset });
+          addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.72), c * 0.42 * p.furRuff * jitter(rng), c * 0.2 * jitter(rng), n, { pelvisOffset });
         }
         const axis = headPos.clone().normalize(), len = headPos.length();
         const e1 = new THREE.Vector3(1, 0, 0), e2 = new THREE.Vector3().crossVectors(axis, e1).normalize();
@@ -1047,7 +1105,7 @@
           const radial = e1.clone().multiplyScalar(Math.cos(th)).addScaledVector(e2, Math.sin(th));
           const along = len * (0.1 + 0.45 * rng());
           const at = axis.clone().multiplyScalar(along).addScaledVector(radial, c * 0.42 * (1 - 0.4 * along / len));
-          addTuft(neckJoint, neckJoint, 'neck', at, flowDir(radial, flow, 0.45), c * 0.32 * p.furRuff * jitter(rng), c * 0.15, rng() * 6.28,
+          addTuft(neckJoint, neckJoint, 'neck', at, flowDir(radial, flow, 0.7), c * 0.32 * p.furRuff * jitter(rng), c * 0.15, radial,
                   { axis, len, offset: neckJoint.position.clone() });
         }
       }
@@ -1060,7 +1118,7 @@
           const d = randomDir(rng, d => Math.abs(d.x) > 0.55 && d.y < 0.3 && d.z < 0.3);
           const { p: at, n } = ellipsoidPoint(center, radii, d);
           const flow = new THREE.Vector3(Math.sign(d.x) * 0.4, -0.5, -0.8).normalize();
-          addTuft(headJoint, headJoint, 'head', at, flowDir(n, flow, 0.5), h * 0.3 * p.furCheek * jitter(rng), h * 0.12, rng() * 6.28);
+          addTuft(headJoint, headJoint, 'head', at, flowDir(n, flow, 0.72), h * 0.3 * p.furCheek * jitter(rng), h * 0.12, n);
         }
       }
 
@@ -1071,7 +1129,7 @@
         [[chestC, chestR, c], [pelvisC, pelvisR, p.pelvisSize]].forEach(([center, radii, size]) => {
           for (let k = 0; k < 18; k++) {
             const { p: at, n } = ellipsoidPoint(center, radii, randomDir(rng, d => d.y > -0.15));
-            addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.6), size * 0.26 * p.furBody * jitter(rng), size * 0.14, rng() * 6.28, { pelvisOffset });
+            addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.8), size * 0.26 * p.furBody * jitter(rng), size * 0.14, n, { pelvisOffset });
           }
         });
       }
@@ -1091,14 +1149,14 @@
             at.x += (rng() - 0.5) * L.radii[seg];
             const v = L.cum[seg] + (L.cum[seg + 1] - L.cum[seg]) * t;
             addTuft(L.group, L.group, 'leg', at, back.clone().multiplyScalar(0.75).addScaledVector(down, 0.55),
-                    p.boneThick * 2.2 * p.furLegs * jitter(rng), p.boneThick * 0.8, rng() * 6.28, { leg: L.li, front: L.front, s: v });
+                    p.boneThick * 2.2 * p.furLegs * jitter(rng), p.boneThick * 0.8, back, { leg: L.li, front: L.front, s: v });
           }
         });
         const ps = p.pelvisSize;
         const flow = new THREE.Vector3(0, -1, -0.3).normalize();
         for (let k = 0; k < 14; k++) {
           const { p: at, n } = ellipsoidPoint(pelvisC, pelvisR, randomDir(rng, d => d.z < -0.3 && d.y < 0.25 && d.y > -0.8));
-          addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.5), ps * 0.3 * p.furLegs * jitter(rng), ps * 0.14, rng() * 6.28, { pelvisOffset });
+          addTuft(torso, torso, 'body', at, flowDir(n, flow, 0.75), ps * 0.3 * p.furLegs * jitter(rng), ps * 0.14, n, { pelvisOffset });
         }
       }
 
@@ -1112,7 +1170,7 @@
             const y = T.len * (0.1 + 0.8 * rng());
             const at = radial.clone().multiplyScalar(T.radius * 0.8).setY(y);
             addTuft(T.group, tailRoot, 'tail', at, radial.clone().multiplyScalar(0.65).add(new THREE.Vector3(0, 0.6, 0)),
-                    p.tailLen * 0.3 * p.furTail * jitter(rng), T.radius * 0.9, rng() * 6.28, { seg: i, fixed: { v: (i + y / T.len) / 3 } });
+                    p.tailLen * 0.3 * p.furTail * jitter(rng), T.radius * 0.9, radial, { seg: i, fixed: { v: (i + y / T.len) / 3 } });
           }
         });
       }
