@@ -25,6 +25,8 @@
     reset: `<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/>`,
     snowflake: `<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.5 4l2.5 2.5L14.5 4M9.5 20l2.5-2.5 2.5 2.5"/>`,
     ribbon: `<path d="M5 6.5h14v7H5z"/><path d="M5 9H2l1.5 2.5L2 14h3M19 9h3l-1.5 2.5L22 14h-3"/>`,
+    mitten: `<path d="M8 16.5v-3.3c-1.5-.6-3.3-2.2-3.5-3.8-.1-1 .9-1.6 1.8-1.1L8 9.5V8a4 4 0 0 1 8 0v8.5"/><rect x="7.5" y="16.5" width="9" height="4" rx="1"/>`,
+    cards: `<rect x="7" y="3.5" width="12" height="16" rx="2"/><path d="M5 6.5v12a2 2 0 0 0 2 2h9"/><path d="M13 7.5l3 4-3 4-3-4z"/>`,
     lantern: `<path d="M9 4.5h6"/><path d="M12 2.5v2"/><path d="M8.5 7h7l1 2v8.5l-1 2h-7l-1-2V9z"/><path d="M12 11c1 1 1.2 2 .8 3s-1.6 1-1.8 0c-.2-1 .4-1.8 1-3z"/>`
   };
 

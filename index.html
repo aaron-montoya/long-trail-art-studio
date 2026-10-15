@@ -47,6 +47,7 @@
       <button data-tab="scene"><i data-icon="mountain"></i>Scenes</button>
       <button data-tab="border"><i data-icon="snowflake"></i>Borders</button>
       <button data-tab="banner"><i data-icon="ribbon"></i>Banners</button>
+      <button data-tab="back"><i data-icon="cards"></i>Card Backs</button>
     </nav>
   </header>
   <div id="toast"></div>
@@ -58,11 +59,12 @@
     <iframe id="tool-scene" src="environment_generator.html" title="Scene generator"></iframe>
     <iframe id="tool-border" src="border_generator.html" title="Fair Isle border generator"></iframe>
     <iframe id="tool-banner" src="banner_generator.html" title="Banner generator"></iframe>
+    <iframe id="tool-back" src="card_back_generator.html" title="Card back generator"></iframe>
   </main>
 
   <script>
     // The tools are separate pages; this shell shows one at a time and passes 3D models between them.
-    const frames = { dog: 'tool-dog', musher: 'tool-musher', gear: 'tool-gear', scene: 'tool-scene', border: 'tool-border', banner: 'tool-banner' };
+    const frames = { dog: 'tool-dog', musher: 'tool-musher', gear: 'tool-gear', scene: 'tool-scene', border: 'tool-border', banner: 'tool-banner', back: 'tool-back' };
     let currentTab = frames[location.hash.slice(1)] ? location.hash.slice(1) : 'dog';
 
     function showTab(name) {

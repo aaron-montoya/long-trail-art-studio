@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Card Back Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&family=Bree+Serif&family=Cinzel:wght@700&family=Fredoka:wght@600&family=Lilita+One&family=Patrick+Hand&display=swap">
+  <style>
+    body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #2a2a35; color: #ddd; display: flex; height: 100vh; }
+    #ui-panel {
+      flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
+      background: #14141c; padding: 20px; border-right: 1px solid #445;
+    }
+    #ui-panel::-webkit-scrollbar { width: 5px; }
+    #ui-panel::-webkit-scrollbar-thumb { background: #667; border-radius: 3px; }
+    #ui-panel.hidden { display: none; }
+
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
+    h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+
+    .btn-grid4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    .type-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 12px; }
+    button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
+    button:hover { background: #4f46e5; border-color: #6366f1; }
+    button.active { background: #4f46e5; border-color: #818cf8; }
+    .type-grid button { flex-direction: column; gap: 4px; padding: 7px 2px 6px; font-size: 0.72rem; border-bottom: 3px solid var(--tc, #556); }
+    .type-grid button .icon { margin: 0; width: 1.4em; height: 1.4em; }
+    .type-grid button.active { background: color-mix(in srgb, var(--tc) 40%, #2a2a38); border-color: var(--tc); }
+
+    details { background: #1f1f2a; margin-bottom: 8px; border-radius: 6px; border: 1px solid #334; }
+    summary { padding: 10px; cursor: pointer; font-weight: bold; font-size: 0.85rem; outline: none; }
+    .details-content { padding: 10px; border-top: 1px solid #334; background: #181822; }
+
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
+    input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    select, #ui-panel input[type=text] { width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 0 8px; }
+    .hint { font-size: 0.72rem; color: #8a8aa0; margin: 4px 0 10px; line-height: 1.4; }
+    .val-display { color: #fff; font-weight: bold; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .swatches button { padding: 3px; width: 34px; height: 22px; }
+    .swatches button span { display: flex; width: 100%; height: 100%; border-radius: 2px; overflow: hidden; }
+    .swatches button span i { flex: 1; }
+
+    #canvas-container { flex: 1 1 auto; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
+      background: #1b1b24 repeating-conic-gradient(#22222e 0% 25%, #1b1b24 0% 50%) 0 0 / 24px 24px; }
+    #preview { display: block; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); border-radius: 2px; }
+
+    /* all five backs along the bottom; click one to edit it */
+    #thumbs { justify-content: center; gap: 14px; padding: 10px 12px; }
+    #thumbs button { flex-direction: column; gap: 6px; padding: 6px 6px 5px; background: transparent; border: 2px solid transparent; font-size: 0.75rem; color: #aaa; }
+    #thumbs button:hover { background: #22222e; }
+    #thumbs button.active { border-color: #818cf8; background: #22222e; color: #fff; }
+    #thumbs canvas { display: block; border-radius: 2px; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); }
+  </style>
+  <script src="icons.js"></script>
+  <script src="panel.js"></script>
+  <script src="fairisle.js"></script>
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+
+  <div id="ui-panel">
+    <div class="panel-header">
+      <h2>Card Back Generator</h2>
+      <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
+    </div>
+
+    <div class="type-grid" id="typeBtns"></div>
+    <div class="btn-grid4" id="presetBtns"></div>
+    <div class="action-row">
+      <button id="randomPalette" title="Give this card type a random palette"><i data-icon="palette"></i>Random Colors</button>
+      <button id="reroll" title="New facets, stars and grain"><i data-icon="dice"></i>Reroll Facets</button>
+    </div>
+
+    <details data-cat="color" data-chip="Card type" open>
+      <summary id="typeTitle">This card type</summary>
+      <div class="details-content">
+        <div class="hint">These settings are only for the card type you picked above. Everything else is shared, so the whole deck matches.</div>
+        <div class="control-group"><label>Name on the ribbon</label><input type="text" id="tLabel" maxlength="24"></div>
+        <div class="control-group"><label>Emblem</label><select id="tEmblem"></select></div>
+        <div class="control-group"><label>Fair Isle pattern</label><select id="tMotif"></select></div>
+        <div class="color-grid">
+          <div class="control-group"><label title="Background and dark lines">Back</label><input type="color" id="tC0"></div>
+          <div class="control-group"><label title="Light parts: the medallion and the title">Main</label><input type="color" id="tC1"></div>
+          <div class="control-group"><label title="The ring, ribbon and emblem details">Accent</label><input type="color" id="tC2"></div>
+          <div class="control-group"><label title="Small touches: eyes, goggles, stars">Extra</label><input type="color" id="tC3"></div>
+        </div>
+        <div class="swatches" id="swatches" title="Palettes from the Fair Isle library"></div>
+        <button id="resetType" style="width: 100%;"><i data-icon="reset"></i>Reset this card type</button>
+      </div>
+    </details>
+
+    <details data-cat="scene" open>
+      <summary>Background</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Style</label>
+          <select id="bgStyle">
+            <option value="fairisle">Fair Isle all over</option>
+            <option value="lowpoly">Low-poly facets</option>
+            <option value="night">Night sky &amp; aurora</option>
+            <option value="sunburst">Sunburst</option>
+            <option value="solid">Solid color</option>
+          </select></div>
+        <div class="control-group fairisle-only"><label>Stitch</label><select id="stitch"></select></div>
+        <div class="control-group fairisle-only"><label>Stitches across <span class="val-display" id="patternSize-val">60</span></label><input type="range" id="patternSize" min="24" max="140" step="2" value="60"></div>
+        <div class="control-group fairisle-only sunburst-only"><label>Pattern strength <span class="val-display" id="patternStrength-val">0.55</span></label><input type="range" id="patternStrength" min="0.1" max="1" step="0.05" value="0.55"></div>
+        <div class="control-group lowpoly-only"><label>Facets across <span class="val-display" id="bgFacets-val">7</span></label><input type="range" id="bgFacets" min="3" max="16" step="1" value="7"></div>
+        <div class="control-group lowpoly-only night-only"><label>Facet shading <span class="val-display" id="bgShade-val">0.60</span></label><input type="range" id="bgShade" min="0" max="1" step="0.05" value="0.6"></div>
+        <div class="control-group"><label>Paper grain <span class="val-display" id="grain-val">0.30</span></label><input type="range" id="grain" min="0" max="1" step="0.05" value="0.3"></div>
+      </div>
+    </details>
+
+    <details data-cat="shape" open>
+      <summary>Frame</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Style</label>
+          <select id="frameStyle">
+            <option value="knit">Knit band</option>
+            <option value="double">Double line</option>
+            <option value="simple">Single line</option>
+            <option value="none">None</option>
+          </select></div>
+        <div class="control-group knit-only"><label>Band pattern</label><select id="frameMotif"></select></div>
+        <div class="control-group frame-on"><label>Frame size <span class="val-display" id="frameSize-val">1.00</span></label><input type="range" id="frameSize" min="0.4" max="2" step="0.05" value="1"></div>
+        <div class="control-group"><label title="A solid edge around the outside, a safe zone for the printer's cut">Outer edge <span class="val-display" id="margin-val">0.03</span></label><input type="range" id="margin" min="0" max="0.08" step="0.005" value="0.03"></div>
+        <div class="control-group"><label title="See-through rounded corners in the saved PNG">Rounded corners <span class="val-display" id="corner-val">0.00</span></label><input type="range" id="corner" min="0" max="0.08" step="0.005" value="0"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="cornerGems" checked> Diamonds in the corners</label></div>
+      </div>
+    </details>
+
+    <details data-cat="shape" open>
+      <summary>Medallion</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Shape</label>
+          <select id="medShape">
+            <option value="circle">Circle</option>
+            <option value="hexagon">Hexagon</option>
+            <option value="diamond">Diamond</option>
+            <option value="shield">Shield</option>
+            <option value="none">None (emblem only)</option>
+          </select></div>
+        <div class="control-group"><label>Size <span class="val-display" id="medSize-val">1.00</span></label><input type="range" id="medSize" min="0.5" max="1.4" step="0.02" value="1"></div>
+        <div class="control-group"><label>Ring width <span class="val-display" id="ringW-val">1.00</span></label><input type="range" id="ringW" min="0" max="2.5" step="0.05" value="1"></div>
+        <div class="control-group"><label>Emblem size <span class="val-display" id="emblemSize-val">1.00</span></label><input type="range" id="emblemSize" min="0.5" max="1.3" step="0.02" value="1"></div>
+        <div class="control-group"><label>Low-poly facets <span class="val-display" id="medFacets-val">0.70</span></label><input type="range" id="medFacets" min="0" max="1.5" step="0.05" value="0.7"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="medShadow" checked> Drop shadow</label></div>
+      </div>
+    </details>
+
+    <details data-cat="text" open>
+      <summary>Title &amp; Ribbon</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="showTitle" checked> Title at the top</label></div>
+        <div class="control-group"><input type="text" id="titleText" value="LONG TRAIL" maxlength="30" aria-label="Title text"></div>
+        <div class="control-group"><label>Title size <span class="val-display" id="titleSize-val">1.00</span></label><input type="range" id="titleSize" min="0.4" max="1.6" step="0.02" value="1"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="showRibbon" checked> Card type ribbon</label></div>
+        <div class="control-group"><label>Ribbon size <span class="val-display" id="ribbonSize-val">1.00</span></label><input type="range" id="ribbonSize" min="0.5" max="1.5" step="0.02" value="1"></div>
+        <div class="control-group"><label>Font</label><select id="font"></select></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="view-col">
+    <div class="topbar">
+      <button id="show-panel" title="Show controls (H)"><i data-icon="menu"></i>Controls</button>
+      <label>Name <input type="text" id="designName" value="Long Trail" maxlength="40" size="12" title="Used for saved file names"></label>
+      <button id="loadDesign" title="Open saved card backs (.json)"><i data-icon="folder"></i>Load</button>
+      <button id="saveDesign" title="Save these card backs (.json)"><i data-icon="download"></i>Save</button>
+      <input type="file" id="loadDesignFile" accept=".json" style="display: none;">
+      <span class="sep"></span>
+      <label>Card
+        <select id="cardAspect">
+          <option value="5:7" selected>Poker (2.5 × 3.5)</option>
+          <option value="63:88">Standard (63 × 88 mm)</option>
+          <option value="4:7">Tarot (2.75 × 4.75)</option>
+          <option value="1:1">Square</option>
+        </select>
+      </label>
+      <label title="Width of the saved PNG">Width <input type="number" id="exportWidth" value="1500" min="300" max="4000" step="50" style="width: 76px;"> px</label>
+      <span class="grow"></span>
+      <button id="saveSheet" title="One PNG with all five backs side by side"><i data-icon="image"></i>Save Sheet</button>
+      <button id="saveAll" title="A PNG for each card type"><i data-icon="download"></i>Save All 5</button>
+      <button class="primary" id="savePng"><i data-icon="image"></i>Save PNG</button>
+    </div>
+    <div id="canvas-container"><canvas id="preview"></canvas></div>
+    <div class="camstrip" id="thumbs"></div>
+  </div>
+
+  <script>
+    const FI = window.FairIsle, $ = id => document.getElementById(id);
+
+    // ================= DATA =================
+    const EMBLEMS = {
+      musher:    'Musher in a hood',
+      husky:     'Husky head',
+      mitten:    'Mitten',
+      mountains: 'Mountains & trail',
+      snowflake: 'Snowflake',
+      paw:       'Paw print',
+      star:      'Compass star'
+    };
+    // each type: ribbon name, emblem, Fair Isle band, and its four colors (back, main, accent, extra)
+    const TYPE_DEFAULTS = {
+      musher: { name: 'Mushers', icon: 'person', label: 'MUSHERS', emblem: 'musher', motif: 'oxo', colors: ['#5A1F1B', '#F3E6D0', '#C8423B', '#E6B84C'] },
+      dog:    { name: 'Dogs', icon: 'dog', label: 'DOGS', emblem: 'husky', motif: 'paws', colors: ['#1E2D4A', '#EAF2F8', '#4F8FC9', '#F2C14E'] },
+      gear:   { name: 'Gear', icon: 'mitten', label: 'GEAR', emblem: 'mitten', motif: 'lozenge', colors: ['#3D2A14', '#F6EBD0', '#C9933A', '#8C5A35'] },
+      trail:  { name: 'Trails', icon: 'mountain', label: 'TRAILS', emblem: 'mountains', motif: 'trees', colors: ['#1F3A2A', '#EDE6D3', '#4E8A5C', '#C9933A'] },
+      event:  { name: 'Events', icon: 'snowflake', label: 'EVENTS', emblem: 'snowflake', motif: 'flakes', colors: ['#1D1838', '#ECE6FF', '#7E6BD6', '#7FD3C6'] }
+    };
+    const TYPE_KEYS = Object.keys(TYPE_DEFAULTS);
+    const copyType = k => ({ label: TYPE_DEFAULTS[k].label, emblem: TYPE_DEFAULTS[k].emblem, motif: TYPE_DEFAULTS[k].motif, colors: TYPE_DEFAULTS[k].colors.slice() });
+    let types = Object.fromEntries(TYPE_KEYS.map(k => [k, copyType(k)]));
+    let current = 'musher', seed = 11;
+
+    const FONTS = {
+      baloo:   { label: 'Rounded bold (Baloo)', css: '800 1px "Baloo 2", "Arial Rounded MT Bold", "Segoe UI", sans-serif' },
+      lilita:  { label: 'Chunky (Lilita One)', css: '400 1px "Lilita One", "Arial Black", sans-serif' },
+      fredoka: { label: 'Friendly (Fredoka)', css: '600 1px "Fredoka", "Segoe UI", sans-serif' },
+      bree:    { label: 'Storybook serif (Bree)', css: '400 1px "Bree Serif", Georgia, serif' },
+      cinzel:  { label: 'Engraved (Cinzel)', css: '700 1px "Cinzel", "Times New Roman", serif' },
+      hand:    { label: 'Handwritten (Patrick Hand)', css: '400 1px "Patrick Hand", "Comic Sans MS", cursive' },
+      system:  { label: 'Plain (system)', css: '700 1px "Segoe UI", system-ui, sans-serif' }
+    };
+    // whole-deck looks: they change the shared settings only, never the per-type colors
+    const PRESETS = {
+      fairisle: { label: 'Fair Isle', v: { bgStyle: 'fairisle', stitch: 'knit', frameStyle: 'knit', frameMotif: 'diamonds', medShape: 'circle', medFacets: 0.6, font: 'cinzel', cornerGems: true } },
+      lowpoly:  { label: 'Low-poly', v: { bgStyle: 'lowpoly', bgFacets: 7, bgShade: 0.6, frameStyle: 'double', medShape: 'hexagon', medFacets: 1, font: 'lilita', cornerGems: true } },
+      night:    { label: 'Night sky', v: { bgStyle: 'night', bgShade: 0.6, frameStyle: 'simple', medShape: 'circle', medFacets: 0.7, font: 'baloo', cornerGems: false } },
+      classic:  { label: 'Classic', v: { bgStyle: 'sunburst', patternStrength: 0.5, frameStyle: 'knit', frameMotif: 'checks', medShape: 'shield', medFacets: 0.4, font: 'bree', cornerGems: true } }
+    };
+    const SLIDERS = ['patternSize', 'patternStrength', 'bgFacets', 'bgShade', 'grain', 'frameSize', 'margin', 'corner', 'medSize', 'ringW', 'emblemSize', 'medFacets', 'titleSize', 'ribbonSize'];
+    const INT_SLIDERS = ['patternSize', 'bgFacets'];
+
+    // ================= UI =================
+    for (const key in FONTS) $('font').add(new Option(FONTS[key].label, key));
+    $('font').value = 'cinzel';
+    for (const key in FI.STITCHES) $('stitch').add(new Option(FI.STITCHES[key].label, key));
+    for (const key in EMBLEMS) $('tEmblem').add(new Option(EMBLEMS[key], key));
+    for (const key in FI.MOTIFS) {
+      const M = FI.MOTIFS[key];
+      if (M.group !== 'Rules') $('tMotif').add(new Option(`${M.label} (${M.group.replace(/ \(.*/, '')})`, key));
+      if (M.group === 'Peerie (small)') $('frameMotif').add(new Option(M.label, key));
+    }
+    $('frameMotif').value = 'diamonds';
+
+    TYPE_KEYS.forEach(k => {
+      const b = document.createElement('button');
+      b.dataset.type = k;
+      b.innerHTML = `<i data-icon="${TYPE_DEFAULTS[k].icon}"></i>${TYPE_DEFAULTS[k].name}`;
+      b.addEventListener('click', () => selectType(k));
+      $('typeBtns').appendChild(b);
+      // thumbnail under the preview
+      const t = document.createElement('button');
+      t.dataset.type = k;
+      t.title = `Edit the ${TYPE_DEFAULTS[k].name} back`;
+      t.innerHTML = `<canvas></canvas><span>${TYPE_DEFAULTS[k].name}</span>`;
+      t.addEventListener('click', () => selectType(k));
+      $('thumbs').appendChild(t);
+    });
+    renderIcons($('typeBtns'));
+    for (const key in PRESETS) {
+      const b = document.createElement('button');
+      b.textContent = PRESETS[key].label;
+      b.title = 'Change the shared look of all five backs';
+      b.addEventListener('click', () => applyPreset(key));
+      $('presetBtns').appendChild(b);
+    }
+    for (const key in FI.PALETTES) {
+      const P = FI.PALETTES[key], b = document.createElement('button');
+      b.title = P.label;
+      b.innerHTML = `<span>${P.colors.map(c => `<i style="background:${c}"></i>`).join('')}</span>`;
+      b.addEventListener('click', () => setTypeColors(darkFirst(P.colors)));
+      $('swatches').appendChild(b);
+    }
+    // the Back color should be the dark one, so light palettes (Ice, Mitten) get turned around
+    function darkFirst(c) {
+      const l = h => { const n = parseInt(h.slice(1), 16); return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255); };
+      return l(c[0]) > l(c[1]) ? [c[1], c[0], c[2], c[3]] : c.slice();
+    }
+    function setTypeColors(c) { types[current].colors = c.slice(); syncType(); draw(); }
+
+    function selectType(k) {
+      current = k;
+      syncType();
+      draw();
+    }
+    // show the picked type's own settings in the sidebar
+    function syncType() {
+      const T = types[current];
+      document.querySelectorAll('[data-type]').forEach(b => {
+        b.classList.toggle('active', b.dataset.type === current);
+        b.style.setProperty('--tc', types[b.dataset.type].colors[2]);
+      });
+      $('typeTitle').textContent = `${TYPE_DEFAULTS[current].name} back`;
+      $('tLabel').value = T.label;
+      $('tEmblem').value = T.emblem;
+      $('tMotif').value = T.motif;
+      T.colors.forEach((c, i) => $('tC' + i).value = c);
+    }
+    $('tLabel').addEventListener('input', () => { types[current].label = $('tLabel').value; draw(); });
+    $('tEmblem').addEventListener('change', () => { types[current].emblem = $('tEmblem').value; draw(); });
+    $('tMotif').addEventListener('change', () => { types[current].motif = $('tMotif').value; draw(); });
+    [0, 1, 2, 3].forEach(i => $('tC' + i).addEventListener('input', () => {
+      types[current].colors[i] = $('tC' + i).value;
+      if (i === 2) syncType();
+      draw();
+    }));
+    $('resetType').addEventListener('click', () => { types[current] = copyType(current); syncType(); draw(); });
+    $('randomPalette').addEventListener('click', () => {
+      const keys = Object.keys(FI.PALETTES);
+      setTypeColors(darkFirst(FI.PALETTES[keys[Math.floor(Math.random() * keys.length)]].colors));
+    });
+    $('reroll').addEventListener('click', () => { seed = 1 + Math.floor(Math.random() * 1e5); draw(); });
+
+    function applyPreset(key) {
+      const v = PRESETS[key].v;
+      for (const id in v) { const el = $(id); if (el.type === 'checkbox') el.checked = v[id]; else el.value = v[id]; }
+      syncUI();
+    }
+
+    function syncUI() {
+      const bg = $('bgStyle').value, fr = $('frameStyle').value;
+      const show = (sel, on) => document.querySelectorAll(sel).forEach(e => e.style.display = on ? '' : 'none');
+      show('.fairisle-only, .sunburst-only, .lowpoly-only, .night-only', false);
+      show(`.${bg}-only`, true);
+      show('.knit-only', fr === 'knit');
+      show('.frame-on', fr !== 'none');
+      SLIDERS.forEach(id => $(id + '-val').innerText = INT_SLIDERS.includes(id) ? $(id).value : (+$(id).value).toFixed(2));
+      $('corner-val').innerText = (+$('corner').value).toFixed(3);
+      $('margin-val').innerText = (+$('margin').value).toFixed(3);
+      draw();
+    }
+    SLIDERS.forEach(id => $(id).addEventListener('input', syncUI));
+    ['bgStyle', 'stitch', 'frameStyle', 'frameMotif', 'medShape', 'font', 'cardAspect'].forEach(id => $(id).addEventListener('change', syncUI));
+    ['cornerGems', 'medShadow', 'showTitle', 'showRibbon'].forEach(id => $(id).addEventListener('change', draw));
+    $('titleText').addEventListener('input', draw);
+    if (document.fonts) document.fonts.addEventListener('loadingdone', draw); // web fonts arrive after the first draw
+
+    // ================= DRAWING HELPERS =================
+    const num = id => +$(id).value;
+    const pathOf = (g, pts, closed = true) => {
+      g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+      if (closed) g.closePath();
+    };
+    function rng(a) {
+      return () => {
+        a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    // Low-poly light over whatever is already drawn (call inside a clip): a jittered triangle grid,
+    // each triangle a touch lighter or darker, lit from the top
+    function facetOverlay(g, b, size, amount, k) {
+      if (amount <= 0) return;
+      const rh = size * 0.9, cols = Math.ceil((b.x1 - b.x0) / size) + 2, rows = Math.ceil((b.y1 - b.y0) / rh) + 2;
+      const P = (i, j) => [b.x0 - size + i * size + (FI.hash(i, j, seed + k) - 0.5) * size * 0.7, b.y0 - rh + j * rh + (FI.hash(j, i, seed + k + 9) - 0.5) * rh * 0.7];
+      for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const a = P(i, j), q = P(i + 1, j), c = P(i, j + 1), d = P(i + 1, j + 1);
+        (((i + j) & 1) ? [[a, q, d], [a, d, c]] : [[a, q, c], [q, d, c]]).forEach((t, n) => {
+          const ty = ((t[0][1] + t[1][1] + t[2][1]) / 3 - b.y0) / Math.max(1, b.y1 - b.y0);
+          const v = (FI.hash(i * 2 + n, j, seed + k + 3) - 0.5) * 2 + 0.5 - ty;
+          g.fillStyle = v > 0 ? `rgba(255,255,255,${(v * 0.14 * amount).toFixed(3)})` : `rgba(0,0,0,${(-v * 0.16 * amount).toFixed(3)})`;
+          pathOf(g, t); g.fill();
+        });
+      }
+    }
+
+    // Opaque low-poly field from `base` toward `other`, filling the box
+    function facetField(g, b, cols, base, other, amount, k) {
+      const cw = (b.x1 - b.x0) / cols, rh = cw * 0.9;
+      const P = (i, j) => [b.x0 + (i + (FI.hash(i, j, seed + k) - 0.5) * 0.7) * cw, b.y0 + (j + (FI.hash(j, i, seed + k + 5) - 0.5) * 0.7) * rh];
+      const tri = (a, q, d, n) => {
+        const ty = Math.min(1, Math.max(0, ((a[1] + q[1] + d[1]) / 3 - b.y0) / (b.y1 - b.y0)));
+        g.fillStyle = g.strokeStyle = FI.mix(base, other, amount * (0.06 + 0.6 * FI.hash(n, 7, seed + k)) * (0.65 + 0.35 * ty));
+        g.lineWidth = 1;
+        pathOf(g, [a, q, d]); g.fill(); g.stroke(); // the stroke hides hairline seams
+      };
+      for (let j = -1; j < (b.y1 - b.y0) / rh + 1; j++) for (let i = -1; i < cols + 1; i++) {
+        const p = P(i, j), q = P(i + 1, j), s = P(i, j + 1), t = P(i + 1, j + 1), n = ((i + 50) * 1000 + j + 50) * 2;
+        if ((i + j) & 1) { tri(p, q, t, n); tri(p, t, s, n + 1); } else { tri(p, q, s, n); tri(q, t, s, n + 1); }
+      }
+    }
+
+    function grain(g, W, H, amount) {
+      const r = rng(seed * 31 + 7), s = W * 0.0028;
+      for (let k = 0, n = Math.round(4000 * amount); k < n; k++) {
+        const x = r() * W, y = r() * H, dark = r() < 0.5;
+        g.fillStyle = dark ? `rgba(0, 0, 0, ${0.05 + r() * 0.08})` : `rgba(255, 255, 255, ${0.05 + r() * 0.1})`;
+        g.fillRect(x, y, s, s);
+      }
+    }
+
+    // ================= THE CARD =================
+    // Everything is laid out in units where the card is 1000 wide; H follows the card's proportions.
+    const cardRatio = () => { const [a, b] = $('cardAspect').value.split(':').map(Number); return b / a; };
+
+    function paintCard(g, W, H, key) {
+      const T = types[key], [c0, c1, c2, c3] = T.colors;
+      const C = { back: c0, main: c1, accent: c2, extra: c3, deep: FI.shade(c0, -0.55) };
+      const cr = num('corner') * W;
+      g.save();
+      if (cr > 0) { g.beginPath(); g.roundRect ? g.roundRect(0, 0, W, H, cr) : g.rect(0, 0, W, H); g.clip(); }
+
+      paintBackground(g, W, H, T, C);
+
+      // outer edge (solid) and the frame just inside it
+      const m = num('margin') * W, frame = $('frameStyle').value;
+      if (m > 0) {
+        g.fillStyle = FI.shade(c0, -0.3);
+        g.beginPath(); g.rect(0, 0, W, H); g.rect(m, m, W - 2 * m, H - 2 * m); g.fill('evenodd');
+      }
+      let inner = m; // where the open area of the card starts
+      const fs = num('frameSize');
+      if (frame === 'knit') {
+        const rows = FI.buildRows([
+          { motif: 'solid', bg: c0, fg: c2, accent: c3 },
+          { motif: $('frameMotif').value, bg: c1, fg: c0, accent: c2 }
+        ], true);
+        g.save(); g.translate(m, m);
+        inner += FI.drawFrame(g, rows, W - 2 * m, H - 2 * m, { style: $('stitch').value === 'cross' ? 'knit' : $('stitch').value, rowH: 8 * fs, facet: 1, seed: seed + 3 });
+        g.restore();
+      } else if (frame === 'double') {
+        const a = 14 * fs, gap = 9 * fs, b = 4 * fs;
+        g.strokeStyle = c2; g.lineWidth = a;
+        g.strokeRect(m + a / 2, m + a / 2, W - 2 * m - a, H - 2 * m - a);
+        g.strokeStyle = c1; g.lineWidth = b;
+        const o = m + a + gap + b / 2;
+        g.strokeRect(o, o, W - 2 * o, H - 2 * o);
+        inner = o + b / 2;
+      } else if (frame === 'simple') {
+        const a = 10 * fs;
+        g.strokeStyle = c1; g.lineWidth = a;
+        g.strokeRect(m + 16 * fs, m + 16 * fs, W - 2 * (m + 16 * fs), H - 2 * (m + 16 * fs));
+        inner = m + 16 * fs + a / 2;
+      }
+      if ($('cornerGems').checked) {
+        const s = 22 + 6 * fs, o = inner + s * 1.5;
+        [[o, o], [W - o, o], [o, H - o], [W - o, H - o]].forEach(([x, y], i) => gem(g, x, y, s, C, i));
+      }
+
+      // the middle: title, medallion and ribbon share the open space
+      const showT = $('showTitle').checked && $('titleText').value.trim(), showR = $('showRibbon').checked && T.label.trim();
+      const R = 300 * num('medSize');
+      const cy = H / 2 + (showT ? 0.035 * H : 0) - (showR ? 0.035 * H : 0);
+      const ms = $('medShape').value;
+      const extent = ms === 'diamond' ? 1.18 : ms === 'shield' ? 1.08 : 1;
+      paintMedallion(g, W / 2, cy, R, T, C);
+      if (showT) paintTitle(g, W, (inner + cy - R * extent) / 2, W - 2 * inner - 60, (cy - R * extent - inner) * 0.8, C);
+      if (showR) paintRibbon(g, W, cy + R * extent * 0.92 + Math.max(0, H - inner - (cy + R * extent)) * 0.45, T.label.trim(), C);
+
+      grain(g, W, H, num('grain'));
+      g.restore();
+    }
+
+    function paintBackground(g, W, H, T, C) {
+      const style = $('bgStyle').value, box = { x0: 0, y0: 0, x1: W, y1: H };
+      g.fillStyle = C.back;
+      g.fillRect(0, 0, W, H);
+      if (style === 'fairisle') {
+        // the type's band between peerie rows, mirrored so it reads the same from top and bottom, repeated down the card
+        const s = num('patternStrength'), fg = FI.mix(C.back, C.main, s), ac = FI.mix(C.back, C.accent, Math.min(1, s * 1.3)), blank = { motif: 'solid', bg: C.back, fg: C.back, accent: C.back };
+        const rows = FI.buildRows([
+          { motif: 'accent', bg: C.back, fg, accent: ac }, blank,
+          { motif: 'lice', bg: C.back, fg, accent: ac }, blank,
+          { motif: T.motif, bg: C.back, fg, accent: ac }, blank
+        ], true);
+        const st = $('stitch').value, count = num('patternSize'), rowH = W / count / FI.STITCHES[st].aspect;
+        const th = rows.length * rowH, n = Math.ceil(H / th) + 1, y0 = (H - n * th) / 2;
+        for (let k = 0; k < n; k++) {
+          g.save(); g.translate(0, y0 + k * th);
+          FI.drawStrip(g, rows, W, { style: st, rowH, count, facet: 1, fabric: C.back, seed: seed + k * 7 });
+          g.restore();
+        }
+      } else if (style === 'lowpoly') {
+        facetField(g, box, num('bgFacets'), C.back, FI.mix(C.back, C.accent, 0.7), num('bgShade'), 1);
+      } else if (style === 'night') {
+        const sky = g.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, FI.shade(C.back, -0.45)); sky.addColorStop(0.65, C.back); sky.addColorStop(1, FI.mix(C.back, C.accent, 0.35));
+        g.fillStyle = sky; g.fillRect(0, 0, W, H);
+        const r = rng(seed * 13 + 1);
+        for (let k = 0; k < 170; k++) { // stars, a few of them twinkling
+          const x = r() * W, y = r() * H * 0.75, s = 1.2 + r() * 2.6;
+          g.fillStyle = `rgba(255, 255, 255, ${0.35 + r() * 0.6})`;
+          if (k % 17 === 0) { g.beginPath(); g.moveTo(x, y - s * 4); g.lineTo(x + s, y); g.lineTo(x, y + s * 4); g.lineTo(x - s, y); g.closePath(); g.fill(); g.fillRect(x - s * 4, y - s * 0.5, s * 8, s); }
+          else g.fillRect(x - s / 2, y - s / 2, s, s);
+        }
+        // aurora: curtains of thin vertical strokes fading upward
+        g.save(); g.globalCompositeOperation = 'lighter';
+        [[C.extra, 0.28, 0.9], [C.accent, 0.4, 0.7]].forEach(([col, yb, amp], band) => {
+          const ph = FI.hash(band, 3, seed) * 6.28, hex = col.replace('#', ''), n = parseInt(hex, 16), rgb = `${n >> 16},${(n >> 8) & 255},${n & 255}`;
+          for (let x = 0; x < W; x += 3) {
+            const y = H * (yb + 0.06 * Math.sin(x / W * 5 + ph) + 0.03 * Math.sin(x / W * 13 + ph * 2));
+            const len = H * (0.1 + 0.1 * amp * (0.5 + 0.5 * Math.sin(x / W * 9 + ph * 3)));
+            // streaky: each column a little brighter or dimmer, with a bright lower hem and a soft glow under it
+            const a = (0.22 + 0.2 * Math.sin(x / W * 31 + ph) ** 2 + 0.15 * FI.hash(x, band, seed)) * amp;
+            const grd = g.createLinearGradient(0, y - len, 0, y + len * 0.12);
+            grd.addColorStop(0, `rgba(${rgb},0)`); grd.addColorStop(0.8, `rgba(${rgb},${(a * 0.7).toFixed(3)})`);
+            grd.addColorStop(0.89, `rgba(${rgb},${a.toFixed(3)})`); grd.addColorStop(1, `rgba(${rgb},0)`);
+            g.fillStyle = grd; g.fillRect(x, y - len, 3, len * 1.12);
+          }
+        });
+        g.restore();
+        // two low-poly ridges along the bottom
+        [[0.8, FI.mix(C.back, C.accent, 0.25), 9], [0.88, FI.shade(C.back, -0.35), 13]].forEach(([yb, col, n], band) => {
+          const pts = [[0, H]];
+          for (let i = 0; i <= n; i++) pts.push([W * i / n, H * (yb - (i % 2 ? 0.07 : 0.015) * (0.5 + FI.hash(i, band, seed)))]);
+          pts.push([W, H]);
+          g.save(); g.fillStyle = col; pathOf(g, pts); g.fill(); g.clip();
+          facetOverlay(g, { x0: 0, y0: H * (yb - 0.12), x1: W, y1: H }, 70, num('bgShade'), 40 + band);
+          g.restore();
+        });
+      } else if (style === 'sunburst') {
+        const s = num('patternStrength'), cx = W / 2, cy = H / 2, R = Math.hypot(W, H);
+        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, R * 0.55);
+        grd.addColorStop(0, FI.mix(C.back, C.accent, 0.55 * s + 0.1)); grd.addColorStop(1, C.back);
+        g.fillStyle = grd; g.fillRect(0, 0, W, H);
+        g.fillStyle = `rgba(255, 255, 255, ${0.07 * s + 0.02})`;
+        for (let k = 0; k < 28; k += 2) {
+          const a0 = k / 28 * Math.PI * 2, a1 = (k + 1) / 28 * Math.PI * 2;
+          g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R); g.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R); g.closePath(); g.fill();
+        }
+      }
+    }
+
+    // a small faceted diamond for the corners
+    function gem(g, x, y, s, C, i) {
+      const top = [x, y - s], right = [x + s * 0.72, y], bot = [x, y + s], left = [x - s * 0.72, y];
+      g.lineJoin = 'round';
+      [[top, right, [x, y], C.accent, 0.25], [right, bot, [x, y], C.accent, -0.3], [bot, left, [x, y], C.accent, -0.15], [left, top, [x, y], C.accent, 0.4]].forEach(([a, b, c, col, k]) => {
+        g.fillStyle = FI.shade(col, k); pathOf(g, [a, b, c]); g.fill();
+      });
+      g.strokeStyle = C.deep; g.lineWidth = 3; pathOf(g, [top, right, bot, left]); g.stroke();
+    }
+
+    // medallion outline at scale k (1 = the outside of the ring)
+    function medPath(g, shape, cx, cy, R, k) {
+      const r = R * k;
+      g.beginPath();
+      if (shape === 'circle' || shape === 'none') g.arc(cx, cy, r, 0, Math.PI * 2);
+      else if (shape === 'hexagon') for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3; g[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r * 1.06, cy + Math.sin(a) * r * 1.06); }
+      else if (shape === 'diamond') { g.moveTo(cx, cy - r * 1.18); g.lineTo(cx + r * 1.02, cy); g.lineTo(cx, cy + r * 1.18); g.lineTo(cx - r * 1.02, cy); }
+      else if (shape === 'shield') {
+        g.moveTo(cx - r * 0.92, cy - r * 0.9);
+        g.quadraticCurveTo(cx, cy - r * 1.06, cx + r * 0.92, cy - r * 0.9);
+        g.lineTo(cx + r * 0.92, cy + r * 0.05);
+        g.quadraticCurveTo(cx + r * 0.85, cy + r * 0.72, cx, cy + r * 1.08);
+        g.quadraticCurveTo(cx - r * 0.85, cy + r * 0.72, cx - r * 0.92, cy + r * 0.05);
+      }
+      g.closePath();
+    }
+
+    function paintMedallion(g, cx, cy, R, T, C) {
+      const shape = $('medShape').value, ring = num('ringW'), facets = num('medFacets');
+      const kIn = 1 - 0.1 * ring; // the light face inside the ring
+      const box = { x0: cx - R * 1.2, y0: cy - R * 1.2, x1: cx + R * 1.2, y1: cy + R * 1.2 };
+      if (shape !== 'none') {
+        g.save();
+        if ($('medShadow').checked) { g.shadowColor = 'rgba(0, 0, 0, 0.45)'; g.shadowBlur = R * 0.12; g.shadowOffsetY = R * 0.04; }
+        g.fillStyle = C.deep; medPath(g, shape, cx, cy, R, 1.025); g.fill();
+        g.restore();
+        if (ring > 0) {
+          g.save(); g.fillStyle = C.accent; medPath(g, shape, cx, cy, R, 1); g.fill(); g.clip();
+          facetOverlay(g, box, R * 0.22, facets * 1.2, 21);
+          g.restore();
+          g.fillStyle = C.deep; medPath(g, shape, cx, cy, R, kIn + 0.035); g.fill();
+        }
+        g.save(); g.fillStyle = C.main; medPath(g, shape, cx, cy, R, kIn); g.fill(); g.clip();
+        facetOverlay(g, box, R * 0.3, facets * 0.6, 22);
+      } else {
+        g.save();
+      }
+      const er = R * kIn * (shape === 'none' ? 1 : 0.8) * num('emblemSize');
+      // with no medallion the emblem sits right on the dark background, so its dark parts go lighter
+      emblem(g, T.emblem, cx, cy, er, { ...C, ink: shape === 'none' ? FI.mix(C.main, C.back, 0.5) : C.back, line: C.deep }, facets);
+      g.restore();
+    }
+
+    function setFont(g, px) { g.font = FONTS[$('font').value].css.replace('1px', px.toFixed(2) + 'px'); }
+    function fitText(g, text, size, maxW) {
+      setFont(g, size);
+      const w = g.measureText(text).width;
+      if (w > maxW) { size *= maxW / w; setFont(g, size); }
+      return size;
+    }
+    function spacing(g, em) { if ('letterSpacing' in g) g.letterSpacing = em + 'px'; }
+
+    function paintTitle(g, W, y, maxW, maxH, C) {
+      const text = $('titleText').value.trim();
+      let size = Math.min(92 * num('titleSize'), maxH);
+      if (size < 12) return;
+      spacing(g, size * 0.08);
+      size = fitText(g, text, size, maxW);
+      spacing(g, size * 0.08);
+      const cap = g.measureText('H').actualBoundingBoxAscent || size * 0.7;
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.lineJoin = 'round';
+      g.save();
+      g.shadowColor = 'rgba(0, 0, 0, 0.45)'; g.shadowBlur = size * 0.12; g.shadowOffsetY = size * 0.05;
+      g.strokeStyle = C.deep; g.lineWidth = size * 0.2;
+      g.strokeText(text, W / 2, y + cap / 2);
+      g.restore();
+      g.fillStyle = C.main;
+      g.fillText(text, W / 2, y + cap / 2);
+      spacing(g, 0);
+    }
+
+    function paintRibbon(g, W, y, text, C) {
+      const s = num('ribbonSize'), h = 86 * s;
+      spacing(g, h * 0.05);
+      const size = fitText(g, text, h * 0.56, W * 0.62);
+      const tw = g.measureText(text).width, bw = Math.max(W * 0.36, tw + h * 1.1) / 2;
+      const top = y - h / 2, drop = h * 0.32, tail = h * 0.75, fold = C.deep, back = FI.shade(C.accent, -0.35);
+      g.lineJoin = 'round';
+      g.save();
+      g.shadowColor = 'rgba(0, 0, 0, 0.4)'; g.shadowBlur = h * 0.18; g.shadowOffsetY = h * 0.06;
+      for (const d of [-1, 1]) { // tails tucked behind, then the folds
+        const x0 = W / 2 + d * (bw - h * 0.3), x1 = W / 2 + d * (bw + tail);
+        g.fillStyle = back;
+        pathOf(g, [[x0, top + drop], [x1, top + drop], [x1 - d * h * 0.3, top + drop + h / 2], [x1, top + drop + h], [x0, top + drop + h]]); g.fill();
+      }
+      g.restore();
+      for (const d of [-1, 1]) {
+        g.fillStyle = fold;
+        pathOf(g, [[W / 2 + d * bw, top + h], [W / 2 + d * (bw - h * 0.3), top + drop + h], [W / 2 + d * (bw - h * 0.3), top + h]]); g.fill();
+      }
+      g.strokeStyle = C.deep; g.lineWidth = 4;
+      for (const d of [-1, 1]) {
+        const x0 = W / 2 + d * (bw - h * 0.3), x1 = W / 2 + d * (bw + tail);
+        pathOf(g, [[x0, top + drop], [x1, top + drop], [x1 - d * h * 0.3, top + drop + h / 2], [x1, top + drop + h], [x0, top + drop + h]]); g.stroke();
+      }
+      const body = [[W / 2 - bw, top], [W / 2 + bw, top], [W / 2 + bw, top + h], [W / 2 - bw, top + h]];
+      g.save(); g.fillStyle = C.accent; pathOf(g, body); g.fill(); g.clip();
+      facetOverlay(g, { x0: W / 2 - bw, y0: top, x1: W / 2 + bw, y1: top + h }, h * 0.7, num('medFacets'), 31);
+      g.restore();
+      pathOf(g, body); g.stroke();
+      // text
+      setFont(g, size);
+      const cap = g.measureText('H').actualBoundingBoxAscent || size * 0.7;
+      g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+      g.strokeStyle = C.deep; g.lineWidth = size * 0.16;
+      g.strokeText(text, W / 2, y + cap / 2);
+      g.fillStyle = C.main; g.fillText(text, W / 2, y + cap / 2);
+      spacing(g, 0);
+    }
+
+    // ================= EMBLEMS =================
+    // Drawn in a box from -1 to 1 around (cx, cy), y down. C: ink (main dark), main, accent, extra, line (outlines).
+    function emblem(g, kind, cx, cy, r, C, facets) {
+      const P = ([x, y]) => [cx + x * r, cy + y * r];
+      const lw = r * 0.035;
+      const sym = half => [...half, ...half.slice().reverse().filter(p => p[0] !== 0).map(([x, y]) => [-x, y])];
+      const flip = pts => pts.map(([x, y]) => [-x, y]);
+      const box = { x0: cx - r * 1.3, y0: cy - r * 1.3, x1: cx + r * 1.3, y1: cy + r * 1.3 };
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      // a filled, faceted polygon with an outline; `inside` draws more parts clipped to it
+      function shape(pts, fill, opts = {}) {
+        const ps = pts.map(P);
+        g.fillStyle = fill; pathOf(g, ps); g.fill();
+        g.save(); pathOf(g, ps); g.clip();
+        facetOverlay(g, box, r * (opts.facet || 0.32), facets * (opts.amt == null ? 1 : opts.amt), opts.k || 5);
+        if (opts.inside) opts.inside();
+        g.restore();
+        if (opts.line !== false) { g.strokeStyle = C.line; g.lineWidth = lw * (opts.lw || 1); pathOf(g, ps); g.stroke(); }
+      }
+      const ellipse = (x, y, rx, ry, n = 14, a0 = 0) => Array.from({ length: n }, (_, i) => { const a = a0 + i / n * Math.PI * 2; return [x + Math.cos(a) * rx, y + Math.sin(a) * ry]; });
+      const stroke = (pts, w, col) => { g.strokeStyle = col; g.lineWidth = w * r; pathOf(g, pts.map(P), false); g.stroke(); };
+      const dot = (x, y, rr, col) => { g.fillStyle = col; g.beginPath(); g.arc(cx + x * r, cy + y * r, rr * r, 0, Math.PI * 2); g.fill(); };
+
+      if (kind === 'husky') {
+        const head = sym([[0, -0.5], [0.2, -0.55], [0.58, -0.98], [0.74, -0.44], [0.86, -0.1], [0.96, 0.2], [0.76, 0.34], [0.62, 0.58], [0.3, 0.74], [0, 0.86]]);
+        const mask = sym([[0, -0.3], [0.1, -0.12], [0.32, -0.12], [0.54, -0.04], [0.7, 0.12], [0.98, 0.3], [0.62, 0.6], [0.3, 0.76], [0, 0.9]]);
+        shape(head, C.ink, { inside: () => {
+          g.fillStyle = C.main; pathOf(g, mask.map(P)); g.fill();
+          facetOverlay(g, box, r * 0.3, facets * 0.8, 7);
+          for (const s of [-1, 1]) { g.fillStyle = C.main; pathOf(g, ellipse(s * 0.24, -0.27, 0.09, 0.055, 10).map(P)); g.fill(); }
+        } });
+        const ear = [[0.28, -0.56], [0.56, -0.86], [0.66, -0.48]];
+        for (const pts of [ear, flip(ear)]) shape(pts, FI.mix(C.accent, C.main, 0.45), { line: false, amt: 0.6 });
+        for (const s of [-1, 1]) { // almond eyes with a colored iris
+          const eye = [[-0.14, 0.02], [-0.03, -0.07], [0.13, -0.03], [0.04, 0.06]].map(([x, y]) => [s * x + s * 0.3, y + 0.05]);
+          g.fillStyle = C.line; pathOf(g, eye.map(P)); g.fill();
+          dot(s * 0.3, 0.04, 0.05, C.extra); dot(s * 0.3, 0.04, 0.026, C.line); dot(s * 0.3 + 0.025, 0.02, 0.016, '#ffffff');
+        }
+        const nose = [[-0.15, 0.36], [0.15, 0.36], [0.07, 0.48], [-0.07, 0.48]];
+        g.fillStyle = C.line; pathOf(g, nose.map(P)); g.fill(); g.strokeStyle = C.line; g.lineWidth = lw * 1.4; g.stroke();
+        dot(-0.04, 0.39, 0.03, 'rgba(255,255,255,0.6)');
+        stroke([[0, 0.48], [0, 0.58], [-0.08, 0.64], [-0.18, 0.6]], 0.035, C.line);
+        stroke([[0, 0.58], [0.08, 0.64], [0.18, 0.6]], 0.035, C.line);
+      } else if (kind === 'musher') {
+        const body = [[-1.05, 1.3], [-0.95, 0.66], [-0.5, 0.44], [0.5, 0.44], [0.95, 0.66], [1.05, 1.3]];
+        shape(body, C.accent, { inside: () => { // a knit yoke across the chest
+          g.fillStyle = C.main; g.fillRect(cx - r * 1.1, cy + r * 0.66, r * 2.2, r * 0.16);
+          for (let i = -6; i <= 6; i++) { g.fillStyle = C.ink; pathOf(g, [[i * 0.16, 0.68], [i * 0.16 + 0.05, 0.74], [i * 0.16, 0.8], [i * 0.16 - 0.05, 0.74]].map(P)); g.fill(); }
+          stroke([[0, 0.44], [0, 0.66]], 0.03, C.line); stroke([[0, 0.82], [0, 1.3]], 0.03, C.line);
+        } });
+        shape(ellipse(0, -0.06, 0.64, 0.72, 16, Math.PI / 16), FI.shade(C.accent, -0.12));
+        const ruff = Array.from({ length: 30 }, (_, i) => { const a = i / 30 * Math.PI * 2, rr = i % 2 ? 0.42 : 0.53 + 0.03 * FI.hash(i, 1, 9); return [Math.cos(a) * rr * 0.95, -0.02 + Math.sin(a) * rr * 1.06]; });
+        shape(ruff, FI.mix(C.main, C.extra, 0.15), { amt: 0.8, facet: 0.2 });
+        shape(ellipse(0, -0.02, 0.3, 0.36, 16), C.ink, { amt: 0.4, inside: () => {
+          stroke([[-0.4, -0.08], [0.4, -0.08]], 0.06, C.line); // goggle strap
+          shape([[-0.32, 0.18], [0.32, 0.18], [0.3, 0.42], [-0.3, 0.42]], C.extra, { line: false, amt: 0.6 }); // scarf over the mouth
+          stroke([[-0.3, 0.25], [0.3, 0.25]], 0.025, C.line);
+        } });
+        for (const s of [-1, 1]) {
+          const lens = [[0.03, -0.14], [0.25, -0.14], [0.27, -0.02], [0.24, 0.01], [0.05, 0.01], [0.02, -0.03]].map(([x, y]) => [s * x, y]);
+          shape(lens, FI.mix(C.extra, '#ffffff', 0.35), { lw: 1.2, amt: 0.5 });
+          stroke([[s * 0.08, -0.04], [s * 0.15, -0.11]], 0.025, 'rgba(255,255,255,0.85)');
+        }
+      } else if (kind === 'mitten') {
+        const hand = [[-0.42, 0.42], [-0.44, 0.12], [-0.62, -0.02], [-0.78, -0.22], [-0.76, -0.38], [-0.62, -0.42], [-0.44, -0.24],
+                      [-0.44, -0.42], [-0.38, -0.66], [-0.2, -0.82], [0, -0.86], [0.2, -0.82], [0.38, -0.66], [0.46, -0.42], [0.46, 0.42]];
+        shape(hand, C.accent, { inside: () => {
+          g.fillStyle = C.main; g.fillRect(cx - r, cy - r * 0.12, r * 2, r * 0.26); // a knit stripe with little diamonds
+          for (let i = -4; i <= 4; i++) { g.fillStyle = C.ink; pathOf(g, [[i * 0.16, -0.08], [i * 0.16 + 0.06, 0.01], [i * 0.16, 0.1], [i * 0.16 - 0.06, 0.01]].map(P)); g.fill(); }
+          stroke([[-0.44, -0.24], [-0.3, -0.12]], 0.03, C.line); // the thumb's crease
+        } });
+        shape([[-0.5, 0.4], [0.54, 0.4], [0.54, 0.86], [-0.5, 0.86]], C.extra, { amt: 0.6, inside: () => {
+          for (let i = 1; i < 9; i++) stroke([[-0.5 + i * 0.1156, 0.44], [-0.5 + i * 0.1156, 0.82]], 0.03, FI.shade(C.extra, -0.35));
+        } });
+      } else if (kind === 'mountains') {
+        dot(0.5, -0.5, 0.22, C.extra);
+        g.save(); g.beginPath(); g.arc(cx + 0.5 * r, cy - 0.5 * r, 0.22 * r, 0, Math.PI * 2); g.clip(); facetOverlay(g, box, r * 0.15, facets, 3); g.restore();
+        const back = [[0.0, 0.4], [0.5, -0.32], [1.2, 0.4]];
+        shape(back, FI.mix(C.ink, C.accent, 0.45), { inside: () => {
+          g.fillStyle = C.main; pathOf(g, [[0.5, -0.32], [0.62, -0.15], [0.55, -0.12], [0.48, -0.06], [0.42, -0.13], [0.38, -0.15]].map(P)); g.fill();
+        } });
+        const front = [[-1.2, 0.4], [-0.2, -0.76], [0.8, 0.4]];
+        shape(front, C.ink, { inside: () => {
+          g.fillStyle = C.main; pathOf(g, [[-0.2, -0.76], [0.0, -0.53], [-0.08, -0.47], [-0.16, -0.38], [-0.26, -0.48], [-0.34, -0.44], [-0.4, -0.53]].map(P)); g.fill();
+          facetOverlay(g, box, r * 0.25, facets, 8);
+          g.fillStyle = 'rgba(0,0,0,0.25)'; pathOf(g, [[-0.2, -0.76], [0.8, 0.4], [0.05, 0.4]].map(P)); g.fill(); // the shady side
+        } });
+        shape([[-1.3, 0.38], [1.3, 0.38], [1.3, 1.3], [-1.3, 1.3]], FI.mix(C.main, C.extra, 0.12), { amt: 0.5, line: false });
+        stroke([[-1.3, 0.38], [1.3, 0.38]], 0.035, C.line);
+        // the trail winds in from the bottom, wide up close and thin in the distance
+        const trail = [];
+        for (let i = 0; i <= 12; i++) { const t = i / 12; trail.push([0.25 * Math.sin(t * 5.5) * (1 - t * 0.6) - 0.05, 1.2 - t * 0.8, 0.02 + 0.16 * (1 - t)]); }
+        const left = trail.map(([x, y, w]) => [x - w, y]), right = trail.map(([x, y, w]) => [x + w, y]).reverse();
+        shape([...left, ...right], C.accent, { amt: 0.5, lw: 0.7 });
+        for (const [x, s] of [[-0.75, 0.9], [-0.55, 0.65], [0.72, 0.8]]) { // spruce trees on the slopes
+          const y = 0.62 + (1 - s) * 0.2, h = 0.5 * s;
+          shape([[x, y - h], [x + 0.11 * s, y - h * 0.55], [x + 0.06 * s, y - h * 0.55], [x + 0.17 * s, y - h * 0.1], [x - 0.17 * s, y - h * 0.1], [x - 0.06 * s, y - h * 0.55], [x - 0.11 * s, y - h * 0.55]],
+                FI.mix(C.ink, C.accent, 0.25), { lw: 0.7, amt: 0.6 });
+        }
+      } else if (kind === 'snowflake') {
+        g.save(); g.translate(cx, cy);
+        for (let a = 0; a < 6; a++) {
+          g.save(); g.rotate(a * Math.PI / 3);
+          const arm = (w, col) => {
+            g.strokeStyle = col; g.lineWidth = w * r;
+            g.beginPath();
+            g.moveTo(0, 0); g.lineTo(0, -0.84 * r);
+            for (const [y, l] of [[0.36, 0.22], [0.6, 0.18]]) { g.moveTo(0, -y * r); g.lineTo(l * r, -(y + l) * r); g.moveTo(0, -y * r); g.lineTo(-l * r, -(y + l) * r); }
+            g.stroke();
+          };
+          arm(0.16, C.line); arm(0.1, C.ink); arm(0.035, FI.mix(C.ink, C.main, 0.35)); // outlined, with a light ridge down the middle
+          g.restore();
+        }
+        g.restore();
+        for (let a = 0; a < 6; a++) { // gems on the tips
+          const t = a * Math.PI / 3 - Math.PI / 2, x = Math.cos(t) * 0.92, y = Math.sin(t) * 0.92, s = 0.1;
+          shape([[x + Math.cos(t) * s, y + Math.sin(t) * s], [x + Math.cos(t + 1.57) * s * 0.7, y + Math.sin(t + 1.57) * s * 0.7], [x - Math.cos(t) * s, y - Math.sin(t) * s], [x - Math.cos(t + 1.57) * s * 0.7, y - Math.sin(t + 1.57) * s * 0.7]], C.extra, { lw: 0.8 });
+        }
+        shape(ellipse(0, 0, 0.2, 0.2, 6, Math.PI / 6), C.accent, { amt: 1.2, facet: 0.15 });
+        shape(ellipse(0, 0, 0.08, 0.08, 6, Math.PI / 6), C.main, { lw: 0.6 });
+      } else if (kind === 'paw') {
+        shape(sym([[0, 0.04], [0.26, 0.1], [0.5, 0.36], [0.52, 0.6], [0.3, 0.74], [0, 0.66]]), C.ink);
+        [[-0.6, -0.12, -0.5], [-0.24, -0.5, -0.15], [0.24, -0.5, 0.15], [0.6, -0.12, 0.5]].forEach(([x, y, a]) => // toes, tipped outward
+          shape(ellipse(0, 0, 0.17, 0.24, 12).map(([px, py]) => [x + px * Math.cos(a) - py * Math.sin(a), y + px * Math.sin(a) + py * Math.cos(a)]), C.ink));
+      } else if (kind === 'star') {
+        for (let i = 0; i < 16; i++) { // eight points, each split into a light and a dark half
+          const long = (i >> 1) % 2 === 0, L = long ? 0.95 : 0.6, w = long ? 0.15 : 0.12;
+          const aMid = Math.floor(i / 2) * Math.PI / 4 - Math.PI / 2, side = i % 2 ? 1 : -1;
+          const tip = [Math.cos(aMid) * L, Math.sin(aMid) * L], base = [Math.cos(aMid + side * Math.PI / 4) * w, Math.sin(aMid + side * Math.PI / 4) * w];
+          shape([[0, 0], tip, base], side > 0 ? (long ? C.ink : C.accent) : (long ? FI.mix(C.ink, C.main, 0.35) : FI.mix(C.accent, C.main, 0.4)), { lw: 0.7, amt: 0.4 });
+        }
+        dot(0, 0, 0.07, C.extra);
+      }
+    }
+
+    // ================= RENDER & PREVIEW =================
+    function renderBack(widthPx, key) {
+      const H = 1000 * cardRatio(), c = document.createElement('canvas');
+      c.width = Math.round(widthPx); c.height = Math.round(widthPx * cardRatio());
+      const g = c.getContext('2d'), s = c.width / 1000;
+      g.setTransform(s, 0, 0, s, 0, 0);
+      paintCard(g, 1000, H, key);
+      return c;
+    }
+
+    let pending = false, thumbTimer = 0;
+    function draw() {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => { pending = false; drawNow(); });
+    }
+    function drawNow() {
+      const box = $('canvas-container'), pad = 28, ratio = cardRatio(), dpr = window.devicePixelRatio || 1;
+      const w = Math.max(40, Math.min(box.clientWidth - pad * 2, (box.clientHeight - pad * 2) / ratio));
+      const art = renderBack(w * dpr, current), c = $('preview');
+      c.width = art.width; c.height = art.height;
+      c.style.width = Math.round(w) + 'px'; c.style.height = Math.round(w * ratio) + 'px';
+      c.getContext('2d').drawImage(art, 0, 0);
+      document.querySelectorAll('#thumbs button').forEach(b => b.classList.toggle('active', b.dataset.type === current));
+      // the five thumbnails follow a moment later, one per frame, so dragging a slider stays smooth
+      clearTimeout(thumbTimer);
+      thumbTimer = setTimeout(() => {
+        const keys = TYPE_KEYS.slice();
+        const next = () => {
+          const k = keys.shift();
+          if (!k) return;
+          const tc = document.querySelector(`#thumbs button[data-type="${k}"] canvas`), tw = 64;
+          const img = renderBack(tw * dpr, k);
+          tc.width = img.width; tc.height = img.height;
+          tc.style.width = tw + 'px'; tc.style.height = Math.round(tw * ratio) + 'px';
+          tc.getContext('2d').drawImage(img, 0, 0);
+          requestAnimationFrame(next);
+        };
+        next();
+      }, 120);
+    }
+    new ResizeObserver(draw).observe($('canvas-container'));
+
+    // ================= FILES =================
+    const exportWidth = () => Math.round(Math.min(4000, Math.max(300, +$('exportWidth').value || 1500)));
+    const slug = s => s.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase();
+    const fileBase = () => slug($('designName').value) || 'card';
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }
+    const pngName = k => `${fileBase()}-${slug(TYPE_DEFAULTS[k].name)}-back.png`;
+    $('savePng').addEventListener('click', () => renderBack(exportWidth(), current).toBlob(b => downloadBlob(b, pngName(current))));
+    $('saveAll').addEventListener('click', () => {
+      // one at a time, a little apart, so the browser keeps every download
+      TYPE_KEYS.forEach((k, i) => setTimeout(() => renderBack(exportWidth(), k).toBlob(b => downloadBlob(b, pngName(k))), i * 400));
+      try { if (window.parent !== window && window.parent.studioToast) window.parent.studioToast('Saving 5 card backs…'); } catch (e) {}
+    });
+    $('saveSheet').addEventListener('click', () => {
+      const w = Math.min(exportWidth(), 1000), gap = Math.round(w * 0.06), backs = TYPE_KEYS.map(k => renderBack(w, k));
+      const sheet = document.createElement('canvas');
+      sheet.width = backs.length * w + (backs.length + 1) * gap; sheet.height = backs[0].height + gap * 2;
+      const g = sheet.getContext('2d');
+      backs.forEach((b, i) => g.drawImage(b, gap + i * (w + gap), gap));
+      sheet.toBlob(b => downloadBlob(b, `${fileBase()}-card-backs.png`));
+    });
+
+    function designState() {
+      const values = {};
+      document.querySelectorAll('#ui-panel input, #ui-panel select, .topbar input, .topbar select').forEach(el => {
+        if (!el.id || el.type === 'file' || /^t(Label|Emblem|Motif|C\d)$/.test(el.id)) return;
+        values[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return { type: 'cardback', version: 1, seed, current, types, values };
+    }
+    $('saveDesign').addEventListener('click', () => downloadBlob(new Blob([JSON.stringify(designState(), null, 2)], { type: 'application/json' }), `${fileBase()}-card-backs.json`));
+    $('loadDesign').addEventListener('click', () => $('loadDesignFile').click());
+    $('loadDesignFile').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try {
+        const d = JSON.parse(await file.text());
+        if (d.type !== 'cardback') { alert(`That file is a ${d.type || 'different'} file, not a card back design.`); return; }
+        for (const id in d.values) {
+          const el = $(id);
+          if (!el || el.type === 'file') continue;
+          if (el.type === 'checkbox') el.checked = d.values[id]; else el.value = d.values[id];
+        }
+        TYPE_KEYS.forEach(k => { if (d.types && d.types[k]) types[k] = { ...copyType(k), ...d.types[k] }; });
+        if (d.seed) seed = d.seed;
+        if (TYPE_DEFAULTS[d.current]) current = d.current;
+        syncType();
+        syncUI();
+      } catch (err) { alert('Could not read that card back file.'); }
+    });
+
+    function setPanelVisible(visible) {
+      $('ui-panel').classList.toggle('hidden', !visible);
+      $('show-panel').style.display = visible ? 'none' : 'inline-flex';
+      draw();
+    }
+    $('hide-panel').addEventListener('click', () => setPanelVisible(false));
+    $('show-panel').addEventListener('click', () => setPanelVisible(true));
+    window.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) return;
+      if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
+      const n = parseInt(e.key, 10); // 1-5 pick a card type
+      if (n >= 1 && n <= TYPE_KEYS.length) selectType(TYPE_KEYS[n - 1]);
+    });
+
+    syncType();
+    syncUI();
+  </script>
+</body>
+</html>

@@ -11,6 +11,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 | **Gear** | Items: Snack, Booties, Mittens, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
 | **Borders** | Fair Isle knit borders: stack bands of motifs (peeries, OXO, snowflakes, 8-point stars, reindeer, spruce trees, paw prints and more), pick a 4-color palette and a stitch (knit, cross-stitch, low-poly tiles, flat). Makes a card frame with mitered corners, a strip, or an all-over card back |
 | **Banners** | Text banners: ribbon with folded tails, notched strip, plaque or hanging banner, with arch bend, hand-cut edges, low-poly facets, outline, fonts and an optional Fair Isle trim |
+| **Card Backs** | The backs for all five card types (Mushers, Dogs, Gear, Trails, Events): one shared design (Fair Isle, low-poly, night sky with aurora or sunburst background, knit or line frame, medallion, title and ribbon), with each type's own colors, emblem and pattern |
 | **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, a **Silhouette Card** mode (all-black models on a low-poly white background), and card-frame export |
 
 ## Finding settings
@@ -60,6 +61,15 @@ borders and banners all still work on top, and **Save Card PNG** saves it.
   (under **2D Layers & Card Border**, where you can also load a border PNG) and adds a banner as a 2D layer you can drag and resize.
   Both are included in **Save Card PNG**.
 
+## Card backs
+
+- Pick a card type at the top of the **Card Backs** tab (or click a thumbnail under the preview, or press 1-5).
+  **Mushers back** (the first section) holds only that type's ribbon name, emblem (musher, husky, mitten, mountains,
+  snowflake, paw or compass star), Fair Isle pattern and four colors. Everything else is shared, so the deck matches.
+- **Fair Isle**, **Low-poly**, **Night sky** and **Classic** restyle all five at once; change the background, frame,
+  medallion and text from there. **Outer edge** is a solid band around the outside for the printer's cut.
+- **Save PNG** saves the type you're looking at, **Save All 5** saves one PNG per type, and **Save Sheet** saves all five side by side.
+
 ## Making a gear card
 
 In the Gear tab, turn on **Card mode** (or click one of the card styles: Clean, Sparkle, Action, Legendary, Night, Field Guide).
@@ -78,8 +88,8 @@ Placed models and scene settings aren't saved between visits, so keep your `.jso
 ## Files
 
 - `index.html`: the studio (tabs)
-- `dog_generator.html`, `musher_generator.html`, `gear_generator.html`, `environment_generator.html`, `border_generator.html`, `banner_generator.html`: the tools; each also works on its own
-- `fairisle.js`: Fair Isle motifs and the stitch painter, shared by the Borders and Banners tabs
+- `dog_generator.html`, `musher_generator.html`, `gear_generator.html`, `environment_generator.html`, `border_generator.html`, `banner_generator.html`, `card_back_generator.html`: the tools; each also works on its own
+- `fairisle.js`: Fair Isle motifs and the stitch painter, shared by the Borders, Banners and Card Backs tabs
 - `silhouette.js`: the silhouette render and the textured low-poly background, shared by the Dog, Gear and Scenes tabs
 - `camkeys.js`, `studio.css`: shared camera controls and layout
 - `panel.js`: the sidebar's find bar, section chips and remembered open sections
