@@ -96,9 +96,10 @@
       sendModel(buffer, name) {
         const scene = document.getElementById('tool-scene').contentWindow;
         if (!scene || !scene.addModelData) { toast('The scene tool is still loading. Try again in a moment.'); return; }
-        scene.addModelData(buffer, name);
+        // the same name again updates the one already placed (pose, colors, outfit...) and keeps it where it is
+        const updated = scene.addModelData(buffer, name, { update: true });
         showTab('scene');
-        toast(`${name} added to the scene. Drag it into place.`);
+        toast(updated ? `${name} updated in the scene, right where it was.` : `${name} added to the scene. Drag it into place.`);
       },
       // Borders and Banners tabs: kind 'border' becomes the card border, anything else a 2D layer
       sendImage(dataUrl, name, kind) {

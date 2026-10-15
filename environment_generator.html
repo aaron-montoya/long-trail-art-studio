@@ -1363,7 +1363,7 @@
       return groundAhead(6, side * 1.5);
     }
 
-    function addModelObject(object, info, name) {
+    function prepObject(object) {
       object.traverse(o => {
         if (!o.isMesh) return;
         o.castShadow = true;
@@ -1371,6 +1371,10 @@
         // glTF has no flat-shading flag; turn it back on for the faceted look
         (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.flatShading = true; m.needsUpdate = true; });
       });
+    }
+
+    function addModelObject(object, info, name) {
+      prepObject(object);
       const pos = dropPoint([0, -1, 1][models.length % 3]); // first one lands mid-card
       object.position.set(pos.x, 0, pos.z);
       // face 3/4 toward the camera
@@ -1391,13 +1395,42 @@
       });
     }
 
-    // Also called directly by the Art Studio's "Send to Scene"
-    function addModelData(data, fallbackName) {
+    // Swap a new version into every placed model with this name (copies made with Duplicate too). Each keeps
+    // its spot, turn, tilt, roll, raise, size, outline and effects; only the model itself changes.
+    function replaceModels(targets, object, info) {
+      const old = new Set();
+      targets.forEach((M, k) => {
+        const fresh = k === 0 ? object : object.clone(true);
+        setSilhouette(M, false);
+        old.add(M.object);
+        fresh.position.set(M.object.position.x, 0, M.object.position.z);
+        modelGroup.remove(M.object);
+        modelGroup.add(fresh);
+        clearRig(M.rig);
+        modelFxGroup.remove(M.rig);
+        Object.assign(M, { object: fresh, unitScale: info.unitScale || 1, type: info.type || M.type });
+        prepareModelFx(M); // rebuilds the outline and effects for the new shape, with the same settings
+        setSilhouette(M, $('silModels').checked);
+        applyModel(M);
+      });
+      old.forEach(o => o.traverse(c => { if (c.isMesh) c.geometry.dispose(); }));
+      selModel = models.indexOf(targets[0]);
+      refreshModelUI();
+    }
+
+    // Also called directly by the Art Studio's "Send to Scene". With update set, a model whose name is already
+    // in the scene replaces it in place; returns how many placed models that is (0 = added as new).
+    function addModelData(data, fallbackName, { update = false } = {}) {
+      const matching = name => update ? models.filter(M => M.name === name) : [];
       gltfLoader.parse(data, '', gltf => {
         let info = { type: 'model', unitScale: 1 };
         gltf.scene.traverse(o => { if (o.userData && o.userData.longTrail) info = o.userData.longTrail; });
-        addModelObject(gltf.scene, info, info.name || fallbackName);
+        const name = info.name || fallbackName, targets = matching(name);
+        prepObject(gltf.scene);
+        if (targets.length) replaceModels(targets, gltf.scene, info);
+        else addModelObject(gltf.scene, info, name);
       }, err => alert('Could not load ' + fallbackName + ': ' + (err.message || err)));
+      return matching(fallbackName).length;
     }
 
     function refreshModelUI() {
