@@ -197,6 +197,7 @@
 
     // ================= DATA =================
     const EMBLEMS = {
+      none:      'None',
       musher:    'Musher in a hood',
       husky:     'Husky head',
       mitten:    'Mitten',
@@ -458,7 +459,19 @@
       if (showT) paintTitle(g, W, (inner + cy - R * extent) / 2, W - 2 * inner - 60, (cy - R * extent - inner) * 0.8, C);
       if (showR) paintRibbon(g, W, cy + R * extent * 0.92 + Math.max(0, H - inner - (cy + R * extent)) * 0.45, T.label.trim(), C);
 
+      // paper grain everywhere except a blank (no emblem) medallion face, which stays pure white
+      g.save();
+      if (T.emblem === 'none' && ms !== 'none') {
+        const face = new Path2D();
+        face.beginPath = () => {};
+        medPath(face, ms, W / 2, cy, R, 1 - 0.1 * num('ringW'));
+        const outside = new Path2D();
+        outside.rect(0, 0, W, H);
+        outside.addPath(face);
+        g.clip(outside, 'evenodd');
+      }
       grain(g, W, H, num('grain'));
+      g.restore();
       g.restore();
     }
 
@@ -574,14 +587,17 @@
           g.restore();
           g.fillStyle = C.deep; medPath(g, shape, cx, cy, R, kIn + 0.035); g.fill();
         }
-        g.save(); g.fillStyle = C.main; medPath(g, shape, cx, cy, R, kIn); g.fill(); g.clip();
-        facetOverlay(g, box, R * 0.3, facets * 0.6, 22);
+        // with no emblem the face is plain white, no facet texture
+        const blank = T.emblem === 'none';
+        g.save(); g.fillStyle = blank ? '#FFFFFF' : C.main; medPath(g, shape, cx, cy, R, kIn); g.fill(); g.clip();
+        if (!blank) facetOverlay(g, box, R * 0.3, facets * 0.6, 22);
       } else {
         g.save();
       }
       const er = R * kIn * (shape === 'none' ? 1 : 0.8) * num('emblemSize');
       // with no medallion the emblem sits right on the dark background, so its dark parts go lighter
-      emblem(g, T.emblem, cx, cy, er, { ...C, ink: shape === 'none' ? FI.mix(C.main, C.back, 0.5) : C.back, line: C.deep }, facets);
+      if (T.emblem !== 'none')
+        emblem(g, T.emblem, cx, cy, er, { ...C, ink: shape === 'none' ? FI.mix(C.main, C.back, 0.5) : C.back, line: C.deep }, facets);
       g.restore();
     }
 
