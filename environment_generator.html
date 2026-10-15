@@ -142,7 +142,7 @@
         <div class="control-group"><label>Turn <span class="val-display" id="modelTurn-val">0</span></label><input type="range" id="modelTurn" min="0" max="360" step="1" value="0"></div>
         <div class="control-group"><label>Tilt <span class="val-display" id="modelTilt-val">0</span></label><input type="range" id="modelTilt" min="-180" max="180" step="1" value="0"></div>
         <div class="control-group"><label>Roll <span class="val-display" id="modelRoll-val">0</span></label><input type="range" id="modelRoll" min="-180" max="180" step="1" value="0"></div>
-        <div class="control-group"><label>Raise above ground (m) <span class="val-display" id="modelLift-val">0.00</span></label><input type="range" id="modelLift" min="0" max="3" step="0.01" value="0"></div>
+        <div class="control-group"><label title="Above 0 lifts it off the ground; below 0 sinks it into the snow">Raise / lower (m) <span class="val-display" id="modelLift-val">0.00</span></label><input type="range" id="modelLift" min="-3" max="3" step="0.01" value="0"></div>
         <div class="row">
           <button id="modelToTrail"><i data-icon="trail"></i>Onto trail</button>
           <button id="modelDuplicate"><i data-icon="copy"></i>Duplicate</button>
@@ -1329,7 +1329,8 @@
     const gltfLoader = new THREE.GLTFLoader();
 
     // Turn spins it, Tilt tips it forward/back, Roll tips it sideways. Whatever the angle, the model is
-    // re-seated so its lowest point rests on the ground (plus Raise, for something hanging or tossed).
+    // re-seated so its lowest point rests on the ground, then Raise / lower moves it up (hanging, tossed)
+    // or down (half buried in a drift).
     const D2R = THREE.MathUtils.degToRad;
     function applyModel(M) {
       const o = M.object;
