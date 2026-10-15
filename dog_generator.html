@@ -26,7 +26,8 @@
     .panel-header { display: flex; justify-content: space-between; align-items: center; margin: 0 0 15px 0; border-bottom: 1px solid #445; padding-bottom: 10px; }
     h2 { margin: 0; font-size: 1.2rem; color: #fff; }
 
-    .preset-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .preset-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 15px; }
+    .preset-btns button { padding: 7px 4px; }
     .pose-btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
     button { display: inline-flex; align-items: center; justify-content: center; background: #3a3a4d; color: #fff; border: 1px solid #556; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
     button:hover { background: #4f46e5; border-color: #6366f1; }
@@ -79,6 +80,15 @@
       <button onclick="applyPreset('malamute')">Malamute</button>
       <button onclick="applyPreset('hound')">Droopy Hound</button>
       <button onclick="applyPreset('mut')">Scruffy Mut</button>
+      <button onclick="applyPreset('lab')">Lab</button>
+      <button onclick="applyPreset('doberman')">Doberman</button>
+      <button onclick="applyPreset('poodle')">Poodle</button>
+      <button onclick="applyPreset('corgi')">Corgi</button>
+      <button onclick="applyPreset('bulldog')">Bulldog</button>
+      <button onclick="applyPreset('schnauzer')">Schnauzer</button>
+      <button onclick="applyPreset('pug')">Pug</button>
+      <button onclick="applyPreset('pomeranian')">Pomeranian</button>
+      <button onclick="applyPreset('chihuahua')">Chihuahua</button>
     </div>
     <div class="action-row">
       <button id="randomize"><i data-icon="dice"></i>Randomize Dog</button>
@@ -116,26 +126,30 @@
     <details data-cat="shape">
       <summary>Body</summary>
       <div class="details-content">
-        <div class="control-group"><label>Torso Length <span class="val-display" id="bodyLen-val">1.80</span></label><input type="range" id="bodyLen" min="1.4" max="2.4" step="0.1" value="1.8"></div>
-        <div class="control-group"><label>Chest Girth <span class="val-display" id="chestSize-val">0.90</span></label><input type="range" id="chestSize" min="0.7" max="1.3" step="0.05" value="0.9"></div>
-        <div class="control-group"><label>Pelvis Width <span class="val-display" id="pelvisSize-val">0.80</span></label><input type="range" id="pelvisSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
+        <div class="control-group"><label>Torso Length <span class="val-display" id="bodyLen-val">1.80</span></label><input type="range" id="bodyLen" min="0.9" max="2.6" step="0.1" value="1.8"></div>
+        <div class="control-group"><label>Chest Girth <span class="val-display" id="chestSize-val">0.90</span></label><input type="range" id="chestSize" min="0.45" max="1.4" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Pelvis Width <span class="val-display" id="pelvisSize-val">0.80</span></label><input type="range" id="pelvisSize" min="0.4" max="1.2" step="0.05" value="0.8"></div>
+        <div class="control-group"><label>Body Width <span class="val-display" id="bodyWidth-val">1.00</span></label><input type="range" id="bodyWidth" min="0.7" max="1.5" step="0.05" value="1" title="Lean and narrow (Doberman) to broad and barrel-chested (Bulldog)"></div>
+        <div class="control-group"><label>Overall Size <span class="val-display" id="dogSize-val">1.00</span></label><input type="range" id="dogSize" min="0.3" max="1.3" step="0.02" value="1" title="Tiny (Chihuahua) to big (Malamute); carries over to Scenes"></div>
       </div>
     </details>
 
     <details data-cat="shape">
       <summary>Head & Face</summary>
       <div class="details-content">
-        <div class="control-group"><label>Neck Length <span class="val-display" id="neckLen-val">0.70</span></label><input type="range" id="neckLen" min="0.4" max="1.1" step="0.1" value="0.7"></div>
-        <div class="control-group"><label>Skull Size <span class="val-display" id="headSize-val">0.80</span></label><input type="range" id="headSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
-        <div class="control-group"><label>Snout Length <span class="val-display" id="snoutLen-val">0.70</span></label><input type="range" id="snoutLen" min="0.4" max="1.2" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Neck Length <span class="val-display" id="neckLen-val">0.70</span></label><input type="range" id="neckLen" min="0.2" max="1.1" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Neck Thickness <span class="val-display" id="neckThick-val">1.00</span></label><input type="range" id="neckThick" min="0.4" max="1.3" step="0.05" value="1"></div>
+        <div class="control-group"><label>Skull Size <span class="val-display" id="headSize-val">0.80</span></label><input type="range" id="headSize" min="0.5" max="1.3" step="0.05" value="0.8"></div>
+        <div class="control-group"><label>Snout Length <span class="val-display" id="snoutLen-val">0.70</span></label><input type="range" id="snoutLen" min="0.1" max="1.2" step="0.05" value="0.7"></div>
         <div class="control-group"><label>Forehead Height <span class="val-display" id="foreHead-val">1.00</span></label><input type="range" id="foreHead" min="0.6" max="1.6" step="0.05" value="1" title="Flat and wolfish to tall and domed"></div>
         <div class="control-group"><label>Stop (forehead to muzzle) <span class="val-display" id="stopDepth-val">0.50</span></label><input type="range" id="stopDepth" min="0" max="1" step="0.05" value="0.5" title="0: the forehead runs smoothly into the muzzle. 1: a sharp drop"></div>
         <div class="control-group"><label>Skull Width <span class="val-display" id="skullW-val">1.00</span></label><input type="range" id="skullW" min="0.75" max="1.3" step="0.05" value="1" title="Narrow to broad cheekbones"></div>
         <div class="control-group"><label>Muzzle Width <span class="val-display" id="muzzleW-val">1.00</span></label><input type="range" id="muzzleW" min="0.7" max="1.4" step="0.05" value="1"></div>
         <div class="control-group"><label>Muzzle Tip <span class="val-display" id="muzzleTip-val">1.00</span></label><input type="range" id="muzzleTip" min="0.6" max="1.3" step="0.05" value="1" title="Pointed and foxy to blunt and boxy"></div>
         <div class="control-group"><label>Muzzle Depth <span class="val-display" id="muzzleD-val">1.00</span></label><input type="range" id="muzzleD" min="0.7" max="1.5" step="0.05" value="1" title="Slim to deep and jowly"></div>
-        <div class="control-group"><label>Eye Size <span class="val-display" id="eyeSize-val">1.00</span></label><input type="range" id="eyeSize" min="0.7" max="1.4" step="0.05" value="1"></div>
-        <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.2" max="1.0" step="0.05" value="0.4"></div>
+        <div class="control-group"><label>Eye Size <span class="val-display" id="eyeSize-val">1.00</span></label><input type="range" id="eyeSize" min="0.7" max="1.8" step="0.05" value="1"></div>
+        <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.15" max="1.3" step="0.05" value="0.4"></div>
+        <div class="control-group"><label>Ear Width <span class="val-display" id="earWidth-val">1.00</span></label><input type="range" id="earWidth" min="0.5" max="1.5" step="0.05" value="1" title="Narrow and pointed (Doberman) to broad"></div>
         <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0"></div>
       </div>
     </details>
@@ -143,8 +157,8 @@
     <details data-cat="shape">
       <summary>Legs</summary>
       <div class="details-content">
-        <div class="control-group"><label>Leg Height <span class="val-display" id="legScale-val">1.20</span></label><input type="range" id="legScale" min="0.8" max="1.8" step="0.1" value="1.2"></div>
-        <div class="control-group"><label>Bone Thickness <span class="val-display" id="boneThick-val">0.15</span></label><input type="range" id="boneThick" min="0.1" max="0.25" step="0.01" value="0.15"></div>
+        <div class="control-group"><label>Leg Height <span class="val-display" id="legScale-val">1.20</span></label><input type="range" id="legScale" min="0.35" max="1.8" step="0.05" value="1.2"></div>
+        <div class="control-group"><label>Bone Thickness <span class="val-display" id="boneThick-val">0.15</span></label><input type="range" id="boneThick" min="0.06" max="0.28" step="0.01" value="0.15"></div>
       </div>
     </details>
 
@@ -152,8 +166,9 @@
       <summary>Tail</summary>
       <div class="details-content">
         <div class="control-group"><label>Tail Base Angle <span class="val-display" id="tailBase-val">0.50</span></label><input type="range" id="tailBase" min="-1.5" max="1.5" step="0.1" value="0.5"></div>
-        <div class="control-group"><label>Tail Length <span class="val-display" id="tailLen-val">1.00</span></label><input type="range" id="tailLen" min="0.3" max="1.8" step="0.1" value="1.0"></div>
-        <div class="control-group"><label>Tail Curl <span class="val-display" id="tailCurl-val">0.30</span></label><input type="range" id="tailCurl" min="-0.8" max="1.0" step="0.1" value="0.3"></div>
+        <div class="control-group"><label>Tail Length <span class="val-display" id="tailLen-val">1.00</span></label><input type="range" id="tailLen" min="0.05" max="1.8" step="0.05" value="1.0"></div>
+        <div class="control-group"><label>Tail Thickness <span class="val-display" id="tailThick-val">1.00</span></label><input type="range" id="tailThick" min="0.3" max="1.8" step="0.05" value="1" title="Whip-thin (Chihuahua) to a thick otter tail (Lab)"></div>
+        <div class="control-group"><label>Tail Curl <span class="val-display" id="tailCurl-val">0.30</span></label><input type="range" id="tailCurl" min="-0.8" max="1.8" step="0.1" value="0.3"></div>
       </div>
     </details>
 
@@ -182,6 +197,9 @@
         <div class="control-group"><label>Cheek Fluff <span class="val-display" id="furCheek-val">0.30</span></label><input type="range" id="furCheek" min="0" max="1" step="0.05" value="0.3"></div>
         <div class="control-group"><label>Tail Fluff <span class="val-display" id="furTail-val">0.50</span></label><input type="range" id="furTail" min="0" max="1" step="0.05" value="0.5"></div>
         <div class="control-group"><label>Leg & Rump Feathering <span class="val-display" id="furLegs-val">0.30</span></label><input type="range" id="furLegs" min="0" max="1" step="0.05" value="0.3"></div>
+        <div class="control-group"><label>Beard &amp; Brows <span class="val-display" id="beard-val">0.00</span></label><input type="range" id="beard" min="0" max="1" step="0.05" value="0" title="Schnauzer whiskers and bushy eyebrows"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="curly"> Curly coat (tight curls instead of shag)</label></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="poodleClip"> Poodle clip pompoms</label></div>
         <div class="control-group"><label>Back Tufts <span class="val-display" id="furBody-val">0.20</span></label><input type="range" id="furBody" min="0" max="1" step="0.05" value="0.2"></div>
       </div>
     </details>
@@ -369,6 +387,7 @@
       foreHead: 1, stopDepth: 0.5, skullW: 1, muzzleW: 1, muzzleTip: 1, muzzleD: 1, eyeSize: 1,
       legScale: 1.2, boneThick: 0.15,
       tailBase: 0.5, tailLen: 1.0, tailCurl: 0.3,
+      bodyWidth: 1, dogSize: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0,
       furShag: 0.3, furRuff: 0.5, furCheek: 0.3, furTail: 0.5, furLegs: 0.3, furBody: 0.2
     };
 
@@ -555,6 +574,7 @@
       const p = params;
       const ps = poseVals;
       const pitch = ps.posePitch; // positive = front of body up
+      dogRig.scale.setScalar(p.dogSize); // overall size (a Chihuahua next to a Malamute); grounding works in world space
 
       const chestY = p.legScale + (p.chestSize * 0.5);
       const pelvisY = p.legScale + (p.pelvisSize * 0.5);
@@ -593,6 +613,8 @@
           [[0, 0.05 * cS, 0.2], [0.55, 0.1 * cS, 0.25], [1.75, 0.1 * cS, 0.35], [Math.PI, 0.08 * cS, 0.25]]),                  // withers, shoulder blades, elbows, brisket
         R(L / 2 + 0.3 * cS, 0.54 * cS, 0.8 * cS, -0.6 * cS, 0.1 * cS, 0.85, [[1.25, 0.1 * cS, 0.3], [Math.PI, 0.12 * cS, 0.25]]),   // points of the shoulder, keel
         R(L / 2 + 0.68 * cS, 0.32 * cS, 0.56 * cS, -0.42 * cS, 0.1 * cS, 0.9, [[Math.PI, 0.1 * cS, 0.3]])];                      // forechest
+      torsoSt.forEach(r => r.w *= p.bodyWidth); // lean and narrow to broad and barrel-chested
+      chestR[0] *= p.bodyWidth; pelvisR[0] *= p.bodyWidth;
       const torsoN = document.getElementById('fineFacets').checked ? 22 : 16, shagAxis = { mode: 'axis', amt: 1, st: torsoSt, offset: 3.7 }; // one noise for both halves, so they stay joined
       tag(body(createBone(loftGeo(torsoSt.slice(0, 6), torsoN, true, false), matCoat, torso, [1, 1, 1], [0, 0, 0]), shagAxis), 'rear');
       tag(body(createBone(loftGeo(torsoSt.slice(5), torsoN, false, true), matCoat, torso, [1, 1, 1], [0, 0, 0]), shagAxis), 'front');
@@ -605,7 +627,7 @@
       const neckA = ps.poseNeck + pitch; // lean forward from vertical
       const neckReach = p.chestSize * 0.35 + p.neckLen * 0.85;
       const headPos = new THREE.Vector3(0, neckReach * Math.cos(neckA), neckReach * Math.sin(neckA));
-      coat(createLimb(matCoat, neckJoint, new THREE.Vector3(), headPos, p.chestSize * 0.46, neckCyl), 'neck', neckJoint,
+      coat(createLimb(matCoat, neckJoint, new THREE.Vector3(), headPos, p.chestSize * 0.46 * p.neckThick, neckCyl), 'neck', neckJoint,
            { axis: headPos.clone().normalize(), len: headPos.length(), offset: neckJoint.position.clone(), shag: { mode: 'tube', amt: 0.8 } });
 
       const headJoint = new THREE.Group();
@@ -675,11 +697,33 @@
         createBone(eyeGeo, matShine, eye, [h * 0.016, h * 0.013, h * 0.01], [-side * h * 0.022, h * 0.017, h * 0.031]);
       });
 
+      // Beard and brows (Schnauzer furnishings): whiskers hanging from the sides and chin of the muzzle,
+      // and bushy tufts sweeping forward over the eyes
+      if (p.beard > 0.02) {
+        const rng = mulberry32(606), down = new THREE.Vector3(0, -1, 0.25).normalize();
+        for (let k = 0; k < 16; k++) {
+          const t = (k % 8) / 7, side = k < 8 ? 1 : -1, z = zs + m * (0.1 + 0.85 * t), th = side > 0 ? 2.05 + 0.5 * rng() : Math.PI * 2 - 2.05 - 0.5 * rng();
+          const at = surfaceAt(muzzleSt, z, th), n = surfaceNormal(muzzleSt, z, th);
+          addTuft(headJoint, headJoint, 'muzzle', at, down.clone().addScaledVector(n, 0.3), h * (0.16 + 0.14 * t) * p.beard * (0.8 + 0.4 * rng()), h * 0.09, n, { mz0: zs, mzLen: m });
+        }
+        for (let k = 0; k < 3; k++) { // chin
+          const at = surfaceAt(muzzleSt, zs + m * (0.75 + 0.1 * k), Math.PI);
+          addTuft(headJoint, headJoint, 'muzzle', at, down, h * 0.3 * p.beard, h * 0.1, new THREE.Vector3(0, -0.3, 1), { mz0: zs, mzLen: m });
+        }
+        [1, -1].forEach(side => {
+          for (let k = 0; k < 3; k++) {
+            const th = side > 0 ? 0.6 + 0.15 * k : Math.PI * 2 - 0.6 - 0.15 * k, z = 0.17 * h;
+            const at = surfaceAt(skullSt, z, th), n = surfaceNormal(skullSt, z, th);
+            addTuft(headJoint, headJoint, 'head', at, new THREE.Vector3(side * 0.25, 0.35, 1), h * 0.17 * p.beard, h * 0.07, n, { fixed: { hx: side * 0.16, hy: 0.31, hz: 0.1 } });
+          }
+        });
+      }
+
       // Ears: two flat pieces (base + tip) on a hinge. As floppiness rises the tip folds
       // over (button ear), then the whole ear swings down and turns flat against the cheek.
       const flop = p.earDroop;
       const earL = p.earSize * 1.5 * (1 + 0.1 * flop);
-      const earW = p.earSize * (1 + 0.1 * flop);
+      const earW = p.earSize * p.earWidth * (1 + 0.1 * flop);
       const earThick = p.earSize * 0.15;
       const swing = 0.2 + 2.75 * smoothstep((flop - 0.25) / 0.75);
       const fold = flop < 0.8 ? 1.4 * Math.sin(Math.PI * flop / 0.8) : 0;
@@ -707,8 +751,8 @@
       // 3. LEGS
       const frontZ = p.bodyLen/2 - p.chestSize*0.2;
       const backZ = -p.bodyLen/2 + p.pelvisSize*0.2;
-      const frontX = p.chestSize * 0.45;
-      const backX = p.pelvisSize * 0.45;
+      const frontX = p.chestSize * 0.45 * p.bodyWidth;
+      const backX = p.pelvisSize * 0.45 * p.bodyWidth;
 
       const legs = [
         { x: frontX, z: frontZ, isFront: true }, { x: -frontX, z: frontZ, isFront: true },
@@ -782,9 +826,30 @@
         tailParent.add(segGroup);
         tailParent = segGroup;
 
-        const taper = 0.2 * (1 - (i * 0.2)) * (1 + 0.4 * p.furTail);
+        const taper = 0.2 * p.tailThick * (1 - (i * 0.2)) * (1 + 0.4 * p.furTail);
         coat(createBone(cyl, matCoat, segGroup, [taper, p.tailLen/3, taper], [0, (p.tailLen/3)/2, 0]), 'tail', tailRoot, { seg: i, shag: { mode: 'tube', amt: 0.6 } });
         tailSegs.push({ group: segGroup, len: p.tailLen / 3, radius: taper });
+      }
+
+      // Poodle clip: curly pompoms on the head, chest, hips, ankles and tail tip (the coat between stays short)
+      if (document.getElementById('poodleClip').checked) {
+        let k = 0;
+        const pom = (parent, frame, region, r, pos, extra) => {
+          const mesh = coat(createBone(sphere, matCoat, parent, r, pos), region, frame, extra);
+          shagMesh(mesh, 0.28, 'radial', (k++) * 3.7, null, null, 4.5);
+          return mesh;
+        };
+        const hs = p.headSize;
+        pom(headJoint, headJoint, 'head', [0.33 * hs * p.skullW, 0.26 * hs * p.foreHead, 0.32 * hs], [0, 0.33 * hs * p.foreHead, -0.12 * hs], { fixed: { hy: 0.6 } });   // topknot
+        pom(torso, torso, 'body', [chestR[0] * 1.15, chestR[1] * 1.12, chestR[2] * 0.95], [0, chestC.y + 0.05 * p.chestSize, chestC.z + 0.05 * p.chestSize], { pelvisOffset }); // mane over the chest
+        [1, -1].forEach(sd => pom(torso, torso, 'body', [0.36 * p.pelvisSize, 0.36 * p.pelvisSize, 0.34 * p.pelvisSize],
+          [sd * pelvisR[0] * 0.8, pelvisOffset + 0.25 * p.pelvisSize, -p.bodyLen / 2 + 0.05], { pelvisOffset }));                       // hip rosettes
+        legData.forEach(Ld => { // a bracelet pompom on every ankle
+          const at = Ld.joints[2].clone().lerp(Ld.joints[3], 0.55), r = Ld.radii[2] * 2.6;
+          pom(Ld.group, Ld.group, 'leg', [r, r * 1.15, r], at.toArray(), { leg: Ld.li, front: Ld.front, s: 0.85 });
+        });
+        const T = tailSegs[tailSegs.length - 1], tr = 0.17 + 0.05 * p.tailThick;
+        pom(T.group, tailRoot, 'tail', [tr, tr * 1.1, tr], [0, T.len, 0], { seg: 2, fixed: { v: 0.95 } });
       }
 
       addFur({ torso, pelvisOffset, chestC, chestR, pelvisC, pelvisR, neckJoint, headPos, headJoint, legData, tailSegs, tailRoot });
@@ -878,7 +943,7 @@
       const bodyN = (z, th) => surfaceNormal(torsoSt, z, wrap(th));
       // neck: rings around the neck at fraction t from the shoulders to the head
       const A = headPos.clone().normalize(), side = V(1, 0, 0), throat = V(0, -A.z, A.y);
-      const neckR = t => 0.46 * cS * (1 - 0.4 * t) * (1 + 0.28 * p.furShag) * 1.06;
+      const neckR = t => 0.46 * cS * p.neckThick * (1 - 0.4 * t) * (1 + 0.28 * p.furShag) * 1.06;
       const ringAt = (t, a, out = 0) => headPos.clone().multiplyScalar(t).addScaledVector(side, Math.sin(a) * (neckR(t) + out)).addScaledVector(throat, Math.cos(a) * (neckR(t) + out));
       const ring = (t, out = 0, n = 16) => Array.from({ length: n }, (_, k) => ringAt(t, k / n * Math.PI * 2, out));
       // chest front in neck coordinates (where bandanas and medals hang)
@@ -1380,6 +1445,38 @@
         return fbm(i.np, 2.2, seed) > 0.58 ? 'acc' : 'main';
       } },
 
+      tanPoints: { label: 'Tan Points (Doberman)', uses: 'Dark (coat) + Main (tan points)', fn: i => {
+        const brow = i.hx !== undefined && Math.hypot(Math.abs(i.hx) - 0.16, i.hy - 0.31, i.hz - 0.1) < 0.08;
+        switch (i.region) {
+          case 'body': return i.bz > 0.8 && i.by < 0.15 && Math.abs(i.bx) > 0.12 && Math.abs(i.bx) < 0.75 ? 'main' : 'acc'; // two chest patches
+          case 'neck': return i.side < -0.75 ? 'main' : 'acc';
+          case 'head': return brow || (i.hy < -0.1 && i.hz > -0.05) ? 'main' : 'acc';
+          case 'muzzle': return i.jaw || i.hy < 0.05 ? 'main' : 'acc';
+          case 'leg': return i.v > 0.55 ? 'main' : 'acc';
+          case 'tail': return i.v < 0.08 ? 'main' : 'acc';
+        }
+        return 'acc';
+      } },
+
+      blackMask: { label: 'Black Mask (Pug)', uses: 'Main (coat) + Dark (mask and ears)', fn: i => {
+        switch (i.region) {
+          case 'muzzle': case 'ear': return 'acc';
+          case 'head': return i.hz > 0.1 && i.hy < 0.2 ? 'acc' : 'main';
+        }
+        return 'main';
+      } },
+
+      furnishings: { label: 'Furnishings (Schnauzer)', uses: 'Main (coat) + Light (beard, brows, legs)', fn: i => {
+        switch (i.region) {
+          case 'muzzle': return 'sec';
+          case 'head': return Math.hypot(Math.abs(i.hx) - 0.16, i.hy - 0.31, i.hz - 0.1) < 0.1 || i.hy < -0.12 ? 'sec' : 'main';
+          case 'body': return (i.bz > 0.85 && i.by < 0.2) || i.by < -0.6 ? 'sec' : 'main';
+          case 'neck': return i.side < -0.5 ? 'sec' : 'main';
+          case 'leg': return i.v > 0.4 ? 'sec' : 'main';
+        }
+        return 'main';
+      } },
+
       brindle: { label: 'Brindle', uses: 'Main (base) + Dark (stripes)', fn: (i, seed) => {
         if (i.region === 'ear') return 'acc';
         if (i.region === 'muzzle') return i.mz > 0.3 ? 'acc' : 'main';
@@ -1496,12 +1593,12 @@
 
     // Push vertices in/out with smooth noise. Same position -> same push, so faces never crack apart.
     // fadeZ [from, to]: the push fades to nothing between those depths (where a piece meets an unshagged one)
-    function shagMesh(mesh, amp, mode, offset, st, fadeZ) {
+    function shagMesh(mesh, amp, mode, offset, st, fadeZ, freq = document.getElementById('curly').checked ? 9 : 2.7) {
       const pos = mesh.geometry.attributes.position;
       for (let k = 0; k < pos.count; k++) {
         const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k);
         const fade = fadeZ ? THREE.MathUtils.clamp((fadeZ[1] - z) / (fadeZ[1] - fadeZ[0]), 0, 1) : 1;
-        const f = 1 + (noise3(x * 2.7 + offset, y * 2.7, z * 2.7, 4242) - 0.5) * 2 * amp * fade;
+        const f = 1 + (noise3(x * freq + offset, y * freq, z * freq, 4242) - 0.5) * 2 * amp * fade;
         if (mode === 'axis') { // lofted torso: push out from its center line, which rises and falls along z
           let i = 0;
           while (i < st.length - 2 && st[i + 1].z < z) i++;
@@ -1521,7 +1618,7 @@
       const jitter = rng => 0.7 + 0.6 * rng();
 
       // 1. Shagginess
-      const amp = 0.35 * p.furShag;
+      const amp = 0.35 * p.furShag * (document.getElementById('curly').checked ? 0.6 : 1); // curls: tighter and shallower
       if (amp > 0) coatMeshes.forEach((m, k) => {
         const s = m.userData.coat.shag;
         if (s) shagMesh(m, amp * s.amt, s.mode, s.offset !== undefined ? s.offset : k * 7.3, s.st, s.fadeZ);
@@ -1542,7 +1639,7 @@
           const th = (k / 14) * Math.PI * 2 + rng() * 0.3;
           const radial = e1.clone().multiplyScalar(Math.cos(th)).addScaledVector(e2, Math.sin(th));
           const along = len * (0.1 + 0.45 * rng());
-          const at = axis.clone().multiplyScalar(along).addScaledVector(radial, c * 0.42 * (1 - 0.4 * along / len));
+          const at = axis.clone().multiplyScalar(along).addScaledVector(radial, c * 0.42 * p.neckThick * (1 - 0.4 * along / len));
           addTuft(neckJoint, neckJoint, 'neck', at, flowDir(radial, flow, 0.7), c * 0.32 * p.furRuff * jitter(rng), c * 0.15, radial,
                   { axis, len, offset: neckJoint.position.clone() });
         }
@@ -1658,6 +1755,18 @@
       dogRig.position.y -= lowestPoint([...front, ...rear]).y;
     }
 
+    // keep the viewing angle, back up (or move in) until the whole dog fits
+    function fitCamera() {
+      if (document.getElementById('silBackground').checked) { centerCamera(); return; }
+      dogRig.updateMatrixWorld(true);
+      const sp = new THREE.Box3().setFromObject(dogRig).getBoundingSphere(new THREE.Sphere()), dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const half = THREE.MathUtils.degToRad(camera.fov) / 2, fit = Math.min(half, Math.atan(Math.tan(half) * camera.aspect));
+      camera.position.copy(sp.center).addScaledVector(dir, -sp.radius / Math.sin(fit) * 1.1);
+      controls.target.copy(sp.center);
+      controls.update();
+    }
+
     function centerCamera() {
       dogRig.updateMatrixWorld(true);
       const box3 = new THREE.Box3().setFromObject(dogRig), c = box3.getCenter(new THREE.Vector3());
@@ -1676,7 +1785,7 @@
     }
 
     // --- UI LOGIC ---
-    const inputs = ['bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'foreHead', 'stopDepth', 'skullW', 'muzzleW', 'muzzleTip', 'muzzleD', 'eyeSize', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
+    const inputs = ['bodyWidth', 'dogSize', 'neckThick', 'tailThick', 'earWidth', 'beard', 'bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'foreHead', 'stopDepth', 'skullW', 'muzzleW', 'muzzleTip', 'muzzleD', 'eyeSize', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
 
     function readPoseInputs() {
       poseInputs.forEach(id => {
@@ -1708,6 +1817,7 @@
     document.getElementById('centerCam').addEventListener('click', centerCamera);
     ['colorMain', 'colorSec', 'colorAcc', 'colorEye', 'furVary'].forEach(id => document.getElementById(id).addEventListener('input', updateColors));
     document.getElementById('fineFacets').addEventListener('change', buildDog);
+    ['curly', 'poodleClip'].forEach(id => document.getElementById(id).addEventListener('change', buildDog));
 
     // Cosmetics: fill the menus, rebuild on any change (colors wait for the next frame so dragging stays smooth)
     for (const id in COSMETICS) for (const key in COSMETICS[id]) document.getElementById(id).add(new Option(COSMETICS[id][key], key));
@@ -1848,6 +1958,9 @@
 
     function applyCharacterState(state) {
       if (state.type !== 'dog') { alert(`That file is a ${state.type || 'different'} file, not a dog.`); return; }
+      // files saved before a setting existed get its normal value (not whatever is on screen)
+      Object.entries({ dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0 }).forEach(([id, v]) => document.getElementById(id).value = v);
+      ['curly', 'poodleClip'].forEach(id => document.getElementById(id).checked = false);
       for (const id in state.values) {
         const el = document.getElementById(id);
         if (!el || el.type === 'file') continue;
@@ -1941,6 +2054,15 @@
         husky:    { c1: "#8C5A35", c2: "#E8DCC4", c3: "#2b2420", pattern: 'husky', p: { bodyLen: 1.8, chestSize: 1.0, pelvisSize: 0.8, neckLen: 0.8, headSize: 0.9, snoutLen: 0.8, foreHead: 1.0, stopDepth: 0.5, skullW: 1.0, muzzleW: 0.95, muzzleTip: 1.0, muzzleD: 0.95, eyeSize: 1.0, earSize: 0.45, earDroop: 0.0, legScale: 1.4, boneThick: 0.16, tailBase: 0.5, tailLen: 1.2, tailCurl: 0.2, furShag: 0.3, furRuff: 0.6, furCheek: 0.4, furTail: 0.7, furLegs: 0.3, furBody: 0.3 } },
         malamute: { c1: "#4a4a52", c2: "#ffffff", c3: "#1d1d22", pattern: 'husky', p: { bodyLen: 2.1, chestSize: 1.2, pelvisSize: 1.0, neckLen: 0.7, headSize: 1.1, snoutLen: 0.7, foreHead: 1.1, stopDepth: 0.45, skullW: 1.2, muzzleW: 1.25, muzzleTip: 1.2, muzzleD: 1.15, eyeSize: 0.85, earSize: 0.35, earDroop: 0.0, legScale: 1.3, boneThick: 0.22, tailBase: 0.6, tailLen: 1.1, tailCurl: 0.4, furShag: 0.5, furRuff: 0.9, furCheek: 0.6, furTail: 0.9, furLegs: 0.5, furBody: 0.5 } },
         hound:    { c1: "#a8682f", c2: "#f3ece0", c3: "#1f1b18", pattern: 'tricolor', p: { bodyLen: 1.9, chestSize: 1.1, pelvisSize: 0.75, neckLen: 0.8, headSize: 0.85, snoutLen: 1.0, foreHead: 1.15, stopDepth: 0.35, skullW: 0.85, muzzleW: 1.05, muzzleTip: 1.15, muzzleD: 1.4, eyeSize: 1.1, earSize: 0.6, earDroop: 1.0, legScale: 1.3, boneThick: 0.15, tailBase: -0.3, tailLen: 1.4, tailCurl: -0.2, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0 } },
+        chihuahua:  { c1: "#D9A066", c2: "#F5E6CC", c3: "#2B2420", pattern: 'twoTone', p: { dogSize: 0.38, bodyWidth: 0.9, bodyLen: 1.25, chestSize: 0.62, pelvisSize: 0.5, neckLen: 0.45, neckThick: 0.55, headSize: 1.25, snoutLen: 0.3, foreHead: 1.6, stopDepth: 1.0, skullW: 1.15, muzzleW: 0.8, muzzleTip: 0.7, muzzleD: 0.8, eyeSize: 1.7, earSize: 0.72, earWidth: 1.35, earDroop: 0.0, legScale: 0.8, boneThick: 0.07, tailBase: 1.0, tailLen: 0.8, tailThick: 0.35, tailCurl: 0.6, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        schnauzer:  { c1: "#5E6066", c2: "#D8D8D4", c3: "#1D1F22", pattern: 'furnishings', p: { dogSize: 0.62, bodyWidth: 0.9, bodyLen: 1.5, chestSize: 0.85, pelvisSize: 0.7, neckLen: 0.7, neckThick: 0.85, headSize: 0.9, snoutLen: 0.9, foreHead: 0.85, stopDepth: 0.35, skullW: 0.85, muzzleW: 1.15, muzzleTip: 1.3, muzzleD: 1.1, eyeSize: 0.85, earSize: 0.4, earWidth: 1.0, earDroop: 0.35, legScale: 1.2, boneThick: 0.13, tailBase: 1.1, tailLen: 0.25, tailThick: 0.8, tailCurl: 0, furShag: 0.35, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0.55, furBody: 0, beard: 0.9 } },
+        pug:        { c1: "#D8B88A", c2: "#EFE0C4", c3: "#1E1A18", pattern: 'blackMask', p: { dogSize: 0.5, bodyWidth: 1.2, bodyLen: 1.25, chestSize: 0.88, pelvisSize: 0.75, neckLen: 0.3, neckThick: 1.1, headSize: 1.15, snoutLen: 0.1, foreHead: 1.4, stopDepth: 1.0, skullW: 1.25, muzzleW: 1.35, muzzleTip: 1.3, muzzleD: 1.2, eyeSize: 1.6, earSize: 0.32, earWidth: 1.2, earDroop: 0.4, legScale: 0.55, boneThick: 0.13, tailBase: 1.3, tailLen: 0.55, tailThick: 0.8, tailCurl: 1.8, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        pomeranian: { c1: "#E08A3A", c2: "#F6D9A8", c3: "#3A2412", pattern: 'twoTone', p: { dogSize: 0.42, bodyWidth: 1.0, bodyLen: 1.1, chestSize: 0.8, pelvisSize: 0.6, neckLen: 0.35, neckThick: 0.9, headSize: 1.0, snoutLen: 0.3, foreHead: 1.4, stopDepth: 0.9, skullW: 1.1, muzzleW: 0.8, muzzleTip: 0.7, muzzleD: 0.8, eyeSize: 1.4, earSize: 0.3, earWidth: 0.9, earDroop: 0, legScale: 0.75, boneThick: 0.09, tailBase: 1.3, tailLen: 0.9, tailThick: 1.0, tailCurl: 1.3, furShag: 0.9, furRuff: 1.0, furCheek: 1.0, furTail: 1.0, furLegs: 0.8, furBody: 1.0, beard: 0 } },
+        bulldog:    { c1: "#C08A55", c2: "#F4EEE4", c3: "#3A2A1E", pattern: 'piebald', p: { dogSize: 0.7, bodyWidth: 1.5, bodyLen: 1.45, chestSize: 0.95, pelvisSize: 0.65, neckLen: 0.4, neckThick: 1.3, headSize: 1.3, snoutLen: 0.12, foreHead: 1.1, stopDepth: 1.0, skullW: 1.3, muzzleW: 1.4, muzzleTip: 1.3, muzzleD: 1.5, eyeSize: 1.0, earSize: 0.28, earWidth: 1.1, earDroop: 0.35, legScale: 0.6, boneThick: 0.22, tailBase: -0.4, tailLen: 0.2, tailThick: 1.2, tailCurl: 0.4, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        poodle:     { c1: "#F2EEE6", c2: "#FFFFFF", c3: "#2B2B30", pattern: 'solid', curly: true, clip: true, p: { dogSize: 0.95, bodyWidth: 0.85, bodyLen: 1.6, chestSize: 0.85, pelvisSize: 0.65, neckLen: 1.0, neckThick: 0.8, headSize: 0.85, snoutLen: 1.0, foreHead: 1.1, stopDepth: 0.5, skullW: 0.85, muzzleW: 0.8, muzzleTip: 0.75, muzzleD: 0.8, eyeSize: 0.9, earSize: 0.7, earWidth: 1.1, earDroop: 1.0, legScale: 1.6, boneThick: 0.1, tailBase: 1.0, tailLen: 0.6, tailThick: 0.7, tailCurl: 0, furShag: 0.4, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        corgi:      { c1: "#C8742E", c2: "#F4EEE4", c3: "#2B2420", pattern: 'socks', p: { dogSize: 0.62, bodyWidth: 1.1, bodyLen: 2.2, chestSize: 0.95, pelvisSize: 0.8, neckLen: 0.5, neckThick: 1.0, headSize: 0.95, snoutLen: 0.7, foreHead: 1.0, stopDepth: 0.5, skullW: 1.05, muzzleW: 0.85, muzzleTip: 0.7, muzzleD: 0.85, eyeSize: 1.0, earSize: 0.75, earWidth: 1.15, earDroop: 0, legScale: 0.45, boneThick: 0.14, tailBase: 0.3, tailLen: 0.15, tailThick: 1.0, tailCurl: 0, furShag: 0.3, furRuff: 0.5, furCheek: 0.3, furTail: 0.3, furLegs: 0.4, furBody: 0.2, beard: 0 } },
+        doberman:   { c1: "#B0602A", c2: "#E0B080", c3: "#141214", pattern: 'tanPoints', p: { dogSize: 1.05, bodyWidth: 0.78, bodyLen: 1.8, chestSize: 1.05, pelvisSize: 0.68, neckLen: 1.0, neckThick: 0.8, headSize: 0.85, snoutLen: 1.1, foreHead: 0.85, stopDepth: 0.25, skullW: 0.8, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.95, eyeSize: 0.85, earSize: 0.7, earWidth: 0.6, earDroop: 0, legScale: 1.7, boneThick: 0.13, tailBase: 1.0, tailLen: 0.2, tailThick: 0.9, tailCurl: 0, furShag: 0.03, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        lab:        { c1: "#E3C08A", c2: "#F2E2C2", c3: "#3A2A1E", pattern: 'solid', p: { dogSize: 1.0, bodyWidth: 1.1, bodyLen: 1.8, chestSize: 1.1, pelvisSize: 0.85, neckLen: 0.75, neckThick: 1.1, headSize: 1.0, snoutLen: 0.85, foreHead: 1.05, stopDepth: 0.55, skullW: 1.15, muzzleW: 1.15, muzzleTip: 1.15, muzzleD: 1.1, eyeSize: 0.95, earSize: 0.45, earWidth: 1.1, earDroop: 0.95, legScale: 1.3, boneThick: 0.17, tailBase: 0.0, tailLen: 1.2, tailThick: 1.6, tailCurl: 0.1, furShag: 0.1, furRuff: 0.1, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
         mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, foreHead: 1.45, stopDepth: 0.8, skullW: 1.05, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.9, eyeSize: 1.2, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
       };
 
@@ -1951,9 +2073,17 @@
       patternSelect.value = pr.pattern;
       document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[pr.pattern].uses;
 
-      for(let key in pr.p) {
-        if(document.getElementById(key)) document.getElementById(key).value = pr.p[key];
+      // sliders a preset leaves out go back to normal, so switching breeds never keeps a Chihuahua's size
+      const base = { dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0 };
+      const vals = { ...base, ...pr.p };
+      for(let key in vals) {
+        if(document.getElementById(key)) document.getElementById(key).value = vals[key];
       }
+      document.getElementById('curly').checked = !!pr.curly;
+      document.getElementById('poodleClip').checked = !!pr.clip;
+      updateFromInputs();
+      fitCamera(); // a Chihuahua and a Malamute both fill the view
+      return;
       updateFromInputs();
     };
 
