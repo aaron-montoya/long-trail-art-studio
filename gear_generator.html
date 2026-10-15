@@ -1017,6 +1017,52 @@
           }
           g.add(S);
         }
+      },
+
+      // Matches the snowflake on the Events card back: six arms with two pairs of V-branches, a light
+      // ridge down every arm, a faceted hex gem in the middle and gems on the tips.
+      snowflake: {
+        label: 'Snowflake', group: 'Symbols',
+        colors: { arms: ['Arms', '#2E2A5A'], ridge: ['Ridge', '#A79FD6'], center: ['Center gem', '#7E6BD6'], tips: ['Tip gems', '#7FD3C6'] },
+        variants: ['Standing up', 'Lying flat', 'Hanging ornament'], glow: true,
+        build(g, c, v, o) {
+          const R = 0.35, F = new THREE.Group();
+          const shine = (col, k) => (o.glow ? { emissive: col, emissiveIntensity: k } : {});
+          const armM = mat(c.arms, { roughness: 0.45 }), ridgeM = mat(c.ridge, { roughness: 0.3, ...shine(c.ridge, 0.15) });
+          const tipM = mat(c.tips, { roughness: 0.25, ...shine(c.tips, 0.45) }), centerM = mat(c.center, { roughness: 0.3, ...shine(c.center, 0.35) });
+          // a crystal bar from a to b with a diamond cross-section, so a ridge faces the viewer (+z)
+          const bar = (parent, a, b, w0, w1, m, z = 0) => {
+            const dir = new THREE.Vector3().subVectors(b, a);
+            const mesh = add(parent, new THREE.CylinderGeometry(w1, w0, dir.length(), 4), m, [(a.x + b.x) / 2, (a.y + b.y) / 2, z]);
+            mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()); // turns about z only, so the ridge stays in front
+            mesh.scale.set(1, 1, 0.55);
+            return mesh;
+          };
+          for (let k = 0; k < 6; k++) {
+            const A = new THREE.Group();
+            A.rotation.z = k * Math.PI / 3;
+            F.add(A);
+            bar(A, V(0, 0, 0), V(0, 0.84 * R, 0), 0.06 * R, 0.042 * R, armM);
+            bar(A, V(0, 0.05 * R, 0), V(0, 0.8 * R, 0), 0.016 * R, 0.01 * R, ridgeM, 0.03 * R);   // light ridge down the arm
+            for (const [y, l] of [[0.36, 0.22], [0.6, 0.18]]) for (const sd of [1, -1]) {
+              const a = V(0, y * R, 0), b = V(sd * l * R, (y + l) * R, 0);
+              bar(A, a, b, 0.045 * R, 0.03 * R, armM);
+              bar(A, a, b, 0.012 * R, 0.008 * R, ridgeM, 0.022 * R);
+            }
+            add(A, new THREE.OctahedronGeometry(0.075 * R, 0), tipM, [0, 0.92 * R, 0], [0, 0, 0], [0.75, 1.2, 0.55]);   // tip gem
+          }
+          // center: a hex gem, pointed front and back like a cut stone
+          add(F, cyl(0.2 * R, 0.2 * R, 0.09 * R, 6), centerM, [0, 0, 0], [Math.PI / 2, Math.PI / 6, 0]);
+          [1, -1].forEach(sd => add(F, new THREE.ConeGeometry(0.2 * R, 0.09 * R, 6), centerM, [0, 0, sd * 0.09 * R], [sd * Math.PI / 2, Math.PI / 6, 0]));
+          add(F, cyl(0.08 * R, 0.08 * R, 0.02 * R, 6), mat('#ECE6FF', { roughness: 0.3, ...shine('#ECE6FF', 0.2) }), [0, 0, 0.14 * R], [Math.PI / 2, Math.PI / 6, 0]);
+          if (v === 'Lying flat') F.rotation.x = -Math.PI / 2;
+          if (v === 'Hanging ornament') {
+            const hook = mat(c.ridge, { roughness: 0.4 });
+            add(F, cyl(0.004, 0.004, 0.32 * R, 5), hook, [0, (0.98 + 0.16) * R, 0]);              // string up from the top gem
+            add(F, torus(0.035 * R, 0.006, Math.PI * 2, 12), hook, [0, (1.14 + 0.2) * R, 0]);   // hanging loop
+          }
+          g.add(F);
+        }
       }
     };
 
