@@ -91,6 +91,9 @@
       <button onclick="applyPreset('chihuahua')">Chihuahua</button>
       <button onclick="applyPreset('samoyed')">Samoyed</button>
       <button onclick="applyPreset('shepherd')">German Shepherd</button>
+      <button onclick="applyPreset('saintBernard')">Saint Bernard</button>
+      <button onclick="applyPreset('dalmatian')">Dalmatian</button>
+      <button onclick="applyPreset('borderCollie')">Border Collie</button>
     </div>
     <div class="action-row" style="grid-template-columns: 1fr 1fr 1fr;">
       <button id="randomize" title="A whole new random dog"><i data-icon="dice"></i>Randomize Dog</button>
@@ -869,7 +872,7 @@
     const COSMETICS = {
       cosHead: { none: 'None', beanie: 'Beanie with pompom', party: 'Party hat', crown: 'Crown', topHat: 'Top hat', santa: 'Santa hat', cowboy: 'Cowboy hat', antlers: 'Reindeer antlers', flowers: 'Flower crown' },
       cosFace: { none: 'None', goggles: 'Snow goggles', sunglasses: 'Sunglasses', hearts: 'Heart glasses' },
-      cosNeck: { none: 'None', collar: 'Collar with tag', bell: 'Collar with bell', spiked: 'Spiked collar', bandana: 'Bandana', scarf: 'Knit scarf', bowtie: 'Bow tie', medal: "Finisher's medal" },
+      cosNeck: { none: 'None', collar: 'Collar with tag', barrel: 'Rescue barrel collar', bell: 'Collar with bell', spiked: 'Spiked collar', bandana: 'Bandana', scarf: 'Knit scarf', bowtie: 'Bow tie', medal: "Finisher's medal" },
       cosBody: { none: 'None', harness: 'X-back racing harness', coat: 'Trail coat', sweater: 'Striped sweater', bib: 'Race bib vest', pack: 'Saddle bags', cape: 'Cape' }
     };
     const cosMats = new Map();
@@ -1089,7 +1092,21 @@
         const t = neck === 'scarf' ? 0.5 : 0.58, R = neckR(t), C = headPos.clone().multiplyScalar(t);
         const front = ringAt(t, 0, 0.02 * cS), down = V(0, -1, 0);
         const band = (m, r = 0.035 * cS) => cosTube(neckJoint, ring(t, 0.01 * cS), r, m, true, 5);
-        if (neck === 'collar' || neck === 'bell' || neck === 'spiked') {
+        if (neck === 'barrel') {
+          // the Saint Bernard rescue barrel: a little keg with iron hoops, hung crosswise under the throat
+          band(nc, 0.045 * cS);
+          const top = front.clone().add(V(0, -0.04 * cS, 0));
+          createBone(new THREE.TorusGeometry(1, 0.25, 4, 10), steel, neckJoint, [0.04 * cS, 0.04 * cS, 0.04 * cS], top.toArray(), [0, Math.PI / 2, 0]);
+          const G = basisGroup(neckJoint, top.clone().add(V(0, -0.16 * cS, 0.05 * cS)), throat.clone().setY(0).normalize().lengthSq() ? throat.clone().setY(0).normalize() : V(0, 0, 1));
+          const wood = cmat('#8C5A35', { roughness: 0.85 }), R = 0.11 * cS, Lb = 0.3 * cS;
+          const keg = new THREE.LatheGeometry([[0, -0.5], [0.82, -0.5], [0.95, -0.3], [1, 0], [0.95, 0.3], [0.82, 0.5], [0, 0.5]].map(([x, y]) => new THREE.Vector2(x, y)), 10);
+          tempGeos.push(keg);
+          createBone(keg, wood, G, [R, Lb, R], [0, 0, 0], [0, 0, Math.PI / 2]);                    // lying sideways across the chest
+          [-0.36, 0, 0.36].forEach(x => createBone(new THREE.CylinderGeometry(1, 1, 1, 10, 1, true), cmat('#3A3A3F', { metalness: 0.5, roughness: 0.4, side: THREE.DoubleSide }), G,
+            [R * (x ? 0.93 : 1.02), 0.035 * cS, R * (x ? 0.93 : 1.02)], [x * Lb, 0, 0], [0, 0, Math.PI / 2]));      // iron hoops
+          createBone(new THREE.CylinderGeometry(1, 1, 1, 6), cmat('#5E3A20'), G, [0.025 * cS, 0.04 * cS, 0.025 * cS], [0, R * 0.98, 0]); // bung
+          createBone(new THREE.TorusGeometry(1, 0.25, 4, 10), steel, G, [0.035 * cS, 0.035 * cS, 0.035 * cS], [0, R + 0.03 * cS, 0], [0, 0, 0]);   // ring to the collar
+        } else if (neck === 'collar' || neck === 'bell' || neck === 'spiked') {
           band(neck === 'spiked' ? dark : nc, 0.045 * cS);
           if (neck === 'spiked') for (let k = 0; k < 10; k++) {
             const a = k / 10 * Math.PI * 2, dir = side.clone().multiplyScalar(Math.sin(a)).addScaledVector(throat, Math.cos(a));
@@ -1477,6 +1494,36 @@
           case 'body': return (i.bz > 0.85 && i.by < 0.2) || i.by < -0.6 ? 'sec' : 'main';
           case 'neck': return i.side < -0.5 ? 'sec' : 'main';
           case 'leg': return i.v > 0.4 ? 'sec' : 'main';
+        }
+        return 'main';
+      } },
+
+      // round spots scattered in 3D (one jittered spot per grid cell), so on the low-poly coat each spot is a facet or two
+      dalmatian: { label: 'Dalmatian Spots', uses: 'Light (base) + Dark (spots) — Reroll for new spots', fn: (i, seed) => {
+        const g = i.region === 'ear' ? 2.5 : i.region === 'muzzle' || i.region === 'head' ? 6 : 4.2, r = i.region === 'ear' ? 0.55 : 0.4;
+        const x = i.np.x * g, y = i.np.y * g, z = i.np.z * g, cx = Math.floor(x), cy = Math.floor(y), cz = Math.floor(z);
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+          const X = cx + a, Y = cy + b, Z = cz + c;
+          if (hash3(X, Y, Z, seed + 7) > 0.8) continue; // not every cell has a spot
+          const px = X + hash3(X, Y, Z, seed), py = Y + hash3(Y, Z, X, seed), pz = Z + hash3(Z, X, Y, seed);
+          if (Math.hypot(x - px, y - py, z - pz) < r * (0.7 + 0.6 * hash3(X, Z, Y, seed + 3))) return 'acc';
+        }
+        return 'sec';
+      } },
+
+      saintBernard: { label: 'Saint Bernard', uses: 'Main (red mantle) + Light (white) + Dark (eye mask)', fn: (i, seed) => {
+        switch (i.region) {
+          case 'head': {
+            if (Math.abs(i.hx) < 0.1 && i.hz > -0.25) return 'sec';                                  // white blaze up the face
+            if (i.hz > 0.02 && i.hy > -0.08 && i.hy < 0.3 && Math.abs(i.hx) > 0.1) return 'acc';     // dark mask around the eyes
+            return i.hy < -0.12 ? 'sec' : 'main';
+          }
+          case 'muzzle': return 'sec';
+          case 'ear': return i.u > 0.7 ? 'acc' : 'main';
+          case 'neck': return i.side < 0.35 ? 'sec' : 'main';                                        // white collar
+          case 'body': return i.by < -0.2 || (i.bz > 0.75 && i.by < 0.45) || (i.bz < -0.95 && i.by < 0.1) ? 'sec' : (fbm(i.np, 1.4, seed) > 0.72 ? 'sec' : 'main');
+          case 'leg': return i.v > 0.25 ? 'sec' : 'main';
+          case 'tail': return i.v > 0.7 ? 'sec' : 'main';
         }
         return 'main';
       } },
@@ -2089,6 +2136,9 @@
         lab:        { c1: "#E3C08A", c2: "#F2E2C2", c3: "#3A2A1E", pattern: 'solid', p: { dogSize: 1.0, bodyWidth: 1.1, bodyLen: 1.8, chestSize: 1.1, pelvisSize: 0.85, neckLen: 0.75, neckThick: 1.1, headSize: 1.0, snoutLen: 0.85, foreHead: 1.05, stopDepth: 0.55, skullW: 1.15, muzzleW: 1.15, muzzleTip: 1.15, muzzleD: 1.1, eyeSize: 0.95, earSize: 0.45, earWidth: 1.1, earDroop: 0.95, legScale: 1.3, boneThick: 0.17, tailBase: 0.0, tailLen: 1.2, tailThick: 1.6, tailCurl: 0.1, furShag: 0.1, furRuff: 0.1, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
         samoyed:    { c1: "#F4F0E8", c2: "#FFFFFF", c3: "#2B2420", pattern: 'twoTone', p: { dogSize: 0.9, bodyWidth: 1.05, bodyLen: 1.7, chestSize: 1.0, pelvisSize: 0.8, neckLen: 0.6, neckThick: 1.1, headSize: 0.95, snoutLen: 0.6, foreHead: 1.15, stopDepth: 0.6, skullW: 1.15, muzzleW: 0.85, muzzleTip: 0.8, muzzleD: 0.85, eyeSize: 0.85, earSize: 0.35, earWidth: 1.1, earDroop: 0, legScale: 1.25, boneThick: 0.15, tailBase: 1.2, tailLen: 1.1, tailThick: 1.2, tailCurl: 1.1, furShag: 0.8, furRuff: 1.0, furCheek: 0.9, furTail: 1.0, furLegs: 0.6, furBody: 0.8, beard: 0 } },
         shepherd:   { c1: "#C08A4A", c2: "#E8D2A8", c3: "#1E1A18", pattern: 'blackTan', p: { dogSize: 1.05, bodyWidth: 0.95, bodyLen: 2.0, chestSize: 1.1, pelvisSize: 0.8, neckLen: 0.85, neckThick: 1.0, headSize: 0.95, snoutLen: 1.0, foreHead: 0.95, stopDepth: 0.35, skullW: 1.0, muzzleW: 0.9, muzzleTip: 0.9, muzzleD: 0.95, eyeSize: 0.9, earSize: 0.7, earWidth: 1.1, earDroop: 0, legScale: 1.45, boneThick: 0.16, tailBase: -0.5, tailLen: 1.4, tailThick: 1.0, tailCurl: -0.2, furShag: 0.25, furRuff: 0.3, furCheek: 0.1, furTail: 0.6, furLegs: 0.3, furBody: 0.1, beard: 0 } },
+        saintBernard: { c1: "#A4522A", c2: "#F7F2EA", c3: "#2A1B12", pattern: 'saintBernard', p: { dogSize: 1.25, bodyWidth: 1.25, bodyLen: 2.0, chestSize: 1.3, pelvisSize: 1.0, neckLen: 0.55, neckThick: 1.25, headSize: 1.2, snoutLen: 0.6, foreHead: 1.35, stopDepth: 0.9, skullW: 1.25, muzzleW: 1.35, muzzleTip: 1.3, muzzleD: 1.5, eyeSize: 0.85, earSize: 0.5, earWidth: 1.2, earDroop: 0.9, legScale: 1.3, boneThick: 0.24, tailBase: -1.45, tailLen: 1.3, tailThick: 1.3, tailCurl: -0.1, furShag: 0.35, furRuff: 0.5, furCheek: 0.3, furTail: 0.6, furLegs: 0.4, furBody: 0.2, beard: 0 } },
+        dalmatian:  { c1: "#F4F2EE", c2: "#F7F5F0", c3: "#141416", pattern: 'dalmatian', fine: true, p: { dogSize: 1.0, bodyWidth: 0.9, bodyLen: 1.8, chestSize: 1.0, pelvisSize: 0.75, neckLen: 0.85, neckThick: 0.9, headSize: 0.9, snoutLen: 0.9, foreHead: 0.95, stopDepth: 0.45, skullW: 0.95, muzzleW: 0.95, muzzleTip: 1.0, muzzleD: 1.0, eyeSize: 0.95, earSize: 0.42, earWidth: 1.1, earDroop: 0.85, legScale: 1.5, boneThick: 0.14, tailBase: 0.2, tailLen: 1.3, tailThick: 0.7, tailCurl: 0.2, furShag: 0.03, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        borderCollie: { c1: "#1C1C20", c2: "#F4F2EE", c3: "#141416", pattern: 'tuxedo', p: { dogSize: 0.85, bodyWidth: 0.95, bodyLen: 1.8, chestSize: 0.95, pelvisSize: 0.75, neckLen: 0.7, neckThick: 1.0, headSize: 0.85, snoutLen: 0.85, foreHead: 1.0, stopDepth: 0.55, skullW: 1.0, muzzleW: 0.85, muzzleTip: 0.85, muzzleD: 0.9, eyeSize: 1.05, earSize: 0.42, earWidth: 1.0, earDroop: 0.3, legScale: 1.3, boneThick: 0.13, tailBase: -0.4, tailLen: 1.3, tailThick: 1.0, tailCurl: 0.3, furShag: 0.45, furRuff: 0.7, furCheek: 0.4, furTail: 0.8, furLegs: 0.5, furBody: 0.3, beard: 0 } },
         mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, foreHead: 1.45, stopDepth: 0.8, skullW: 1.05, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.9, eyeSize: 1.2, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
       };
 
@@ -2107,6 +2157,7 @@
       }
       document.getElementById('curly').checked = !!pr.curly;
       document.getElementById('poodleClip').checked = !!pr.clip;
+      if (pr.fine) document.getElementById('fineFacets').checked = true; // spots read best on smaller facets
       syncPom();
       updateFromInputs();
       fitCamera(); // a Chihuahua and a Malamute both fill the view
