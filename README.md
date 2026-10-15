@@ -6,7 +6,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 
 | Tab | What it makes |
 |---|---|
-| **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
+| **Dogs** | Sled dogs with a sculpted low-poly head (brow, cheeks, wedge muzzle, almond eyes with catchlights): breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
 | **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
 | **Gear** | Items: Snack, Booties, Mittens, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
 | **Borders** | Fair Isle knit borders: stack bands of motifs (peeries, OXO, snowflakes, 8-point stars, reindeer, spruce trees, paw prints and more), pick a 4-color palette and a stitch (knit, cross-stitch, low-poly tiles, flat). Makes a card frame with mitered corners, a strip, or an all-over card back |

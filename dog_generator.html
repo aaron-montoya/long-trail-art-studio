@@ -459,6 +459,57 @@
 
     const smoothstep = x => { x = THREE.MathUtils.clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 
+    // --- LOFTED HEAD ---
+    // A cross-section ring at station s (z along the head, half width w, top t, bottom b below center): a squarish
+    // oval whose squareness is e, plus an optional brow bump over the eyes. th runs around the ring from the top.
+    function ringPoint(s, th) {
+      const sn = Math.sin(th), cs = Math.cos(th), e = s.e || 0.85;
+      let y = (cs >= 0 ? s.t : -s.b) * Math.sign(cs) * Math.abs(cs) ** e;
+      if (s.brow) { const a = th > Math.PI ? Math.PI * 2 - th : th; y += s.brow * Math.exp(-(((a - 0.8) / 0.32) ** 2)); }
+      return new THREE.Vector3(s.w * Math.sign(sn) * Math.abs(sn) ** e, y, s.z);
+    }
+    // A point on the lofted surface at depth z and ring angle th (between stations it's a straight blend)
+    function surfaceAt(st, z, th) {
+      let i = 0;
+      while (i < st.length - 2 && st[i + 1].z < z) i++;
+      const t = THREE.MathUtils.clamp((z - st[i].z) / (st[i + 1].z - st[i].z), 0, 1);
+      return ringPoint(st[i], th).lerp(ringPoint(st[i + 1], th), t);
+    }
+    function surfaceNormal(st, z, th) {
+      const dz = 0.01, dth = 0.02;
+      const a = surfaceAt(st, z + dz, th).sub(surfaceAt(st, z - dz, th));
+      const b = surfaceAt(st, z, th + dth).sub(surfaceAt(st, z, th - dth));
+      const n = new THREE.Vector3().crossVectors(b, a).normalize();
+      const p = surfaceAt(st, z, th);
+      if (n.dot(new THREE.Vector3(p.x, p.y, 0)) < 0) n.negate(); // point away from the middle
+      return n;
+    }
+    // Solid through the station rings, optionally capped at either end
+    function loftGeo(st, N, capStart, capEnd) {
+      const pos = [], idx = [];
+      st.forEach(s => { for (let k = 0; k < N; k++) pos.push(...ringPoint(s, (k / N) * Math.PI * 2).toArray()); });
+      for (let i = 0; i < st.length - 1; i++) for (let k = 0; k < N; k++) {
+        const a = i * N + k, b = i * N + (k + 1) % N, c = (i + 1) * N + k, d = (i + 1) * N + (k + 1) % N;
+        idx.push(a, c, b, b, c, d); // rings run clockwise seen from the front, so this faces outward
+      }
+      const cap = (s, dir) => {
+        const ci = pos.length / 3, base = st.indexOf(s) * N;
+        pos.push(0, (s.t + s.b) / 2, s.z + dir * Math.min(s.w, s.t) * 0.25); // a slight dome
+        for (let k = 0; k < N; k++) dir > 0 ? idx.push(base + (k + 1) % N, base + k, ci) : idx.push(base + k, base + (k + 1) % N, ci);
+      };
+      if (capStart) cap(st[0], -1);
+      if (capEnd) cap(st[st.length - 1], 1);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setIndex(idx);
+      g.computeVertexNormals();
+      tempGeos.push(g);
+      return g;
+    }
+    const noseGeo = new THREE.IcosahedronGeometry(1, 0);
+    const eyeGeo = new THREE.IcosahedronGeometry(1, 1);
+    const matShine = new THREE.MeshBasicMaterial({ color: 0xffffff }); // catchlight in the eyes
+
     function buildDog() {
       while(dogRig.children.length > 0) dogRig.remove(dogRig.children[0]);
       tempGeos.forEach(g => g.dispose());
@@ -516,34 +567,47 @@
       headJoint.rotation.set(-ps.poseHead + pitch, ps.poseTurn, ps.poseTilt, 'YXZ');
       neckJoint.add(headJoint);
 
-      // Skull
-      coat(createBone(bodyIco, matCoat, headJoint, [p.headSize*0.4, p.headSize*0.3, p.headSize*0.4], [0, p.headSize*0.1, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35 } });
-      coat(createBone(bodyIco, matCoat, headJoint, [p.headSize*0.38, p.headSize*0.2, p.headSize*0.38], [0, -p.headSize*0.1, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35 } });
-
-      // Snout top
-      coat(createBone(cyl, matCoat, headJoint, [p.headSize*0.25, p.snoutLen, p.headSize*0.25], [0, 0, p.headSize*0.2 + p.snoutLen/2], [Math.PI/2, 0, 0]), 'muzzle', headJoint);
+      // Head: one sculpted low-poly surface lofted through cross-sections (wide cheekbones, a brow over the eyes,
+      // a clear stop, then a wedge muzzle), with a hinged lower jaw, a faceted nose and almond eyes set into the face.
+      const h = p.headSize, m = p.snoutLen * 0.5, zs = h * 0.24, ringN = document.getElementById('fineFacets').checked ? 14 : 10;
+      const S = (z, w, t, b, e, brow = 0) => ({ z, w, t, b, e, brow });
+      const skullSt = [
+        S(-0.40 * h, 0.17 * h, 0.22 * h, -0.04 * h, 0.9), S(-0.30 * h, 0.33 * h, 0.35 * h, -0.13 * h, 0.9),
+        S(-0.12 * h, 0.40 * h, 0.40 * h, -0.20 * h, 0.9), S(0.05 * h, 0.42 * h, 0.35 * h, -0.24 * h, 0.85),
+        S(0.17 * h, 0.34 * h, 0.29 * h, -0.21 * h, 0.8, 0.035 * h), S(zs, 0.25 * h, 0.20 * h, -0.17 * h, 0.75)];
+      const muzzleSt = [skullSt[5],
+        S(zs + 0.35 * m, 0.215 * h, 0.175 * h, -0.14 * h, 0.7), S(zs + 0.75 * m, 0.19 * h, 0.155 * h, -0.10 * h, 0.66),
+        S(zs + m, 0.155 * h, 0.13 * h, -0.07 * h, 0.65)];
+      coat(createBone(loftGeo(skullSt, ringN, true, false), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35 } });
+      coat(createBone(loftGeo(muzzleSt, ringN, false, true), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'muzzle', headJoint, { mz0: zs, mzLen: m });
 
       // Lower jaw hinges open for panting / howling
       const jaw = new THREE.Group();
       jaw.position.set(0, -p.headSize*0.12, p.headSize*0.15);
       jaw.rotation.x = 0.1 + ps.poseJaw;
       headJoint.add(jaw);
-      coat(createBone(box, matCoat, jaw, [p.headSize*0.22, p.headSize*0.1, p.snoutLen*0.9], [0, -p.headSize*0.03, p.headSize*0.05 + p.snoutLen*0.45]), 'muzzle', headJoint, { jaw: true });
-      if (ps.poseJaw > 0.05) createBone(box, matTongue, jaw, [p.headSize*0.15, p.headSize*0.03, p.snoutLen*0.75], [0, p.headSize*0.035, p.headSize*0.05 + p.snoutLen*0.5]);
+      const jawSt = [S(0, 0.22 * h, 0.06 * h, -0.09 * h, 0.8), S(0.09 * h + 0.3 * m, 0.19 * h, 0.05 * h, -0.12 * h, 0.7), S(0.09 * h + 0.78 * m, 0.135 * h, 0.04 * h, -0.085 * h, 0.7)];
+      coat(createBone(loftGeo(jawSt, ringN, true, true), matCoat, jaw, [1, 1, 1], [0, 0, 0]), 'muzzle', headJoint, { jaw: true, mz0: zs, mzLen: m });
+      if (ps.poseJaw > 0.05) createBone(box, matTongue, jaw, [h * 0.15, h * 0.03, m * 0.75], [0, h * 0.02, 0.09 * h + 0.4 * m]);
 
-      // Nose Point
-      createBone(icosa, matDark, headJoint, [p.headSize*0.1, p.headSize*0.08, p.headSize*0.1], [0, p.headSize*0.05, p.headSize*0.2 + p.snoutLen]);
+      // Nose: a chunky faceted button on the end of the muzzle
+      createBone(noseGeo, matDark, headJoint, [h * 0.1, h * 0.068, h * 0.072], [0, h * 0.095, zs + m + h * 0.016], [-0.2, 0, 0]);
 
-      // Eyes: solid glossy spheres sitting on the skull surface (scaled with the head) so they always poke out
-      const skullR = [p.headSize*0.4, p.headSize*0.3, p.headSize*0.4];
+      // Eyes: almond shapes set into the face under the brow, angled forward, with a dark rim and a catchlight
+      const skullR = [p.headSize*0.4, p.headSize*0.3, p.headSize*0.4]; // the old skull ellipsoid, still used to seat the ears
       const skullCY = p.headSize*0.1;
-      const eyeDir = new THREE.Vector3(0.5, 0.45, 0.75).normalize();
-      const eyeR = p.headSize * 0.085;
       [1, -1].forEach(side => {
-        const eyePos = new THREE.Vector3(side*skullR[0]*eyeDir.x, skullCY + skullR[1]*eyeDir.y, skullR[2]*eyeDir.z);
-        const normal = new THREE.Vector3(side*eyeDir.x/skullR[0], eyeDir.y/skullR[1], eyeDir.z/skullR[2]).normalize();
-        eyePos.addScaledVector(normal, eyeR*0.35);
-        createBone(sphere, matEye, headJoint, [eyeR, eyeR, eyeR], eyePos.toArray());
+        const th = side > 0 ? 0.86 : Math.PI * 2 - 0.86, ez = 0.2 * h; // on the front of the face, tucked under the brow
+        const at = surfaceAt(skullSt, ez, th), n = surfaceNormal(skullSt, ez, th);
+        const look = n.clone().add(new THREE.Vector3(0, 0, 1.6)).normalize(); // mostly forward, a little out to the side
+        const eye = new THREE.Group();
+        eye.position.copy(at).addScaledVector(n, h * 0.004);
+        eye.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), look);
+        eye.rotateZ(side * 0.28); // outer corner a little higher
+        headJoint.add(eye);
+        createBone(eyeGeo, matDark, eye, [h * 0.1, h * 0.066, h * 0.03], [0, 0, 0]);
+        createBone(eyeGeo, matEye, eye, [h * 0.08, h * 0.054, h * 0.03], [0, 0, h * 0.006]);
+        createBone(eyeGeo, matShine, eye, [h * 0.016, h * 0.013, h * 0.01], [-side * h * 0.022, h * 0.017, h * 0.031]);
       });
 
       // Ears: two flat pieces (base + tip) on a hinge. As floppiness rises the tip folds
@@ -717,7 +781,7 @@
         }
         case 'head': case 'muzzle':
           i.hx = fp.x / h; i.hy = fp.y / h; i.hz = fp.z / h;
-          i.mz = (fp.z - h * 0.2) / p.snoutLen;
+          i.mz = (fp.z - (c.mz0 !== undefined ? c.mz0 : h * 0.2)) / (c.mzLen || p.snoutLen);
           i.jaw = !!c.jaw;
           i.np.x += 50;
           break;
@@ -763,7 +827,7 @@
         switch (i.region) {
           case 'body': return i.by < -0.2 || (i.bz > 0.75 && i.by < 0.35) ? 'sec' : 'main';
           case 'neck': return i.side < 0.3 ? 'sec' : 'main';
-          case 'head': return i.hy < 0.02 || (i.hz > 0.12 && !(Math.abs(i.hx) < 0.08 && i.hy > 0.12)) ? 'sec' : 'main';
+          case 'head': return (i.hy < 0.1 && i.hz > -0.12) || i.hy < -0.06 || Math.hypot(Math.abs(i.hx) - 0.16, i.hy - 0.31, i.hz - 0.1) < 0.075 ? 'sec' : 'main'; // white brow spots and lower face
           case 'muzzle': return 'sec';
           case 'ear': return i.inner && i.u > 0.05 && i.u < 0.8 ? 'sec' : 'main';
           case 'leg': return i.v > 0.3 ? 'sec' : 'main';
