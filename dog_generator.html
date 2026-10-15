@@ -128,6 +128,13 @@
         <div class="control-group"><label>Neck Length <span class="val-display" id="neckLen-val">0.70</span></label><input type="range" id="neckLen" min="0.4" max="1.1" step="0.1" value="0.7"></div>
         <div class="control-group"><label>Skull Size <span class="val-display" id="headSize-val">0.80</span></label><input type="range" id="headSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
         <div class="control-group"><label>Snout Length <span class="val-display" id="snoutLen-val">0.70</span></label><input type="range" id="snoutLen" min="0.4" max="1.2" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Forehead Height <span class="val-display" id="foreHead-val">1.00</span></label><input type="range" id="foreHead" min="0.6" max="1.6" step="0.05" value="1" title="Flat and wolfish to tall and domed"></div>
+        <div class="control-group"><label>Stop (forehead to muzzle) <span class="val-display" id="stopDepth-val">0.50</span></label><input type="range" id="stopDepth" min="0" max="1" step="0.05" value="0.5" title="0: the forehead runs smoothly into the muzzle. 1: a sharp drop"></div>
+        <div class="control-group"><label>Skull Width <span class="val-display" id="skullW-val">1.00</span></label><input type="range" id="skullW" min="0.75" max="1.3" step="0.05" value="1" title="Narrow to broad cheekbones"></div>
+        <div class="control-group"><label>Muzzle Width <span class="val-display" id="muzzleW-val">1.00</span></label><input type="range" id="muzzleW" min="0.7" max="1.4" step="0.05" value="1"></div>
+        <div class="control-group"><label>Muzzle Tip <span class="val-display" id="muzzleTip-val">1.00</span></label><input type="range" id="muzzleTip" min="0.6" max="1.3" step="0.05" value="1" title="Pointed and foxy to blunt and boxy"></div>
+        <div class="control-group"><label>Muzzle Depth <span class="val-display" id="muzzleD-val">1.00</span></label><input type="range" id="muzzleD" min="0.7" max="1.5" step="0.05" value="1" title="Slim to deep and jowly"></div>
+        <div class="control-group"><label>Eye Size <span class="val-display" id="eyeSize-val">1.00</span></label><input type="range" id="eyeSize" min="0.7" max="1.4" step="0.05" value="1"></div>
         <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.2" max="1.0" step="0.05" value="0.4"></div>
         <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0"></div>
       </div>
@@ -341,6 +348,7 @@
     const params = {
       bodyLen: 1.8, chestSize: 0.9, pelvisSize: 0.8,
       neckLen: 0.7, headSize: 0.8, snoutLen: 0.7, earSize: 0.4, earDroop: 0.0,
+      foreHead: 1, stopDepth: 0.5, skullW: 1, muzzleW: 1, muzzleTip: 1, muzzleD: 1, eyeSize: 1,
       legScale: 1.2, boneThick: 0.15,
       tailBase: 0.5, tailLen: 1.0, tailCurl: 0.3,
       furShag: 0.3, furRuff: 0.5, furCheek: 0.3, furTail: 0.5, furLegs: 0.3, furBody: 0.2
@@ -589,22 +597,26 @@
       // a clear stop, then a wedge muzzle), with a hinged lower jaw, a faceted nose and almond eyes set into the face.
       const h = p.headSize, m = p.snoutLen * 0.5, zs = h * 0.24, ringN = document.getElementById('fineFacets').checked ? 14 : 10;
       const S = (z, w, t, b, e, brow = 0) => ({ z, w, t, b, e, brow });
+      // head shape sliders: forehead height (fh), stop sharpness, skull width (sw), muzzle width (mw) and depth (md)
+      const fh = p.foreHead, stop = p.stopDepth, sw = p.skullW, mw = p.muzzleW, md = p.muzzleD, tip = p.muzzleTip, fhF = fh ** 1.35; // fhF: the front of the skull rises most
       const skullSt = [
-        S(-0.40 * h, 0.17 * h, 0.22 * h, -0.04 * h, 0.9), S(-0.30 * h, 0.33 * h, 0.35 * h, -0.13 * h, 0.9),
-        S(-0.12 * h, 0.40 * h, 0.40 * h, -0.20 * h, 0.9), S(0.05 * h, 0.42 * h, 0.35 * h, -0.24 * h, 0.85),
-        S(0.17 * h, 0.34 * h, 0.29 * h, -0.21 * h, 0.8, 0.035 * h), S(zs, 0.25 * h, 0.20 * h, -0.17 * h, 0.75)];
+        S(-0.40 * h, 0.17 * h * sw, 0.22 * h * fh, -0.04 * h, 0.9), S(-0.30 * h, 0.33 * h * sw, 0.35 * h * fh, -0.13 * h, 0.9),
+        S(-0.12 * h, 0.40 * h * sw, 0.40 * h * fh, -0.20 * h, 0.9), S(0.05 * h, 0.42 * h * sw, 0.35 * h * fhF, -0.24 * h, 0.85),
+        S(0.17 * h, 0.34 * h * (0.5 + 0.5 * sw), 0.29 * h * fhF, -0.21 * h, 0.8, 0.035 * h * (0.4 + 1.2 * stop)),
+        S(zs, 0.25 * h * (0.5 + 0.5 * mw), THREE.MathUtils.lerp(0.26 * h * fhF, 0.15 * h * md, stop), -0.17 * h * (0.6 + 0.4 * md), 0.75)];
       const muzzleSt = [skullSt[5],
-        S(zs + 0.35 * m, 0.215 * h, 0.175 * h, -0.14 * h, 0.7), S(zs + 0.75 * m, 0.19 * h, 0.155 * h, -0.10 * h, 0.66),
-        S(zs + m, 0.155 * h, 0.13 * h, -0.07 * h, 0.65)];
+        S(zs + 0.35 * m, 0.215 * h * mw, 0.175 * h * md, -0.14 * h * md, 0.7),
+        S(zs + 0.75 * m, 0.19 * h * mw * (0.5 + 0.5 * tip), 0.155 * h * md * (0.6 + 0.4 * tip), -0.10 * h * md * (0.5 + 0.5 * tip), 0.66),
+        S(zs + m, 0.155 * h * mw * tip, 0.13 * h * md * (0.4 + 0.6 * tip), -0.07 * h * md * tip, 0.65)];
       coat(createBone(loftGeo(skullSt, ringN, true, false), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35, fadeZ: [zs - 0.22 * h, zs] } }); // smooth toward the muzzle
       coat(createBone(loftGeo(muzzleSt, ringN, false, true), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'muzzle', headJoint, { mz0: zs, mzLen: m });
 
       // Lower jaw hinges open for panting / howling
       const jaw = new THREE.Group();
-      jaw.position.set(0, -p.headSize*0.12, p.headSize*0.15);
+      jaw.position.set(0, -p.headSize * (0.12 + 0.05 * (md - 1)), p.headSize*0.15);
       jaw.rotation.x = 0.1 + ps.poseJaw;
       headJoint.add(jaw);
-      const jawSt = [S(0, 0.22 * h, 0.06 * h, -0.09 * h, 0.8), S(0.09 * h + 0.3 * m, 0.19 * h, 0.05 * h, -0.12 * h, 0.7), S(0.09 * h + 0.78 * m, 0.135 * h, 0.04 * h, -0.085 * h, 0.7)];
+      const jawSt = [S(0, 0.22 * h * mw, 0.06 * h, -0.09 * h * md, 0.8), S(0.09 * h + 0.3 * m, 0.19 * h * mw, 0.05 * h, -0.12 * h * md, 0.7), S(0.09 * h + 0.78 * m, 0.135 * h * mw * tip, 0.04 * h, -0.085 * h * md * tip, 0.7)];
       coat(createBone(loftGeo(jawSt, ringN, true, true), matCoat, jaw, [1, 1, 1], [0, 0, 0]), 'muzzle', headJoint, { jaw: true, mz0: zs, mzLen: m });
       if (ps.poseJaw > 0.05) createBone(box, matTongue, jaw, [h * 0.15, h * 0.03, m * 0.75], [0, h * 0.02, 0.09 * h + 0.4 * m]);
 
@@ -623,11 +635,11 @@
       });
 
       // Nose: a chunky faceted button on the end of the muzzle
-      createBone(noseGeo, matDark, headJoint, [h * 0.1, h * 0.068, h * 0.072], [0, h * 0.095, zs + m + h * 0.016], [-0.2, 0, 0]);
+      const noseS = 0.75 + 0.25 * tip; // pointed muzzles get a smaller nose
+      createBone(noseGeo, matDark, headJoint, [h * 0.1 * (0.6 + 0.4 * mw) * noseS, h * 0.068 * noseS, h * 0.072 * noseS], [0, h * 0.095 * md * (0.4 + 0.6 * tip), zs + m + h * 0.016], [-0.2, 0, 0]);
 
       // Eyes: almond shapes set into the face under the brow, angled forward, with a dark rim and a catchlight
-      const skullR = [p.headSize*0.4, p.headSize*0.3, p.headSize*0.4]; // the old skull ellipsoid, still used to seat the ears
-      const skullCY = p.headSize*0.1;
+      const skullCY = p.headSize*0.1; // middle height of the skull, for seating the ears
       [1, -1].forEach(side => {
         const th = side > 0 ? 0.86 : Math.PI * 2 - 0.86, ez = 0.2 * h; // on the front of the face, tucked under the brow
         const at = surfaceAt(skullSt, ez, th), n = surfaceNormal(skullSt, ez, th);
@@ -636,6 +648,7 @@
         eye.position.copy(at).addScaledVector(n, h * 0.004);
         eye.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), look);
         eye.rotateZ(side * 0.28); // outer corner a little higher
+        eye.scale.setScalar(p.eyeSize);
         headJoint.add(eye);
         createBone(eyeGeo, matDark, eye, [h * 0.1, h * 0.066, h * 0.03], [0, 0, 0]);
         createBone(eyeGeo, matEye, eye, [h * 0.08, h * 0.054, h * 0.03], [0, 0, h * 0.006]);
@@ -654,9 +667,10 @@
       [1, -1].forEach(side => {
         const hinge = new THREE.Group();
         // Hinge sits just inside the low-poly skull surface so the ear root is buried, not perched on top
-        const hx = p.headSize * (0.27 + 0.07 * flop), hz = -p.headSize * (0.08 + 0.04 * flop);
-        const surf = Math.sqrt(Math.max(0, 1 - (hx / skullR[0]) ** 2 - (hz / skullR[2]) ** 2));
-        hinge.position.set(side * hx, skullCY + skullR[1] * surf * 0.85, hz);
+        const hx = p.headSize * (0.27 + 0.07 * flop) * p.skullW, hz = -p.headSize * (0.08 + 0.04 * flop);
+        let seat = surfaceAt(skullSt, hz, 0);
+        for (let k = 1; k <= 40; k++) { const q = surfaceAt(skullSt, hz, k / 40 * Math.PI / 2); if (q.x >= hx) { seat = q; break; } }
+        hinge.position.set(side * hx, skullCY + (seat.y - skullCY) * 0.9, hz); // root just inside the surface
         hinge.rotation.set(-0.15 - ps.poseEars, -side * twist, -side * swing, 'XZY');
         headJoint.add(hinge);
         const base = coat(new THREE.Mesh(earGeo(flop, earL, earW, -0.05 - 0.25 * (1 - flop), 0.5, earThick, 0), matCoat), 'ear', hinge, { L: earL, uOff: 0, side });
@@ -812,7 +826,10 @@
           break;
         }
         case 'head': case 'muzzle':
-          i.hx = fp.x / h; i.hy = fp.y / h; i.hz = fp.z / h;
+          // measured relative to the skull's own height and width, so markings stay put on taller or wider heads
+          i.hx = fp.x / h / (c.region === 'head' ? p.skullW : 1);
+          i.hy = fp.y / h / (c.region === 'head' && fp.y > 0 ? p.foreHead ** 1.35 : 1);
+          i.hz = fp.z / h;
           i.mz = (fp.z - (c.mz0 !== undefined ? c.mz0 : h * 0.2)) / (c.mzLen || p.snoutLen);
           i.jaw = !!c.jaw;
           i.np.x += 50;
@@ -1116,7 +1133,7 @@
       // 3. Cheek fluff sweeping back from the sides of the head (kept clear of the eyes)
       if (p.furCheek > 0.02) {
         const rng = mulberry32(202);
-        const center = new THREE.Vector3(0, h * 0.1, 0), radii = [h * 0.4, h * 0.3, h * 0.4];
+        const center = new THREE.Vector3(0, h * 0.1, 0), radii = [h * 0.4 * p.skullW, h * 0.3, h * 0.4];
         for (let k = 0; k < 16; k++) {
           const d = randomDir(rng, d => Math.abs(d.x) > 0.55 && d.y < 0.3 && d.z < 0.3);
           const { p: at, n } = ellipsoidPoint(center, radii, d);
@@ -1241,7 +1258,7 @@
     }
 
     // --- UI LOGIC ---
-    const inputs = ['bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
+    const inputs = ['bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'foreHead', 'stopDepth', 'skullW', 'muzzleW', 'muzzleTip', 'muzzleD', 'eyeSize', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
 
     function readPoseInputs() {
       poseInputs.forEach(id => {
@@ -1473,10 +1490,10 @@
 
     window.applyPreset = function(type) {
       const presets = {
-        husky:    { c1: "#8C5A35", c2: "#E8DCC4", c3: "#2b2420", pattern: 'husky', p: { bodyLen: 1.8, chestSize: 1.0, pelvisSize: 0.8, neckLen: 0.8, headSize: 0.9, snoutLen: 0.8, earSize: 0.45, earDroop: 0.0, legScale: 1.4, boneThick: 0.16, tailBase: 0.5, tailLen: 1.2, tailCurl: 0.2, furShag: 0.3, furRuff: 0.6, furCheek: 0.4, furTail: 0.7, furLegs: 0.3, furBody: 0.3 } },
-        malamute: { c1: "#4a4a52", c2: "#ffffff", c3: "#1d1d22", pattern: 'husky', p: { bodyLen: 2.1, chestSize: 1.2, pelvisSize: 1.0, neckLen: 0.7, headSize: 1.1, snoutLen: 0.7, earSize: 0.35, earDroop: 0.0, legScale: 1.3, boneThick: 0.22, tailBase: 0.6, tailLen: 1.1, tailCurl: 0.4, furShag: 0.5, furRuff: 0.9, furCheek: 0.6, furTail: 0.9, furLegs: 0.5, furBody: 0.5 } },
-        hound:    { c1: "#a8682f", c2: "#f3ece0", c3: "#1f1b18", pattern: 'tricolor', p: { bodyLen: 1.9, chestSize: 1.1, pelvisSize: 0.75, neckLen: 0.8, headSize: 0.85, snoutLen: 1.0, earSize: 0.6, earDroop: 1.0, legScale: 1.3, boneThick: 0.15, tailBase: -0.3, tailLen: 1.4, tailCurl: -0.2, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0 } },
-        mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
+        husky:    { c1: "#8C5A35", c2: "#E8DCC4", c3: "#2b2420", pattern: 'husky', p: { bodyLen: 1.8, chestSize: 1.0, pelvisSize: 0.8, neckLen: 0.8, headSize: 0.9, snoutLen: 0.8, foreHead: 1.0, stopDepth: 0.5, skullW: 1.0, muzzleW: 0.95, muzzleTip: 1.0, muzzleD: 0.95, eyeSize: 1.0, earSize: 0.45, earDroop: 0.0, legScale: 1.4, boneThick: 0.16, tailBase: 0.5, tailLen: 1.2, tailCurl: 0.2, furShag: 0.3, furRuff: 0.6, furCheek: 0.4, furTail: 0.7, furLegs: 0.3, furBody: 0.3 } },
+        malamute: { c1: "#4a4a52", c2: "#ffffff", c3: "#1d1d22", pattern: 'husky', p: { bodyLen: 2.1, chestSize: 1.2, pelvisSize: 1.0, neckLen: 0.7, headSize: 1.1, snoutLen: 0.7, foreHead: 1.1, stopDepth: 0.45, skullW: 1.2, muzzleW: 1.25, muzzleTip: 1.2, muzzleD: 1.15, eyeSize: 0.85, earSize: 0.35, earDroop: 0.0, legScale: 1.3, boneThick: 0.22, tailBase: 0.6, tailLen: 1.1, tailCurl: 0.4, furShag: 0.5, furRuff: 0.9, furCheek: 0.6, furTail: 0.9, furLegs: 0.5, furBody: 0.5 } },
+        hound:    { c1: "#a8682f", c2: "#f3ece0", c3: "#1f1b18", pattern: 'tricolor', p: { bodyLen: 1.9, chestSize: 1.1, pelvisSize: 0.75, neckLen: 0.8, headSize: 0.85, snoutLen: 1.0, foreHead: 1.15, stopDepth: 0.35, skullW: 0.85, muzzleW: 1.05, muzzleTip: 1.15, muzzleD: 1.4, eyeSize: 1.1, earSize: 0.6, earDroop: 1.0, legScale: 1.3, boneThick: 0.15, tailBase: -0.3, tailLen: 1.4, tailCurl: -0.2, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0 } },
+        mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, foreHead: 1.45, stopDepth: 0.8, skullW: 1.05, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.9, eyeSize: 1.2, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
       };
 
       const pr = presets[type];
