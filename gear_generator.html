@@ -1063,6 +1063,61 @@
           }
           g.add(F);
         }
+      },
+
+      // Trails symbol: a signpost with arrow boards, built to read clearly as a silhouette (no overlapping
+      // parts in the front view), plus variants with a spruce or a summit flag.
+      trailSign: {
+        label: 'Trail Sign', group: 'Symbols',
+        colors: { post: ['Post', '#6B4A2B'], boards: ['Boards', '#C9A06A'], tree: ['Spruce / peak', '#2F5A3F'], flag: ['Flag', '#C8423B'] },
+        variants: ['Signpost', 'Signpost and spruce', 'Summit flag'],
+        build(g, c, v) {
+          const postM = mat(c.post, { roughness: 0.95 }), boardM = mat(c.boards, { roughness: 0.85 });
+          const carve = mat(new THREE.Color(c.boards).multiplyScalar(0.6)), snow = mat('#F2F6FA', { roughness: 1 });
+          if (v === 'Summit flag') {
+            // two faceted peaks with snowcaps and a flag planted on the top
+            const rock = mat(c.tree, { roughness: 0.9 });
+            add(g, new THREE.ConeGeometry(0.5, 0.95, 5), rock, [-0.08, 0.475, 0], [0, 0.3, 0]);
+            add(g, new THREE.ConeGeometry(0.36, 0.6, 5), mat(new THREE.Color(c.tree).multiplyScalar(0.8)), [0.38, 0.3, -0.1], [0, 0.9, 0]);
+            add(g, new THREE.ConeGeometry(0.17, 0.3, 5), snow, [-0.08, 0.81, 0], [0, 0.3, 0]);
+            add(g, new THREE.ConeGeometry(0.1, 0.17, 5), snow, [0.38, 0.52, -0.1], [0, 0.9, 0]);
+            add(g, cyl(0.009, 0.009, 0.42, 6), postM, [-0.08, 1.15, 0]);
+            const flagGeo = new THREE.PlaneGeometry(0.26, 0.16, 4, 1), fp = flagGeo.attributes.position;
+            for (let i = 0; i < fp.count; i++) { const t = (fp.getX(i) + 0.13) / 0.26; fp.setXYZ(i, fp.getX(i) + 0.13, fp.getY(i) - t * t * 0.03, Math.sin(t * 4) * 0.02 * t); }
+            flagGeo.computeVertexNormals();
+            add(g, flagGeo, mat(c.flag, { side: THREE.DoubleSide }), [-0.07, 1.27, 0]);
+            return;
+          }
+          // the post, capped with snow, standing in a little drift
+          add(g, cyl(0.045, 0.05, 1.0, 6), postM, [0, 0.5, 0]);
+          add(g, new THREE.ConeGeometry(0.06, 0.07, 6), postM, [0, 1.035, 0]);
+          add(g, ico(1, 1), snow, [0, 1.05, 0], [0, 0, 0], [0.06, 0.03, 0.06]);
+          add(g, ico(1, 1), snow, [0, 0, 0], [0, 0.4, 0], [0.22, 0.07, 0.18]);
+          // arrow boards: a plank with a pointed end; the square tail stays hidden behind the post
+          const arrow = (y, dir, len, tilt) => {
+            const h = 0.13, sh = new THREE.Shape([[-0.025, -h / 2], [len - h * 0.55, -h / 2], [len, 0], [len - h * 0.55, h / 2], [-0.025, h / 2]].map(([x, yy]) => new THREE.Vector2(x, yy)));
+            const geo = new THREE.ExtrudeGeometry(sh, { depth: 0.028, bevelEnabled: false });
+            geo.translate(0, 0, -0.014);
+            const B = new THREE.Group();
+            B.position.set(0, y, 0.055);
+            B.rotation.set(0, dir > 0 ? 0 : Math.PI, dir * tilt);
+            g.add(B);
+            add(B, geo, boardM);
+            [1, -1].forEach(sd => add(B, box(len * 0.55, 0.012, 0.004), carve, [len * 0.4, 0.015, sd * 0.016])); // carved lines on both faces
+            add(B, box(len * 0.7, 0.014, 0.03), snow, [len * 0.38, h / 2 + 0.006, 0]);                          // a thin line of snow along the top
+            add(B, cyl(0.008, 0.008, 0.012, 6), metal('#3A3A3F'), [0, 0, 0.018], [Math.PI / 2, 0, 0]);           // nail
+          };
+          if (v === 'Signpost') {
+            arrow(0.86, 1, 0.42, 0.05); arrow(0.68, -1, 0.38, 0.06); arrow(0.5, 1, 0.34, -0.04);
+          } else {
+            arrow(0.88, -1, 0.4, 0.05); arrow(0.7, 1, 0.4, 0.04); arrow(0.52, 1, 0.32, -0.05);
+            // a spruce beside the post, short enough to stay clear of the boards in silhouette
+            const sp = mat(c.tree, { roughness: 0.9 });
+            add(g, cyl(0.025, 0.03, 0.12, 6), postM, [-0.52, 0.06, -0.05]);
+            [[0.27, 0.32, 0.2], [0.21, 0.27, 0.38], [0.15, 0.23, 0.53], [0.09, 0.18, 0.66]].forEach(([r, h, y]) => add(g, new THREE.ConeGeometry(r, h, 7), sp, [-0.52, y, -0.05]));
+            add(g, ico(1, 1), snow, [-0.52, 0.02, -0.05], [0, 0, 0], [0.24, 0.05, 0.2]);
+          }
+        }
       }
     };
 
