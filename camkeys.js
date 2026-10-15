@@ -91,7 +91,8 @@ function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {})
 
 // Left-drag turns the camera around whatever is under the cursor when the drag starts.
 // pickTargets() returns the objects that can be clicked on (ground, characters, trees...).
-function enableClickOrbit(camera, controls, pickTargets, { speed = 0.005 } = {}) {
+// pivot(), if given, can return a point to turn around instead (null = the point under the cursor).
+function enableClickOrbit(camera, controls, pickTargets, { speed = 0.005, pivot = null } = {}) {
   controls.enableRotate = false; // we do the turning; OrbitControls keeps pan + zoom
   // OrbitControls' own up/down limits would yank the camera when looking up; we stop flips ourselves
   controls.minPolarAngle = 0;
@@ -120,7 +121,7 @@ function enableClickOrbit(camera, controls, pickTargets, { speed = 0.005 } = {})
   el.addEventListener('pointerdown', e => {
     // Shift/Ctrl + left-drag still pans (OrbitControls)
     if (e.button !== 0 || e.shiftKey || e.ctrlKey || e.metaKey) return;
-    drag = { pivot: pivotAt(e), x: e.clientX, y: e.clientY, id: e.pointerId };
+    drag = { pivot: (pivot && pivot()) || pivotAt(e), x: e.clientX, y: e.clientY, id: e.pointerId };
     el.setPointerCapture(e.pointerId);
   });
 

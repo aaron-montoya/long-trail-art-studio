@@ -9,6 +9,10 @@
     #canvas-container { flex: 1 1 auto; min-width: 0; height: 100vh; position: relative; background: #111; }
     #canvas-container canvas { display: block; }
     #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #focusBadge {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; display: none; pointer-events: none;
+      background: rgba(14, 14, 21, 0.85); border: 1px solid #818cf8; color: #e0e0ff; border-radius: 14px; padding: 5px 14px; font-size: 0.8rem;
+    }
 
     #ui-panel {
       flex: 0 0 390px; box-sizing: border-box; height: 100vh; overflow-y: auto;
@@ -227,7 +231,7 @@
       <span class="grow"></span>
       <button class="primary" id="saveCard"><i data-icon="image"></i>Save Card PNG</button>
     </div>
-    <div id="canvas-container"><canvas id="overlay"></canvas></div>
+    <div id="canvas-container"><canvas id="overlay"></canvas><div id="focusBadge"></div></div>
     <div class="camstrip">
       <button class="primary" id="resetView" title="Back to the last chosen viewpoint"><i data-icon="reset"></i>Reset View</button>
       <span class="sep"></span>
@@ -238,7 +242,7 @@
       <span class="sep"></span>
       <label>Lens <input type="range" id="fov" min="20" max="75" step="1" value="45"> <span class="val-display" id="fov-val">45</span></label>
       <span class="grow"></span>
-      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan</span>
+      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan &middot; <b>.</b> focus on the picked model</span>
     </div>
   </div>
 
@@ -258,7 +262,8 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     const cameraKeys = enableCameraKeys(camera, controls, { speed: 6 }); // WASD + Q/E
-    enableClickOrbit(camera, controls, () => [env, modelGroup, cloudGroup]); // drag turns around the point you clicked
+    // drag turns around the point you clicked, or around the focused model (press . with a model picked)
+    enableClickOrbit(camera, controls, () => [env, modelGroup, cloudGroup], { pivot: () => focusOn ? focusCenter() : null });
 
     function fitRenderer() {
       const w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
@@ -1068,6 +1073,7 @@
 
     // ================= CAMERA =================
     function applyCamera(key) {
+      endFocus();
       const c = camPresets[key];
       if (!c) return;
       camera.position.copy(c.pos);
@@ -1190,7 +1196,8 @@
       const r = canvasContainer.getBoundingClientRect(), i = layerAt(e.clientX - r.left, e.clientY - r.top);
       if (i < 0) {
         const m = modelAt(e);
-        if (m < 0) return;
+        if (m < 0) { if (focusOn) clickOff = { x: e.clientX, y: e.clientY }; return; } // a click off the model ends focus (a drag still orbits)
+        if (focusOn && models[m] !== focusOn.M) endFocus();
         selModel = m;
         dragModel = m;
         refreshModelUI();
@@ -1216,7 +1223,11 @@
       L.x = dragging.ox + (e.clientX - dragging.sx) / fr.w;
       L.y = dragging.oy + (e.clientY - dragging.sy) / fr.h;
     });
-    window.addEventListener('pointerup', () => { dragging = null; dragModel = null; });
+    window.addEventListener('pointerup', e => {
+      dragging = null; dragModel = null;
+      if (clickOff && Math.hypot(e.clientX - clickOff.x, e.clientY - clickOff.y) < 5) endFocus();
+      clickOff = null;
+    });
     canvasContainer.addEventListener('wheel', e => {
       const r = canvasContainer.getBoundingClientRect(), i = layerAt(e.clientX - r.left, e.clientY - r.top);
       if (i < 0) {
@@ -1445,6 +1456,7 @@
     });
     $('modelRemove').addEventListener('click', () => {
       const M = models[selModel]; if (!M) return;
+      if (focusOn && focusOn.M === M) endFocus();
       modelGroup.remove(M.object);
       clearRig(M.rig);
       modelFxGroup.remove(M.rig);
@@ -1769,6 +1781,40 @@
     $('silReroll').addEventListener('click', () => { silSeed = 1 + Math.floor(Math.random() * 100000); refreshSilBackground(); });
     $('aspect').addEventListener('change', () => { if ($('silBackground').checked) refreshSilBackground(); });
 
+    // ================= FOCUS ON A MODEL =================
+    // Pick a model and press . : the camera glides over to frame it, then dragging orbits around it and the
+    // scroll wheel zooms toward it, even after moving it, until you click empty space or pick another model.
+    let focusOn = null, clickOff = null; // the model being orbited (and its glide), a pending click off it
+    const focusCenter = () => focusOn.M.sphere.center.clone();
+    function focusSelected() {
+      const M = models[selModel];
+      if (!M || !M.sphere) return;
+      const c = M.sphere.center, fr = frameRect(), dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      // keep the viewing angle; back off until the model fills about 60% of the card's height
+      const d = Math.max(M.sphere.radius * canvasContainer.clientHeight / (0.6 * fr.h * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)), camera.near * 4);
+      focusOn = { M, from: camera.position.clone(), fromT: controls.target.clone(), offset: dir.multiplyScalar(-d), t: 0 }; // offset: camera from model
+      $('focusBadge').textContent = `Orbiting ${M.name} \u00b7 click empty space to stop`;
+      $('focusBadge').style.display = 'block';
+    }
+    function endFocus() {
+      if (!focusOn) return;
+      focusOn = null;
+      $('focusBadge').style.display = 'none';
+    }
+    // every frame: glide in, then keep the orbit center on the model (it may have been dragged or turned)
+    function stepFocus(dt) {
+      if (!focusOn) return;
+      const c = focusCenter();
+      if (focusOn.t < 1) {
+        focusOn.t = Math.min(1, focusOn.t + dt / 0.45);
+        const k = 1 - (1 - focusOn.t) ** 3; // ease out
+        camera.position.lerpVectors(focusOn.from, c.clone().add(focusOn.offset), k); // follows the model if it moves mid-glide
+        controls.target.lerpVectors(focusOn.fromT, c, k);
+        if (focusOn.t === 1) { buildSnow(); buildFx(); } // snow and glints are built around the camera
+      } else controls.target.copy(c);
+    }
+
     // ================= EXPORT =================
     // Renders exactly what's inside the frame guide at print size, then paints the character layers on top.
     function exportCard() {
@@ -1870,6 +1916,7 @@
     window.addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) return;
       if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
+      if (e.key === '.' || e.code === 'NumpadDecimal') focusSelected();
     });
 
     fitRenderer();
@@ -1879,10 +1926,14 @@
     selectBiome('snowfield');
 
     // ================= RENDER LOOP =================
+    let lastFrame = performance.now();
     function animate() {
       requestAnimationFrame(animate);
       if (window.studioPaused) return; // hidden tab in the Art Studio
       cameraKeys();
+      const now = performance.now();
+      stepFocus(Math.min(0.1, (now - lastFrame) / 1000));
+      lastFrame = now;
       controls.update();
       skyGroup.position.copy(camera.position);
       // keep the sun's shadow box centered on what the camera is looking at

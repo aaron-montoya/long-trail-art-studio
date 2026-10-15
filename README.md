@@ -26,6 +26,8 @@ jump to a section, or use **Expand** / **Collapse**. Each tab remembers which se
 2. Click **Send to Scene**. The 3D model appears on the trail in the Scenes tab with the scene's lighting and shadows.
 3. Drag it into place (scroll over it to turn it; Turn, Tilt, Roll and Raise sliders set any angle), pick the scene, event or time of day, and camera.
    Line up the shot with **W A S D** (move), **E / Q** (up / down), **arrow keys** (look around) and **Shift** (faster).
+   Click a model and press **.** to frame it: dragging then orbits around that model (and scrolling zooms toward it)
+   until you click empty space or pick another model.
    Drag to turn the view around the point you clicked, right-drag to pan, scroll to zoom. The camera bar under the
    view has **Reset View**, the preset viewpoints and the lens.
 4. To make a model stand out, use **Outline & effects** under the model sliders: an outline in any color, plus glow,
