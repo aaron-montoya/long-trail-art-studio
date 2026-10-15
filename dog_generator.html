@@ -61,6 +61,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
+  <script src="panel.js"></script>
   <script src="camkeys.js"></script>
   <script src="silhouette.js"></script>
   <link rel="stylesheet" href="studio.css">
@@ -84,8 +85,7 @@
       <button id="randomizeColors"><i data-icon="palette"></i>Colors & Pattern</button>
     </div>
 
-    <!-- POSE -->
-    <details open>
+    <details data-cat="shape" open>
       <summary>Pose</summary>
       <div class="details-content">
         <div class="pose-btns">
@@ -113,8 +113,44 @@
       </div>
     </details>
 
-    <!-- COLORS -->
-    <details open>
+    <details data-cat="shape">
+      <summary>Body</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Torso Length <span class="val-display" id="bodyLen-val">1.80</span></label><input type="range" id="bodyLen" min="1.4" max="2.4" step="0.1" value="1.8"></div>
+        <div class="control-group"><label>Chest Girth <span class="val-display" id="chestSize-val">0.90</span></label><input type="range" id="chestSize" min="0.7" max="1.3" step="0.05" value="0.9"></div>
+        <div class="control-group"><label>Pelvis Width <span class="val-display" id="pelvisSize-val">0.80</span></label><input type="range" id="pelvisSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
+      </div>
+    </details>
+
+    <details data-cat="shape">
+      <summary>Head & Face</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Neck Length <span class="val-display" id="neckLen-val">0.70</span></label><input type="range" id="neckLen" min="0.4" max="1.1" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Skull Size <span class="val-display" id="headSize-val">0.80</span></label><input type="range" id="headSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
+        <div class="control-group"><label>Snout Length <span class="val-display" id="snoutLen-val">0.70</span></label><input type="range" id="snoutLen" min="0.4" max="1.2" step="0.1" value="0.7"></div>
+        <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.2" max="1.0" step="0.05" value="0.4"></div>
+        <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0"></div>
+      </div>
+    </details>
+
+    <details data-cat="shape">
+      <summary>Legs</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Leg Height <span class="val-display" id="legScale-val">1.20</span></label><input type="range" id="legScale" min="0.8" max="1.8" step="0.1" value="1.2"></div>
+        <div class="control-group"><label>Bone Thickness <span class="val-display" id="boneThick-val">0.15</span></label><input type="range" id="boneThick" min="0.1" max="0.25" step="0.01" value="0.15"></div>
+      </div>
+    </details>
+
+    <details data-cat="shape">
+      <summary>Tail</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Tail Base Angle <span class="val-display" id="tailBase-val">0.50</span></label><input type="range" id="tailBase" min="-1.5" max="1.5" step="0.1" value="0.5"></div>
+        <div class="control-group"><label>Tail Length <span class="val-display" id="tailLen-val">1.00</span></label><input type="range" id="tailLen" min="0.3" max="1.8" step="0.1" value="1.0"></div>
+        <div class="control-group"><label>Tail Curl <span class="val-display" id="tailCurl-val">0.30</span></label><input type="range" id="tailCurl" min="-0.8" max="1.0" step="0.1" value="0.3"></div>
+      </div>
+    </details>
+
+    <details data-cat="color" open>
       <summary>Colors & Pattern</summary>
       <div class="details-content">
         <div class="control-group">
@@ -131,8 +167,7 @@
       </div>
     </details>
 
-    <!-- FUR -->
-    <details open>
+    <details data-cat="color" open>
       <summary>Fur</summary>
       <div class="details-content">
         <div class="control-group"><label>Shagginess <span class="val-display" id="furShag-val">0.30</span></label><input type="range" id="furShag" min="0" max="1" step="0.05" value="0.3"></div>
@@ -144,49 +179,7 @@
       </div>
     </details>
 
-    <!-- CORE BODY -->
-    <details>
-      <summary>Body</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Torso Length <span class="val-display" id="bodyLen-val">1.80</span></label><input type="range" id="bodyLen" min="1.4" max="2.4" step="0.1" value="1.8"></div>
-        <div class="control-group"><label>Chest Girth <span class="val-display" id="chestSize-val">0.90</span></label><input type="range" id="chestSize" min="0.7" max="1.3" step="0.05" value="0.9"></div>
-        <div class="control-group"><label>Pelvis Width <span class="val-display" id="pelvisSize-val">0.80</span></label><input type="range" id="pelvisSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
-      </div>
-    </details>
-
-    <!-- HEAD & FACE -->
-    <details>
-      <summary>Head & Face</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Neck Length <span class="val-display" id="neckLen-val">0.70</span></label><input type="range" id="neckLen" min="0.4" max="1.1" step="0.1" value="0.7"></div>
-        <div class="control-group"><label>Skull Size <span class="val-display" id="headSize-val">0.80</span></label><input type="range" id="headSize" min="0.6" max="1.1" step="0.05" value="0.8"></div>
-        <div class="control-group"><label>Snout Length <span class="val-display" id="snoutLen-val">0.70</span></label><input type="range" id="snoutLen" min="0.4" max="1.2" step="0.1" value="0.7"></div>
-        <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.2" max="1.0" step="0.05" value="0.4"></div>
-        <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0"></div>
-      </div>
-    </details>
-
-    <!-- LEGS -->
-    <details>
-      <summary>Legs</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Leg Height <span class="val-display" id="legScale-val">1.20</span></label><input type="range" id="legScale" min="0.8" max="1.8" step="0.1" value="1.2"></div>
-        <div class="control-group"><label>Bone Thickness <span class="val-display" id="boneThick-val">0.15</span></label><input type="range" id="boneThick" min="0.1" max="0.25" step="0.01" value="0.15"></div>
-      </div>
-    </details>
-
-    <!-- TAIL -->
-    <details>
-      <summary>Tail</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Tail Base Angle <span class="val-display" id="tailBase-val">0.50</span></label><input type="range" id="tailBase" min="-1.5" max="1.5" step="0.1" value="0.5"></div>
-        <div class="control-group"><label>Tail Length <span class="val-display" id="tailLen-val">1.00</span></label><input type="range" id="tailLen" min="0.3" max="1.8" step="0.1" value="1.0"></div>
-        <div class="control-group"><label>Tail Curl <span class="val-display" id="tailCurl-val">0.30</span></label><input type="range" id="tailCurl" min="-0.8" max="1.0" step="0.1" value="0.3"></div>
-      </div>
-    </details>
-
-    <!-- SILHOUETTE CARD -->
-    <details open>
+    <details data-cat="card">
       <summary>Silhouette Card</summary>
       <div class="details-content">
         <div class="fx-row"><div class="control-group"><label class="check"><input type="checkbox" id="silhouette"> Silhouette (all one color)</label></div><input type="color" id="silColor" value="#000000" title="Silhouette color"></div>
@@ -202,8 +195,7 @@
       </div>
     </details>
 
-    <!-- SCENE & LIGHTING -->
-    <details>
+    <details data-cat="scene">
       <summary>Background & Sun</summary>
       <div class="details-content">
         <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>

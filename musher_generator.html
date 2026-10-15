@@ -53,6 +53,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
+  <script src="panel.js"></script>
   <script src="camkeys.js"></script>
   <link rel="stylesheet" href="studio.css">
 </head>
@@ -75,8 +76,7 @@
       <button id="randomizeOutfit"><i data-icon="palette"></i>Outfit Only</button>
     </div>
 
-    <!-- POSE -->
-    <details open>
+    <details data-cat="shape" open>
       <summary>Pose</summary>
       <div class="details-content">
         <div class="pose-btns">
@@ -98,8 +98,19 @@
       </div>
     </details>
 
-    <!-- FACE -->
-    <details open>
+    <details data-cat="shape">
+      <summary>Body</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Height <span class="val-display" id="height-val">1.00</span></label><input type="range" id="height" min="0.8" max="1.2" step="0.01" value="1"></div>
+        <div class="control-group"><label>Bulk / Puffiness <span class="val-display" id="bulk-val">1.00</span></label><input type="range" id="bulk" min="0.8" max="1.4" step="0.01" value="1"></div>
+        <div class="control-group"><label>Head Size <span class="val-display" id="headSize-val">1.00</span></label><input type="range" id="headSize" min="0.8" max="1.4" step="0.01" value="1"></div>
+        <div class="control-group"><label>Leg Length <span class="val-display" id="legLen-val">1.00</span></label><input type="range" id="legLen" min="0.8" max="1.2" step="0.01" value="1"></div>
+        <div class="control-group"><label>Shoulder Width <span class="val-display" id="shoulders-val">1.00</span></label><input type="range" id="shoulders" min="0.8" max="1.15" step="0.01" value="1"></div>
+        <div class="control-group"><label>Arm Length <span class="val-display" id="armLen-val">1.00</span></label><input type="range" id="armLen" min="0.85" max="1.15" step="0.01" value="1"></div>
+      </div>
+    </details>
+
+    <details data-cat="color" open>
       <summary>Face & Hair</summary>
       <div class="details-content">
         <div class="color-grid">
@@ -128,8 +139,7 @@
       </div>
     </details>
 
-    <!-- HEADWEAR -->
-    <details open>
+    <details data-cat="color" open>
       <summary>Headwear</summary>
       <div class="details-content">
         <div class="control-group"><label>Style</label>
@@ -148,8 +158,7 @@
       </div>
     </details>
 
-    <!-- OUTFIT -->
-    <details open>
+    <details data-cat="color" open>
       <summary>Outfit</summary>
       <div class="details-content">
         <div class="control-group"><label>Parka Style</label>
@@ -171,8 +180,17 @@
       </div>
     </details>
 
-    <!-- BIB -->
-    <details open>
+    <details data-cat="color">
+      <summary>Sled Colors</summary>
+      <div class="details-content color-grid">
+        <div class="control-group"><label>Wood</label><input type="color" id="colSledWood" value="#B07A45"></div>
+        <div class="control-group"><label>Runners</label><input type="color" id="colSledRunner" value="#2B2B30"></div>
+        <div class="control-group"><label>Sled Bag</label><input type="color" id="colSledBag" value="#B8322A"></div>
+        <button class="wide-btn" id="randomizeSled" style="grid-column: 1 / -1;"><i data-icon="dice"></i>Randomize Sled Colors</button>
+      </div>
+    </details>
+
+    <details data-cat="text" open>
       <summary>Race Bib</summary>
       <div class="details-content">
         <div class="control-group"><label class="check"><input type="checkbox" id="showBib" checked> Show race bib</label></div>
@@ -184,32 +202,7 @@
       </div>
     </details>
 
-    <!-- SLED -->
-    <details>
-      <summary>Sled Colors</summary>
-      <div class="details-content color-grid">
-        <div class="control-group"><label>Wood</label><input type="color" id="colSledWood" value="#B07A45"></div>
-        <div class="control-group"><label>Runners</label><input type="color" id="colSledRunner" value="#2B2B30"></div>
-        <div class="control-group"><label>Sled Bag</label><input type="color" id="colSledBag" value="#B8322A"></div>
-        <button class="wide-btn" id="randomizeSled" style="grid-column: 1 / -1;"><i data-icon="dice"></i>Randomize Sled Colors</button>
-      </div>
-    </details>
-
-    <!-- BODY -->
-    <details>
-      <summary>Body</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Height <span class="val-display" id="height-val">1.00</span></label><input type="range" id="height" min="0.8" max="1.2" step="0.01" value="1"></div>
-        <div class="control-group"><label>Bulk / Puffiness <span class="val-display" id="bulk-val">1.00</span></label><input type="range" id="bulk" min="0.8" max="1.4" step="0.01" value="1"></div>
-        <div class="control-group"><label>Head Size <span class="val-display" id="headSize-val">1.00</span></label><input type="range" id="headSize" min="0.8" max="1.4" step="0.01" value="1"></div>
-        <div class="control-group"><label>Leg Length <span class="val-display" id="legLen-val">1.00</span></label><input type="range" id="legLen" min="0.8" max="1.2" step="0.01" value="1"></div>
-        <div class="control-group"><label>Shoulder Width <span class="val-display" id="shoulders-val">1.00</span></label><input type="range" id="shoulders" min="0.8" max="1.15" step="0.01" value="1"></div>
-        <div class="control-group"><label>Arm Length <span class="val-display" id="armLen-val">1.00</span></label><input type="range" id="armLen" min="0.85" max="1.15" step="0.01" value="1"></div>
-      </div>
-    </details>
-
-    <!-- SCENE & LIGHTING -->
-    <details>
+    <details data-cat="scene">
       <summary>Background & Sun</summary>
       <div class="details-content">
         <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>

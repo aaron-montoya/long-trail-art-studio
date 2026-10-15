@@ -44,3 +44,46 @@ button.primary:hover { background: #5b53f0; }
 /* sidebar: two-up action buttons under the presets */
 .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
 .action-row button { background: #4f46e5; border-color: #6366f1; font-weight: bold; padding: 9px 6px; }
+
+/* ---- sidebar sections, color coded by what they change (panel.js adds the find bar) ---- */
+[data-cat="shape"]  { --cat: #60a5fa; }  /* pose, body, item, bands, banner shape */
+[data-cat="color"]  { --cat: #f472b6; }  /* colors, fur, outfits, palettes */
+[data-cat="text"]   { --cat: #22d3ee; }  /* words on banners and bibs */
+[data-cat="card"]   { --cat: #fbbf24; }  /* card mode, outlines, effects, silhouettes, output */
+[data-cat="scene"]  { --cat: #34d399; }  /* sky, weather, landscape, sun and background */
+[data-cat="placed"] { --cat: #fb923c; }  /* models, layers and borders placed in a scene */
+
+#ui-panel details[data-cat] { border-left: 3px solid var(--cat); }
+#ui-panel details[data-cat] > summary {
+  color: color-mix(in srgb, var(--cat) 45%, #fff);
+  background: color-mix(in srgb, var(--cat) 9%, transparent);
+  border-radius: 0 6px 6px 0;
+}
+#ui-panel details[data-cat] > summary:hover { background: color-mix(in srgb, var(--cat) 16%, transparent); }
+#ui-panel details[data-cat][open] > summary { border-radius: 0 6px 0 0; }
+#ui-panel details.flash { animation: section-flash 0.9s ease-out; }
+@keyframes section-flash { from { box-shadow: 0 0 0 2px var(--cat); } to { box-shadow: 0 0 0 2px transparent; } }
+
+/* the find bar stays at the top of the sidebar while it scrolls */
+.panel-tools {
+  position: sticky; top: -20px; z-index: 6; margin: -6px -20px 12px; padding: 8px 20px 10px;
+  background: #14141c; border-bottom: 1px solid #2c2c3a;
+}
+.panel-tools .find-row { display: flex; gap: 6px; }
+.panel-tools .panel-find {
+  flex: 1; min-width: 0; box-sizing: border-box; background: #22222e; color: #fff; border: 1px solid #445;
+  border-radius: 5px; padding: 6px 9px; font-size: 0.8rem;
+}
+.panel-tools .panel-find:focus { outline: none; border-color: #818cf8; }
+.panel-tools .tool-btn { padding: 5px 8px; font-size: 0.72rem; background: #22222e; border-color: #3a3a4d; }
+.panel-tools .jump { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.panel-tools .chip-jump {
+  padding: 2px 8px; font-size: 0.7rem; border-radius: 10px; line-height: 1.5;
+  background: color-mix(in srgb, var(--cat) 10%, transparent); color: color-mix(in srgb, var(--cat) 55%, #fff);
+  border: 1px solid color-mix(in srgb, var(--cat) 55%, transparent);
+}
+.panel-tools .chip-jump:hover { background: color-mix(in srgb, var(--cat) 28%, transparent); border-color: var(--cat); }
+
+/* while searching: only the matching settings show */
+#ui-panel .ps-hide, #ui-panel details.ps-none { display: none !important; }
+#ui-panel.ps-search .hint, #ui-panel.ps-search .sub-head { display: none; }

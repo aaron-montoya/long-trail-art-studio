@@ -52,6 +52,7 @@
     #preview { display: block; }
   </style>
   <script src="icons.js"></script>
+  <script src="panel.js"></script>
   <script src="fairisle.js"></script>
   <link rel="stylesheet" href="studio.css">
 </head>
@@ -69,7 +70,7 @@
       <button id="reroll" title="New hand-cut edges and facets"><i data-icon="dice"></i>Reroll Edges</button>
     </div>
 
-    <details open>
+    <details data-cat="text" open>
       <summary>Text</summary>
       <div class="details-content">
         <div class="control-group"><textarea id="text" rows="3">May use a gear to
@@ -81,21 +82,7 @@ gain +1 speed.</textarea></div>
       </div>
     </details>
 
-    <details open>
-      <summary>Colors</summary>
-      <div class="details-content">
-        <div class="btn-grid4" id="lookBtns"></div>
-        <div class="color-grid">
-          <div class="control-group"><label>Banner</label><input type="color" id="fill"></div>
-          <div class="control-group"><label>Shade</label><input type="color" id="shade"></div>
-          <div class="control-group"><label>Outline</label><input type="color" id="outline"></div>
-          <div class="control-group"><label>Text</label><input type="color" id="textColor"></div>
-          <div class="control-group"><label>Text outline</label><input type="color" id="textOutlineColor"></div>
-        </div>
-      </div>
-    </details>
-
-    <details open>
+    <details data-cat="shape" open>
       <summary>Shape</summary>
       <div class="details-content">
         <div class="control-group"><label>Width <span class="val-display" id="aspect-val">4.20</span></label><input type="range" id="aspect" min="0.5" max="8" step="0.05" value="4.2"></div>
@@ -111,7 +98,21 @@ gain +1 speed.</textarea></div>
       </div>
     </details>
 
-    <details open>
+    <details data-cat="color" open>
+      <summary>Colors</summary>
+      <div class="details-content">
+        <div class="btn-grid4" id="lookBtns"></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Banner</label><input type="color" id="fill"></div>
+          <div class="control-group"><label>Shade</label><input type="color" id="shade"></div>
+          <div class="control-group"><label>Outline</label><input type="color" id="outline"></div>
+          <div class="control-group"><label>Text</label><input type="color" id="textColor"></div>
+          <div class="control-group"><label>Text outline</label><input type="color" id="textOutlineColor"></div>
+        </div>
+      </div>
+    </details>
+
+    <details data-cat="card">
       <summary>Fair Isle Trim</summary>
       <div class="details-content">
         <div class="control-group"><label class="check"><input type="checkbox" id="trim"> Knit trim along the edges</label></div>

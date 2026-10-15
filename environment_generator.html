@@ -59,6 +59,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="icons.js"></script>
+  <script src="panel.js"></script>
   <script src="camkeys.js"></script>
   <script src="silhouette.js"></script>
   <link rel="stylesheet" href="studio.css">
@@ -76,62 +77,12 @@
       <button class="primary-btn" id="reseed"><i data-icon="dice"></i>New Layout</button>
     </div>
 
-    <!-- EVENTS -->
-    <details open>
+    <details data-cat="scene" open>
       <summary>Events</summary>
       <div class="details-content"><div class="btn-grid3" id="eventBtns" style="margin-bottom: 0;"></div></div>
     </details>
 
-    <!-- 3D MODELS -->
-    <details open>
-      <summary>3D Models (Dogs, Mushers & Gear)</summary>
-      <div class="details-content">
-        <div class="control-group"><input type="file" id="modelFiles" accept=".glb,.gltf" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
-        <div class="control-group"><select id="modelList" size="4"></select></div>
-        <div class="control-group"><label>Size <span class="val-display" id="modelScale-val">1.00</span></label><input type="range" id="modelScale" min="0.3" max="3" step="0.05" value="1"></div>
-        <div class="control-group"><label>Turn <span class="val-display" id="modelTurn-val">0</span></label><input type="range" id="modelTurn" min="0" max="360" step="1" value="0"></div>
-        <div class="control-group"><label>Tilt <span class="val-display" id="modelTilt-val">0</span></label><input type="range" id="modelTilt" min="-180" max="180" step="1" value="0"></div>
-        <div class="control-group"><label>Roll <span class="val-display" id="modelRoll-val">0</span></label><input type="range" id="modelRoll" min="-180" max="180" step="1" value="0"></div>
-        <div class="control-group"><label>Raise above ground (m) <span class="val-display" id="modelLift-val">0.00</span></label><input type="range" id="modelLift" min="0" max="3" step="0.01" value="0"></div>
-        <div class="row">
-          <button id="modelToTrail"><i data-icon="trail"></i>Onto trail</button>
-          <button id="modelDuplicate"><i data-icon="copy"></i>Duplicate</button>
-          <button id="modelRemove"><i data-icon="close"></i>Remove</button>
-        </div>
-        <div class="sub-head">Outline &amp; effects</div>
-        <div class="btn-grid3" id="modelLookBtns"></div>
-        <div class="fx-row"><div class="control-group"><label>Outline <span class="val-display" id="mfxOutline-val">0.00</span></label><input type="range" id="mfxOutline" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxOutlineColor" value="#FFFFFF" title="Outline color"></div>
-        <div class="fx-row"><div class="control-group"><label>Glow <span class="val-display" id="mfxGlow-val">0.00</span></label><input type="range" id="mfxGlow" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxGlowColor" value="#FFFFFF" title="Glow color"></div>
-        <div class="fx-row"><div class="control-group"><label>Sparkles <span class="val-display" id="mfxSparkle-val">0.00</span></label><input type="range" id="mfxSparkle" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxSparkleColor" value="#FFFFFF" title="Sparkles color"></div>
-        <div class="fx-row"><div class="control-group"><label>Focus lines <span class="val-display" id="mfxFocus-val">0.00</span></label><input type="range" id="mfxFocus" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxFocusColor" value="#1D1F26" title="Focus lines color"></div>
-        <div class="fx-row"><div class="control-group"><label>Sunburst <span class="val-display" id="mfxBurst-val">0.00</span></label><input type="range" id="mfxBurst" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxBurstColor" value="#FFFFFF" title="Sunburst color"></div>
-        <div class="fx-row"><div class="control-group"><label>Rings <span class="val-display" id="mfxRings-val">0.00</span></label><input type="range" id="mfxRings" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxRingsColor" value="#FFFFFF" title="Rings color"></div>
-        <div class="row">
-          <button id="mfxReroll" title="New sparkle, sunburst and focus-line layout"><i data-icon="dice"></i>Reroll</button>
-          <button id="mfxAll" title="Give every model in the scene these effects"><i data-icon="copy"></i>Use on all models</button>
-        </div>
-      </div>
-    </details>
-
-    <!-- SILHOUETTE -->
-    <details open>
-      <summary>Silhouette Card</summary>
-      <div class="details-content">
-        <div class="control-group"><label class="check"><input type="checkbox" id="silModels"> Models all black (silhouettes)</label></div>
-        <div class="control-group"><label class="check"><input type="checkbox" id="silBackground"> Low-poly white background (hides the trail, sky and weather)</label></div>
-        <div class="color-grid">
-          <div class="control-group"><label>Silhouette</label><input type="color" id="silColor" value="#000000"></div>
-          <div class="control-group"><label>Background</label><input type="color" id="silBgColor" value="#FFFFFF"></div>
-          <div class="control-group"><label>Facet shade</label><input type="color" id="silShade" value="#C9D2DC"></div>
-        </div>
-        <div class="control-group"><label>Facets across the card <span class="val-display" id="silFacets-val">6</span></label><input type="range" id="silFacets" min="3" max="14" step="1" value="6"></div>
-        <div class="control-group"><label>Texture <span class="val-display" id="silTexture-val">0.50</span></label><input type="range" id="silTexture" min="0" max="1" step="0.05" value="0.5"></div>
-        <button id="silReroll" style="width: 100%;"><i data-icon="dice"></i>New facet layout</button>
-      </div>
-    </details>
-
-    <!-- SKY -->
-    <details open>
+    <details data-cat="scene" open>
       <summary>Time of Day & Sky</summary>
       <div class="details-content">
         <div class="btn-grid3" id="timeBtns"></div>
@@ -148,8 +99,7 @@
       </div>
     </details>
 
-    <!-- WEATHER -->
-    <details open>
+    <details data-cat="scene">
       <summary>Weather</summary>
       <div class="details-content">
         <div class="control-group"><label>Snowfall <span class="val-display" id="snowfall-val">0.15</span></label><input type="range" id="snowfall" min="0" max="1" step="0.05" value="0.15"></div>
@@ -164,8 +114,7 @@
       </div>
     </details>
 
-    <!-- LANDSCAPE -->
-    <details>
+    <details data-cat="scene" data-chip="Landscape">
       <summary>Landscape Details</summary>
       <div class="details-content">
         <div class="control-group"><label>Tree Density <span class="val-display" id="treeDensity-val">1.00</span></label><input type="range" id="treeDensity" min="0" max="1.8" step="0.05" value="1"></div>
@@ -179,8 +128,44 @@
         </div>
       </div>
     </details>
-    <!-- LAYERS -->
-    <details>
+
+    <details data-cat="placed" data-chip="3D Models" open>
+      <summary>3D Models (Dogs, Mushers & Gear)</summary>
+      <div class="details-content">
+        <div class="control-group"><input type="file" id="modelFiles" accept=".glb,.gltf" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
+        <div class="control-group"><select id="modelList" size="4"></select></div>
+        <div class="control-group"><label>Size <span class="val-display" id="modelScale-val">1.00</span></label><input type="range" id="modelScale" min="0.3" max="3" step="0.05" value="1"></div>
+        <div class="control-group"><label>Turn <span class="val-display" id="modelTurn-val">0</span></label><input type="range" id="modelTurn" min="0" max="360" step="1" value="0"></div>
+        <div class="control-group"><label>Tilt <span class="val-display" id="modelTilt-val">0</span></label><input type="range" id="modelTilt" min="-180" max="180" step="1" value="0"></div>
+        <div class="control-group"><label>Roll <span class="val-display" id="modelRoll-val">0</span></label><input type="range" id="modelRoll" min="-180" max="180" step="1" value="0"></div>
+        <div class="control-group"><label>Raise above ground (m) <span class="val-display" id="modelLift-val">0.00</span></label><input type="range" id="modelLift" min="0" max="3" step="0.01" value="0"></div>
+        <div class="row">
+          <button id="modelToTrail"><i data-icon="trail"></i>Onto trail</button>
+          <button id="modelDuplicate"><i data-icon="copy"></i>Duplicate</button>
+          <button id="modelRemove"><i data-icon="close"></i>Remove</button>
+        </div>
+      </div>
+    </details>
+
+    <details data-cat="card" data-chip="Outline & Effects" open>
+      <summary>Model Outline &amp; Effects</summary>
+      <div class="details-content">
+        <div class="hint" style="margin-top: 0;">For the model picked in 3D Models above.</div>
+        <div class="btn-grid3" id="modelLookBtns"></div>
+        <div class="fx-row"><div class="control-group"><label>Outline <span class="val-display" id="mfxOutline-val">0.00</span></label><input type="range" id="mfxOutline" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxOutlineColor" value="#FFFFFF" title="Outline color"></div>
+        <div class="fx-row"><div class="control-group"><label>Glow <span class="val-display" id="mfxGlow-val">0.00</span></label><input type="range" id="mfxGlow" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxGlowColor" value="#FFFFFF" title="Glow color"></div>
+        <div class="fx-row"><div class="control-group"><label>Sparkles <span class="val-display" id="mfxSparkle-val">0.00</span></label><input type="range" id="mfxSparkle" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxSparkleColor" value="#FFFFFF" title="Sparkles color"></div>
+        <div class="fx-row"><div class="control-group"><label>Focus lines <span class="val-display" id="mfxFocus-val">0.00</span></label><input type="range" id="mfxFocus" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxFocusColor" value="#1D1F26" title="Focus lines color"></div>
+        <div class="fx-row"><div class="control-group"><label>Sunburst <span class="val-display" id="mfxBurst-val">0.00</span></label><input type="range" id="mfxBurst" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxBurstColor" value="#FFFFFF" title="Sunburst color"></div>
+        <div class="fx-row"><div class="control-group"><label>Rings <span class="val-display" id="mfxRings-val">0.00</span></label><input type="range" id="mfxRings" min="0" max="1" step="0.05" value="0"></div><input type="color" id="mfxRingsColor" value="#FFFFFF" title="Rings color"></div>
+        <div class="row">
+          <button id="mfxReroll" title="New sparkle, sunburst and focus-line layout"><i data-icon="dice"></i>Reroll</button>
+          <button id="mfxAll" title="Give every model in the scene these effects"><i data-icon="copy"></i>Use on all models</button>
+        </div>
+      </div>
+    </details>
+
+    <details data-cat="placed" data-chip="2D Layers & Border">
       <summary>2D Layers &amp; Card Border</summary>
       <div class="details-content">
         <div class="control-group"><input type="file" id="layerFiles" accept="image/png,image/webp,image/*" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
@@ -203,6 +188,22 @@
           <label class="check" style="align-self: center;"><input type="checkbox" id="borderShow" checked> Show border</label>
           <button id="borderRemove"><i data-icon="close"></i>Remove border</button>
         </div>
+      </div>
+    </details>
+
+    <details data-cat="card">
+      <summary>Silhouette Card</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="silModels"> Models all black (silhouettes)</label></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="silBackground"> Low-poly white background (hides the trail, sky and weather)</label></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Silhouette</label><input type="color" id="silColor" value="#000000"></div>
+          <div class="control-group"><label>Background</label><input type="color" id="silBgColor" value="#FFFFFF"></div>
+          <div class="control-group"><label>Facet shade</label><input type="color" id="silShade" value="#C9D2DC"></div>
+        </div>
+        <div class="control-group"><label>Facets across the card <span class="val-display" id="silFacets-val">6</span></label><input type="range" id="silFacets" min="3" max="14" step="1" value="6"></div>
+        <div class="control-group"><label>Texture <span class="val-display" id="silTexture-val">0.50</span></label><input type="range" id="silTexture" min="0" max="1" step="0.05" value="0.5"></div>
+        <button id="silReroll" style="width: 100%;"><i data-icon="dice"></i>New facet layout</button>
       </div>
     </details>
   </div>

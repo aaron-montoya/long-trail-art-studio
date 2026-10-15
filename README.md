@@ -13,6 +13,13 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 | **Banners** | Text banners: ribbon with folded tails, notched strip, plaque or hanging banner, with arch bend, hand-cut edges, low-poly facets, outline, fonts and an optional Fair Isle trim |
 | **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, a **Silhouette Card** mode (all-black models on a low-poly white background), and card-frame export |
 
+## Finding settings
+
+Every tab's sidebar is color coded by what a section changes: **blue** shape (pose, body, item, bands), **pink** look
+and colors, **cyan** text, **gold** card and effects, **green** scene and light, **orange** things placed in a scene.
+At the top, type in **Find a setting** to show only the matching settings (Esc clears it), click a colored chip to
+jump to a section, or use **Expand** / **Collapse**. Each tab remembers which sections you left open.
+
 ## Making a card
 
 1. Build a dog, musher or gear item.
@@ -73,6 +80,7 @@ Placed models and scene settings aren't saved between visits, so keep your `.jso
 - `fairisle.js`: Fair Isle motifs and the stitch painter, shared by the Borders and Banners tabs
 - `silhouette.js`: the silhouette render and the textured low-poly background, shared by the Dog, Gear and Scenes tabs
 - `camkeys.js`, `studio.css`: shared camera controls and layout
+- `panel.js`: the sidebar's find bar, section chips and remembered open sections
 - `icons.js`: shared SVG icons
 
 Built with [three.js](https://threejs.org/) r128, loaded from a CDN.

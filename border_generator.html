@@ -63,6 +63,7 @@
     #preview { display: block; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45); }
   </style>
   <script src="icons.js"></script>
+  <script src="panel.js"></script>
   <script src="fairisle.js"></script>
   <link rel="stylesheet" href="studio.css">
 </head>
@@ -84,12 +85,31 @@
       <button id="randomColors"><i data-icon="palette"></i>Random Colors</button>
     </div>
 
-    <details open>
+    <details data-cat="shape" open>
       <summary>Border Styles</summary>
       <div class="details-content"><div class="btn-grid3" id="presetBtns" style="margin-bottom: 0;"></div></div>
     </details>
 
-    <details open>
+    <details data-cat="shape" data-chip="Bands" open>
+      <summary>Bands (outer edge first)</summary>
+      <div class="details-content">
+        <div id="bandList"></div>
+        <button id="addBand" style="width: 100%;"><i data-icon="copy"></i>Add band</button>
+      </div>
+    </details>
+
+    <details data-cat="shape" open>
+      <summary>Stitches</summary>
+      <div class="details-content">
+        <div class="control-group"><label>Stitch</label><select id="style"></select></div>
+        <div class="control-group" id="acrossGroup"><label>Stitches across <span class="val-display" id="across-val">140</span></label><input type="range" id="across" min="40" max="260" step="2" value="140" title="Stitches across the card's width: more stitches = smaller ones"></div>
+        <div class="control-group"><label>Facets <span class="val-display" id="facet-val">1.00</span></label><input type="range" id="facet" min="0" max="1.6" step="0.05" value="1"></div>
+        <div class="control-group" id="fabricGroup"><label>Fabric (cross-stitch)</label><input type="color" id="fabric" value="#F4EEE4"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="mirror" checked> Mirror the bands (same from both edges)</label></div>
+      </div>
+    </details>
+
+    <details data-cat="color" open>
       <summary>Colors</summary>
       <div class="details-content">
         <div class="btn-grid4" id="paletteBtns"></div>
@@ -103,26 +123,7 @@
       </div>
     </details>
 
-    <details open>
-      <summary>Stitches</summary>
-      <div class="details-content">
-        <div class="control-group"><label>Stitch</label><select id="style"></select></div>
-        <div class="control-group" id="acrossGroup"><label>Stitches across <span class="val-display" id="across-val">140</span></label><input type="range" id="across" min="40" max="260" step="2" value="140" title="Stitches across the card's width: more stitches = smaller ones"></div>
-        <div class="control-group"><label>Facets <span class="val-display" id="facet-val">1.00</span></label><input type="range" id="facet" min="0" max="1.6" step="0.05" value="1"></div>
-        <div class="control-group" id="fabricGroup"><label>Fabric (cross-stitch)</label><input type="color" id="fabric" value="#F4EEE4"></div>
-        <div class="control-group"><label class="check"><input type="checkbox" id="mirror" checked> Mirror the bands (same from both edges)</label></div>
-      </div>
-    </details>
-
-    <details open>
-      <summary>Bands (outer edge first)</summary>
-      <div class="details-content">
-        <div id="bandList"></div>
-        <button id="addBand" style="width: 100%;"><i data-icon="copy"></i>Add band</button>
-      </div>
-    </details>
-
-    <details open id="layoutBox">
+    <details id="layoutBox" data-cat="card" open>
       <summary>Layout</summary>
       <div class="details-content">
         <div class="frame-only">

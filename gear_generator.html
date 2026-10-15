@@ -50,6 +50,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
+  <script src="panel.js"></script>
   <script src="camkeys.js"></script>
   <script src="silhouette.js"></script>
   <link rel="stylesheet" href="studio.css">
@@ -68,9 +69,27 @@
       <button id="resetColors"><i data-icon="reset"></i>Default Colors</button>
     </div>
 
-    <!-- CARD -->
-    <details open>
-      <summary>Card Background</summary>
+    <details data-cat="shape" data-chip="Item style" open>
+      <summary id="styleTitle">Style</summary>
+      <div class="details-content">
+        <div class="control-group" id="variantGroup"><label>Variant</label><select id="variant"></select></div>
+        <div class="color-grid" id="colorGrid"></div>
+        <div class="control-group" id="glowGroup"><label class="check"><input type="checkbox" id="glow" checked> Light on (glows)</label></div>
+        <div class="control-group" id="steamGroup"><label class="check"><input type="checkbox" id="steam" checked> Steam</label></div>
+      </div>
+    </details>
+
+    <details data-cat="shape" open>
+      <summary>Display</summary>
+      <div class="details-content">
+        <div class="fx-row"><div class="control-group"><label class="check"><input type="checkbox" id="silhouette"> Silhouette (all one color)</label></div><input type="color" id="silColor" value="#000000" title="Silhouette color"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="snowBase"> Sitting in a snow drift</label></div>
+        <div class="control-group"><label>Turn <span class="val-display" id="turn-val">0</span></label><input type="range" id="turn" min="-180" max="180" step="1" value="0"></div>
+      </div>
+    </details>
+
+    <details data-cat="card" open>
+      <summary>Card</summary>
       <div class="details-content">
         <div class="control-group"><label class="check"><input type="checkbox" id="cardMode"> Card mode: background, effects, Save Card PNG</label></div>
         <div id="cardControls" style="display: none;">
@@ -90,43 +109,27 @@
             <div class="control-group"><label>Color 2</label><input type="color" id="cardC2" value="#93AFC6"></div>
           </div>
           <div class="control-group"><label>Item size <span class="val-display" id="cardSize-val">0.70</span></label><input type="range" id="cardSize" min="0.3" max="0.95" step="0.01" value="0.7"></div>
-          <div class="fx-row"><div class="control-group"><label>Outline <span class="val-display" id="fxOutline-val">0.50</span></label><input type="range" id="fxOutline" min="0" max="1" step="0.05" value="0.5"></div><input type="color" id="fxOutlineColor" value="#FFFFFF" title="Outline color"></div>
-          <div class="fx-row"><div class="control-group"><label>Glow <span class="val-display" id="fxGlow-val">0.00</span></label><input type="range" id="fxGlow" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxGlowColor" value="#FFFFFF" title="Glow color"></div>
-          <div class="fx-row"><div class="control-group"><label>Sparkles <span class="val-display" id="fxSparkle-val">0.00</span></label><input type="range" id="fxSparkle" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxSparkleColor" value="#FFFFFF" title="Sparkles color"></div>
-          <div class="fx-row"><div class="control-group"><label>Focus lines <span class="val-display" id="fxFocus-val">0.00</span></label><input type="range" id="fxFocus" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxFocusColor" value="#1D1F26" title="Focus lines color"></div>
-          <div class="fx-row"><div class="control-group"><label>Sunburst <span class="val-display" id="fxBurst-val">0.00</span></label><input type="range" id="fxBurst" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxBurstColor" value="#FFFFFF" title="Sunburst color"></div>
-          <div class="fx-row"><div class="control-group"><label>Rings <span class="val-display" id="fxRings-val">0.00</span></label><input type="range" id="fxRings" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxRingsColor" value="#FFFFFF" title="Rings color"></div>
-          <div class="control-group"><label>Vignette <span class="val-display" id="fxVignette-val">0.25</span></label><input type="range" id="fxVignette" min="0" max="1" step="0.05" value="0.25"></div>
-          <div class="fx-row"><div class="control-group"><label>Border <span class="val-display" id="fxBorder-val">0.40</span></label><input type="range" id="fxBorder" min="0" max="1" step="0.05" value="0.4"></div><input type="color" id="fxBorderColor" value="#FFFFFF" title="Border color"></div>
-          <div class="control-group"><label class="check"><input type="checkbox" id="cardShadow" checked> Soft shadow under the item</label></div>
-          <button id="rerollCard" style="width: 100%;" title="New sparkle and background layout"><i data-icon="dice"></i>Reroll sparkles &amp; pattern</button>
         </div>
       </div>
     </details>
 
-    <!-- STYLE -->
-    <details open>
-      <summary id="styleTitle">Style</summary>
+    <details id="cardFxBox" style="display: none;" data-cat="card" open>
+      <summary>Card Effects</summary>
       <div class="details-content">
-        <div class="control-group" id="variantGroup"><label>Variant</label><select id="variant"></select></div>
-        <div class="color-grid" id="colorGrid"></div>
-        <div class="control-group" id="glowGroup"><label class="check"><input type="checkbox" id="glow" checked> Light on (glows)</label></div>
-        <div class="control-group" id="steamGroup"><label class="check"><input type="checkbox" id="steam" checked> Steam</label></div>
+        <div class="fx-row"><div class="control-group"><label>Outline <span class="val-display" id="fxOutline-val">0.50</span></label><input type="range" id="fxOutline" min="0" max="1" step="0.05" value="0.5"></div><input type="color" id="fxOutlineColor" value="#FFFFFF" title="Outline color"></div>
+        <div class="fx-row"><div class="control-group"><label>Glow <span class="val-display" id="fxGlow-val">0.00</span></label><input type="range" id="fxGlow" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxGlowColor" value="#FFFFFF" title="Glow color"></div>
+        <div class="fx-row"><div class="control-group"><label>Sparkles <span class="val-display" id="fxSparkle-val">0.00</span></label><input type="range" id="fxSparkle" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxSparkleColor" value="#FFFFFF" title="Sparkles color"></div>
+        <div class="fx-row"><div class="control-group"><label>Focus lines <span class="val-display" id="fxFocus-val">0.00</span></label><input type="range" id="fxFocus" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxFocusColor" value="#1D1F26" title="Focus lines color"></div>
+        <div class="fx-row"><div class="control-group"><label>Sunburst <span class="val-display" id="fxBurst-val">0.00</span></label><input type="range" id="fxBurst" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxBurstColor" value="#FFFFFF" title="Sunburst color"></div>
+        <div class="fx-row"><div class="control-group"><label>Rings <span class="val-display" id="fxRings-val">0.00</span></label><input type="range" id="fxRings" min="0" max="1" step="0.05" value="0"></div><input type="color" id="fxRingsColor" value="#FFFFFF" title="Rings color"></div>
+        <div class="control-group"><label>Vignette <span class="val-display" id="fxVignette-val">0.25</span></label><input type="range" id="fxVignette" min="0" max="1" step="0.05" value="0.25"></div>
+        <div class="fx-row"><div class="control-group"><label>Border <span class="val-display" id="fxBorder-val">0.40</span></label><input type="range" id="fxBorder" min="0" max="1" step="0.05" value="0.4"></div><input type="color" id="fxBorderColor" value="#FFFFFF" title="Border color"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="cardShadow" checked> Soft shadow under the item</label></div>
+        <button id="rerollCard" style="width: 100%;" title="New sparkle and background layout"><i data-icon="dice"></i>Reroll sparkles &amp; pattern</button>
       </div>
     </details>
 
-    <!-- DISPLAY -->
-    <details open>
-      <summary>Display</summary>
-      <div class="details-content">
-        <div class="fx-row"><div class="control-group"><label class="check"><input type="checkbox" id="silhouette"> Silhouette (all one color)</label></div><input type="color" id="silColor" value="#000000" title="Silhouette color"></div>
-        <div class="control-group"><label class="check"><input type="checkbox" id="snowBase"> Sitting in a snow drift</label></div>
-        <div class="control-group"><label>Turn <span class="val-display" id="turn-val">0</span></label><input type="range" id="turn" min="-180" max="180" step="1" value="0"></div>
-      </div>
-    </details>
-
-    <!-- SCENE & LIGHTING -->
-    <details>
+    <details data-cat="scene">
       <summary>Background & Sun</summary>
       <div class="details-content">
         <div class="control-group"><label>Background</label><input type="color" id="bgColor" value="#8BA6B5"></div>
@@ -1322,6 +1325,7 @@
       const on = cardOn();
       document.body.classList.toggle('card', on);
       $('cardControls').style.display = on ? '' : 'none';
+      $('cardFxBox').style.display = on ? '' : 'none';   // the effects only apply to the card
       renderer.domElement.style.opacity = on ? 0 : 1;   // still there to receive the mouse; the card canvas shows the result
       cardCanvas.style.display = on ? 'block' : 'none';
       updateScene();
