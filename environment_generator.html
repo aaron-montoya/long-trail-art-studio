@@ -261,7 +261,7 @@
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6, pivot: () => focusOn ? focusCenter() : null }); // WASD + Q/E; arrows orbit a focused model
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6 }); // WASD + Q/E
     // drag turns around the point you clicked, or around the focused model (press . with a model picked)
     enableClickOrbit(camera, controls, () => [env, modelGroup, cloudGroup], { pivot: () => focusOn ? focusCenter() : null });
 
@@ -1782,8 +1782,8 @@
     $('aspect').addEventListener('change', () => { if ($('silBackground').checked) refreshSilBackground(); });
 
     // ================= FOCUS ON A MODEL =================
-    // Pick a model and press . : the camera glides over to frame it, then dragging orbits around it and the
-    // scroll wheel zooms toward it, even after moving it, until you click empty space or pick another model.
+    // Pick a model and press . : the camera glides over to frame it, then dragging orbits around it (even after
+    // moving it) until you click empty space or pick another model. The arrow keys still aim the camera freely.
     let focusOn = null, clickOff = null; // the model being orbited (and its glide), a pending click off it
     const focusCenter = () => focusOn.M.sphere.center.clone();
     function focusSelected() {
@@ -1802,7 +1802,7 @@
       focusOn = null;
       $('focusBadge').style.display = 'none';
     }
-    // every frame: glide in, then keep the orbit center on the model (it may have been dragged or turned)
+    // every frame: glide in; after that the camera is free to aim, and dragging orbits around the model
     function stepFocus(dt) {
       if (!focusOn) return;
       const c = focusCenter();
@@ -1812,7 +1812,7 @@
         camera.position.lerpVectors(focusOn.from, c.clone().add(focusOn.offset), k); // follows the model if it moves mid-glide
         controls.target.lerpVectors(focusOn.fromT, c, k);
         if (focusOn.t === 1) { buildSnow(); buildFx(); } // snow and glints are built around the camera
-      } else controls.target.copy(c);
+      }
       // orbiting low never takes the camera under the snow: lift it along its orbit, keeping the distance
       const floor = terrainH(camera.position.x, camera.position.z) + 0.15;
       if (camera.position.y < floor) {
