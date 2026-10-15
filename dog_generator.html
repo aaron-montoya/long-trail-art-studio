@@ -92,8 +92,9 @@
       <button onclick="applyPreset('samoyed')">Samoyed</button>
       <button onclick="applyPreset('shepherd')">German Shepherd</button>
     </div>
-    <div class="action-row">
-      <button id="randomize"><i data-icon="dice"></i>Randomize Dog</button>
+    <div class="action-row" style="grid-template-columns: 1fr 1fr 1fr;">
+      <button id="randomize" title="A whole new random dog"><i data-icon="dice"></i>Randomize Dog</button>
+      <button id="varyDog" title="The same dog, a little different: small random nudges to its shape, fur and colors (pose and pattern stay)"><i data-icon="sliders"></i>Vary Dog</button>
       <button id="randomizeColors"><i data-icon="palette"></i>Colors & Pattern</button>
     </div>
 
@@ -2048,6 +2049,23 @@
         el.value = (Math.random() * (parseFloat(el.max) - parseFloat(el.min)) + parseFloat(el.min)).toFixed(2);
       });
       randomizeColors();
+      updateFromInputs();
+    });
+
+    // Vary: the same dog, a little different. Every shape and fur slider moves a small random step (about 6% of
+    // its range, more often small than large), and the coat colors shift a touch in hue and shade. The pose,
+    // pattern and markings stay, so it reads as a littermate rather than a new dog.
+    document.getElementById('varyDog').addEventListener('click', () => {
+      const nudge = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5; // -1..1, mostly near 0
+      inputs.forEach(id => {
+        const el = document.getElementById(id), min = +el.min, max = +el.max;
+        el.value = THREE.MathUtils.clamp(+el.value + nudge() * 0.09 * (max - min), min, max);
+      });
+      ['colorMain', 'colorSec', 'colorAcc'].forEach(id => {
+        const c = new THREE.Color(document.getElementById(id).value);
+        c.offsetHSL(nudge() * 0.015, nudge() * 0.06, nudge() * 0.05);
+        document.getElementById(id).value = '#' + c.getHexString();
+      });
       updateFromInputs();
     });
 
