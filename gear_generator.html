@@ -807,6 +807,118 @@
         }
       },
 
+      cabin: {
+        label: 'Log Cabin', group: 'Trail Props',
+        colors: { logs: ['Logs', '#7A4E2D'], roof: ['Roof', '#4A3326'], door: ['Door', '#5E3A20'], trim: ['Trim', '#3E2716'],
+                  glow: ['Window light', '#FFB347'], chimney: ['Chimney', '#6E6A66'], lantern: ['Lantern', '#2B2B30'] },
+        variants: ['Snowy roof', 'Bare roof'], glow: true, steam: true,
+        build(g, c, v, o) {
+          // a one-room log cabin, gable end facing front (+z): door and two windows below, one window up in the gable
+          const W = 5, D = 4.4, H = 2.4, fy = 0.25, rise = 1.6, lr = 0.13, ext = 0.28, snowy = v === 'Snowy roof';
+          const r = rng(31), col = (hex, k) => new THREE.Color(hex).multiplyScalar(k);
+          const logM = [0.92, 1, 1.07].map(k => mat(col(c.logs, k), { roughness: 0.95 }));
+          const endGrain = mat(new THREE.Color(c.logs).lerp(new THREE.Color('#E8D2A8'), 0.5), { roughness: 0.9 });
+          const trim = mat(c.trim, { roughness: 0.9 }), snow = mat('#F2F6FA', { roughness: 1 });
+          add(g, box(W + 0.2, fy, D + 0.2), mat('#6B6762', { roughness: 1 }), [0, fy / 2, 0]);           // stone footing
+          add(g, box(W - 0.1, H - fy, D - 0.1), mat(col(c.logs, 0.55)), [0, fy + (H - fy) / 2, 0]);       // dark chinking behind the logs
+          // walls: front and back logs, side logs half a log higher, all poking out past the corners
+          const rows = Math.floor((H - fy) / (2 * lr));
+          const log = (len, pos, alongX) => {
+            const m = add(g, cyl(lr, lr, len, 7), logM[Math.floor(r() * 3)], pos, alongX ? [0, 0, Math.PI / 2] : [Math.PI / 2, 0, 0]);
+            m.rotateY(r() * 3);
+            return m;
+          };
+          for (let i = 0; i < rows; i++) {
+            const y = fy + lr + i * 2 * lr;
+            [-1, 1].forEach(s => log(W + 2 * ext, [0, y, s * D / 2], true));
+            if (y + lr < H) [-1, 1].forEach(s => log(D + 2 * ext, [s * W / 2, y + lr, 0], false));
+          }
+          [-1, 1].forEach(sx => [-1, 1].forEach(sz => { // log ends at the corners
+            for (let i = 0; i < rows; i++) add(g, cyl(lr * 0.95, lr * 0.95, 0.02, 7), endGrain, [sx * (W / 2 + ext), fy + lr + i * 2 * lr, sz * D / 2], [0, 0, Math.PI / 2]);
+          }));
+          // gables: shorter and shorter logs up to the ridge, over a triangle of plank
+          const tri = new THREE.Shape([new THREE.Vector2(-W / 2, 0), new THREE.Vector2(W / 2, 0), new THREE.Vector2(0, rise)]);
+          [-1, 1].forEach(s => {
+            const gab = add(g, new THREE.ExtrudeGeometry(tri, { depth: 0.12, bevelEnabled: false }), mat(col(c.logs, 0.55)), [0, H, s * D / 2 - 0.06]);
+            gab.castShadow = true;
+            for (let y = H + lr; y < H + rise - 0.25; y += 2 * lr) log(W * (1 - (y - H + lr) / rise), [0, y, s * D / 2], true);
+          });
+
+          // roof: two slabs from the ridge down past the eaves, snow on top
+          const ridgeY = H + rise, a = Math.atan(rise / (W / 2)), run = W / 2 + 0.5, thick = 0.14, len = run / Math.cos(a) + 0.05, depth = D + 1.0;
+          const roofM = mat(c.roof, { roughness: 0.9 });
+          const slab = (s, off, t, l, d, m) => { // s: side; off: distance above the roof line
+            const nx = s * Math.sin(a), ny = Math.cos(a), cx = s * (l / 2) * Math.cos(a), cy = ridgeY - (l / 2) * Math.sin(a);
+            return add(g, box(l, t, d), m, [cx + nx * off, cy + ny * off, 0], [0, 0, -s * a]);
+          };
+          [-1, 1].forEach(s => {
+            slab(s, thick / 2 + 0.02, thick, len, depth, roofM);
+            if (snowy) {
+              slab(s, thick + 0.13, 0.22, len + 0.1, depth + 0.1, snow);
+              for (let k = 0; k < 9; k++) { // lumps hanging over the eaves
+                const z = -depth / 2 + (k + 0.5) * depth / 9, ex = s * (len + 0.05) * Math.cos(a), ey = ridgeY - (len + 0.05) * Math.sin(a) + 0.12;
+                add(g, ico(1, 1), snow, [ex, ey, z], [r(), r(), r()], [0.16, 0.12, 0.3 + r() * 0.12]);
+              }
+            } else {
+              for (let k = 1; k < 7; k++) slab(s, thick + 0.015, 0.03, len * (1 - k / 7) + 0.02, depth, mat(col(c.roof, 0.8))); // shingle steps
+            }
+          });
+          add(g, cyl(0.1, 0.1, depth + (snowy ? 0.1 : 0), 6), snowy ? snow : mat(col(c.roof, 0.8)), [0, ridgeY + (snowy ? 0.32 : 0.18), 0], [Math.PI / 2, 0, 0]); // ridge cap
+
+          // stone chimney on the right side, toward the back
+          const chX = 1.3, chZ = -0.9, roofAt = ridgeY - chX * Math.tan(a), chTop = ridgeY + 0.7, stone = mat(c.chimney, { roughness: 1 });
+          for (let y = roofAt - 0.6, k = 0; y < chTop; y += 0.26, k++) {
+            add(g, box(0.62 + (r() - 0.5) * 0.06, 0.27, 0.62 + (r() - 0.5) * 0.06), k % 2 ? stone : mat(col(c.chimney, 0.88), { roughness: 1 }), [chX + (r() - 0.5) * 0.03, y + 0.13, chZ], [0, (r() - 0.5) * 0.1, 0]);
+          }
+          add(g, box(0.72, 0.1, 0.72), mat(col(c.chimney, 0.75)), [chX, chTop + 0.15, chZ]);
+          add(g, box(0.4, 0.04, 0.4), mat('#1a1614'), [chX, chTop + 0.21, chZ]);
+          if (snowy) [-1, 1].forEach(s => add(g, ico(1, 1), snow, [chX + s * 0.25, chTop + 0.22, chZ], [0, r(), 0], [0.14, 0.06, 0.32]));
+          if (o.steam) {
+            const smoke = new THREE.MeshStandardMaterial({ color: '#E8ECF0', transparent: true, opacity: 0.55, roughness: 1, flatShading: true, depthWrite: false });
+            for (let k = 0; k < 9; k++) { // a soft column that widens and drifts as it rises
+              const t = k / 8, rad = 0.14 + 0.22 * t;
+              add(g, ico(1, 1), smoke, [chX + t * t * 0.5 + (r() - 0.5) * 0.12, chTop + 0.3 + t * 2.2, chZ + (r() - 0.5) * 0.12], [r(), r(), r()], [rad * 1.2, rad, rad]).castShadow = false;
+            }
+          }
+
+          // front: door, two windows, a window in the gable, a step and a lantern
+          const fz = D / 2 + lr + 0.01, lit = o.glow;
+          const glass = mat(lit ? new THREE.Color(c.glow).multiplyScalar(0.6) : '#2A3442', { emissive: lit ? c.glow : '#000000', emissiveIntensity: lit ? 0.6 : 0, roughness: 0.3 });
+          function windowAt(x, y, w, h, z = fz, turn = 0) {
+            const Wn = new THREE.Group();
+            Wn.position.set(x, y, z); Wn.rotation.y = turn;
+            g.add(Wn);
+            add(Wn, box(w, h, 0.04), glass);
+            [[0, h / 2 + 0.04, w + 0.18, 0.09], [0, -h / 2 - 0.05, w + 0.26, 0.1]].forEach(([px, py, bw, bh]) => add(Wn, box(bw, bh, 0.1), trim, [px, py, 0.02]));
+            [-1, 1].forEach(s => add(Wn, box(0.08, h + 0.1, 0.1), trim, [s * (w / 2 + 0.04), 0, 0.02]));
+            add(Wn, box(0.04, h, 0.06), trim, [0, 0, 0.03]); add(Wn, box(w, 0.04, 0.06), trim, [0, 0, 0.03]); // the cross bars
+            if (snowy) add(Wn, ico(1, 1), snow, [0, -h / 2 - 0.08, 0.05], [0, 0, 0], [w / 2 + 0.08, 0.05, 0.08]); // snow on the sill
+          }
+          const doorX = 0.35, doorW = 0.95, doorH = 1.95;
+          add(g, box(doorW, doorH, 0.06), mat(c.door, { roughness: 0.9 }), [doorX, fy + doorH / 2, fz]);
+          for (let k = -1; k <= 1; k++) add(g, box(0.02, doorH - 0.1, 0.02), mat(col(c.door, 0.7)), [doorX + k * doorW / 4, fy + doorH / 2, fz + 0.035]); // planks
+          [0.45, 1.55].forEach(y => add(g, box(doorW - 0.1, 0.08, 0.03), mat(col(c.door, 0.8)), [doorX, fy + y, fz + 0.045]));   // braces
+          add(g, ico(0.035, 0), metal('#C9A64A'), [doorX + doorW / 2 - 0.12, fy + 1.0, fz + 0.06]);
+          [-1, 1].forEach(s => add(g, box(0.1, doorH + 0.1, 0.1), trim, [doorX + s * (doorW / 2 + 0.05), fy + doorH / 2, fz + 0.02]));
+          add(g, box(doorW + 0.3, 0.1, 0.1), trim, [doorX, fy + doorH + 0.06, fz + 0.02]);
+          add(g, box(1.5, 0.18, 0.6), logM[0], [doorX, 0.09, fz + 0.3]); // step
+          windowAt(-1.4, 1.45, 0.8, 0.75);
+          windowAt(1.75, 1.45, 0.65, 0.75);
+          windowAt(0, H + 0.6, 0.55, 0.55, D / 2 + 0.08);
+          [-1, 1].forEach(s => windowAt(s * (W / 2 + lr + 0.01), 1.45, 0.8, 0.7, 0.3, s * Math.PI / 2)); // one on each side
+          const iron = metal('#2B2B30');
+          add(g, box(0.04, 0.04, 0.38), iron, [doorX + doorW / 2 + 0.38, fy + 2.05, fz + 0.18]);
+          const L = new THREE.Group();
+          ITEMS.redLantern.build(L, { metal: c.lantern, glow: c.glow }, 'Standing', o);
+          L.scale.setScalar(1.3);
+          L.position.set(doorX + doorW / 2 + 0.38, fy + 2.03 - 0.27 * 1.3, fz + 0.34);
+          g.add(L);
+          if (lit) { const warm = new THREE.PointLight(c.glow, 0.6, 4); warm.position.set(0, 1.3, D / 2 + 0.9); g.add(warm); } // window light on the snow
+          if (snowy) [[-W / 2 - 0.1, D / 2 + 0.2, 0.7], [W / 2 + 0.1, D / 2 + 0.2, 0.6], [W / 2 + 0.2, -D / 2 - 0.1, 0.7], [-W / 2 - 0.2, -D / 2, 0.8], [-1.4, D / 2 + 0.25, 0.5]].forEach(([x, z, s]) =>
+            add(g, ico(1, 1), snow, [x, 0, z], [0, r() * 3, 0], [s * 1.3, s * 0.2, s * 0.8])); // drifts against the walls
+        }
+      },
+
       moose: {
         label: 'Moose', group: 'Wildlife', colors: { coat: ['Coat', '#4A3526'], legs: ['Lower legs', '#8C7B6A'], antlers: ['Antlers', '#C9B08A'] },
         variants: ['Bull with antlers', 'Bull, head lowered', 'Cow'],
