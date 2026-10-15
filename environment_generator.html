@@ -112,6 +112,23 @@
       </div>
     </details>
 
+    <!-- SILHOUETTE -->
+    <details open>
+      <summary>Silhouette Card</summary>
+      <div class="details-content">
+        <div class="control-group"><label class="check"><input type="checkbox" id="silModels"> Models all black (silhouettes)</label></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="silBackground"> Low-poly white background (hides the trail, sky and weather)</label></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Silhouette</label><input type="color" id="silColor" value="#000000"></div>
+          <div class="control-group"><label>Background</label><input type="color" id="silBgColor" value="#FFFFFF"></div>
+          <div class="control-group"><label>Facet shade</label><input type="color" id="silShade" value="#C9D2DC"></div>
+        </div>
+        <div class="control-group"><label>Facets across the card <span class="val-display" id="silFacets-val">6</span></label><input type="range" id="silFacets" min="3" max="14" step="1" value="6"></div>
+        <div class="control-group"><label>Texture <span class="val-display" id="silTexture-val">0.50</span></label><input type="range" id="silTexture" min="0" max="1" step="0.05" value="0.5"></div>
+        <button id="silReroll" style="width: 100%;"><i data-icon="dice"></i>New facet layout</button>
+      </div>
+    </details>
+
     <!-- SKY -->
     <details open>
       <summary>Time of Day & Sky</summary>
@@ -251,6 +268,7 @@
       overlay.height = Math.round(h * dpr);
       overlay.style.width = w + 'px';   // keep the frame guide the same size as the 3D view on scaled (125%, 150%) displays
       overlay.style.height = h + 'px';
+      if ($('silBackground').checked) refreshSilBackground(); // the facets follow the card frame
     }
     new ResizeObserver(fitRenderer).observe(canvasContainer);
 
@@ -834,7 +852,7 @@
     function updateFog() {
       const f = num('fog'), horizon = new THREE.Color($('skyHorizon').value);
       const far = lerp(1100, 90, Math.pow(f, 0.8));
-      scene.fog = new THREE.Fog(horizon, far * 0.12, far);
+      scene.fog = $('silBackground').checked ? null : new THREE.Fog(horizon, far * 0.12, far); // no fog on the silhouette background
       cloudMat.emissive = horizon.clone().multiplyScalar(0.45); // clouds glow with the sky instead of going dark
       $('fog-val').innerText = f.toFixed(2);
     }
@@ -1119,7 +1137,7 @@
       g.save();
       g.beginPath(); g.rect(fr.x, fr.y, fr.w, fr.h); g.clip();
       drawLayers(g, fr, true);
-      drawFrost(g, fr, num('frost'));
+      drawFrost(g, fr, $('silBackground').checked ? 0 : num('frost'));
       drawBorder(g, fr);
       g.restore();
       g.strokeStyle = 'rgba(255,255,255,0.7)';
@@ -1344,6 +1362,7 @@
       modelGroup.add(object);
       models.push(M);
       prepareModelFx(M);
+      setSilhouette(M, $('silModels').checked);
       applyModel(M);
       selModel = models.length - 1;
       refreshModelUI();
@@ -1411,11 +1430,13 @@
     });
     $('modelDuplicate').addEventListener('click', () => {
       const M = models[selModel]; if (!M) return;
+      setSilhouette(M, false); // clone its own materials, not the silhouette one
       const copy = M.object.clone(true);
       modelGroup.add(copy);
       copy.position.x += 1.2;
       models.push({ ...M, object: copy, fxSeed: 0 });
       prepareModelFx(models[models.length - 1]); // its own outline and effects, starting from the original's settings
+      [M, models[models.length - 1]].forEach(m => setSilhouette(m, $('silModels').checked));
       selModel = models.length - 1;
       applyModel(models[selModel]);
       refreshModelUI();
@@ -1695,6 +1716,80 @@
       models.forEach(other => { if (other !== M) { other.fx = { ...M.fx }; applyModelFx(other); } });
     });
 
+    // ================= SILHOUETTE CARD =================
+    // Models as flat silhouettes (one color, no lighting) and a faceted white background in place of the
+    // trail, sky and weather. The facets are laid out relative to the card frame, so the export matches the view.
+    const silOriginals = new WeakMap(); // mesh -> { material, visible } to put back
+    const silMat = new THREE.MeshBasicMaterial({ color: 0x000000, fog: false, side: THREE.DoubleSide }); // open shapes like lantern glass stay solid
+    let silSeed = 3, silBgTex = null;
+
+    function setSilhouette(M, on) {
+      M.meshes.forEach(o => {
+        if (on) {
+          if (!silOriginals.has(o)) silOriginals.set(o, { material: o.material, visible: o.visible });
+          const orig = silOriginals.get(o).material, mats = Array.isArray(orig) ? orig : [orig];
+          o.material = Array.isArray(orig) ? orig.map(() => silMat) : silMat;
+          if (mats.some(m => m.opacity < 0.3)) o.visible = false; // a faint headlamp beam would turn into a solid cone
+        } else if (silOriginals.has(o)) {
+          const saved = silOriginals.get(o);
+          o.material = saved.material; o.visible = saved.visible;
+          silOriginals.delete(o);
+        }
+      });
+    }
+
+    // Low-poly facets from the background color toward the shade color, plus a fine grain.
+    // fr is the card in this canvas's pixels; the pattern is sized and seeded from it.
+    function silBackgroundCanvas(w, h, fr) {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const g = c.getContext('2d'), tex = num('silTexture'), cw = fr.w / num('silFacets'), rh = cw * 0.9, unit = Math.min(fr.w, fr.h);
+      const base = new THREE.Color($('silBgColor').value), shade = new THREE.Color($('silShade').value), col = new THREE.Color();
+      g.fillStyle = $('silBgColor').value;
+      g.fillRect(0, 0, w, h);
+      const P = (i, j) => [fr.x + (i + (hash2(i, j, silSeed) - 0.5) * 0.7) * cw, fr.y + (j + (hash2(j, i, silSeed + 5) - 0.5) * 0.7) * rh];
+      const tri = (a, b, d, k) => {
+        const ty = THREE.MathUtils.clamp(((a[1] + b[1] + d[1]) / 3 - fr.y) / fr.h, 0, 1); // a touch more shade toward the bottom
+        col.copy(base).lerp(shade, tex * (0.08 + 0.62 * hash2(k, 7, silSeed)) * (0.7 + 0.3 * ty));
+        g.fillStyle = g.strokeStyle = '#' + col.getHexString();
+        g.lineWidth = 1;
+        g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.lineTo(...d); g.closePath(); g.fill(); g.stroke(); // stroke hides hairline seams
+      };
+      const i0 = Math.floor(-fr.x / cw) - 1, i1 = Math.ceil((w - fr.x) / cw) + 1, j0 = Math.floor(-fr.y / rh) - 1, j1 = Math.ceil((h - fr.y) / rh) + 1;
+      for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) {
+        const p = P(i, j), q = P(i + 1, j), s = P(i, j + 1), t = P(i + 1, j + 1), k = (i + 500) * 1000 + j + 500;
+        if ((i + j) & 1) { tri(p, q, t, k * 2); tri(p, t, s, k * 2 + 1); } else { tri(p, q, s, k * 2); tri(q, t, s, k * 2 + 1); }
+      }
+      const r = mulberry32(silSeed * 31 + 7);
+      for (let k = 0, n = Math.round(3000 * tex); k < n; k++) { // paper grain, placed in card space
+        const x = fr.x + (r() * 1.4 - 0.2) * fr.w, y = fr.y + (r() * 1.4 - 0.2) * fr.h, d = r() < 0.5;
+        g.fillStyle = d ? `rgba(40, 50, 70, ${0.03 + r() * 0.05})` : `rgba(255, 255, 255, ${0.3 + r() * 0.4})`;
+        g.fillRect(x, y, unit * 0.003, unit * 0.003);
+      }
+      return c;
+    }
+
+    // Show or hide the background, and redraw it for the current view
+    function refreshSilBackground() {
+      const on = $('silBackground').checked;
+      [env, cloudGroup, skyGroup, snowGroup, fxGroup, overflowGroup].forEach(o => o.visible = !on);
+      if (silBgTex) { silBgTex.dispose(); silBgTex = null; }
+      if (on) {
+        const dpr = window.devicePixelRatio, fr = frameRect(), w = canvasContainer.clientWidth, h = canvasContainer.clientHeight;
+        silBgTex = new THREE.CanvasTexture(silBackgroundCanvas(Math.round(w * dpr), Math.round(h * dpr), { x: fr.x * dpr, y: fr.y * dpr, w: fr.w * dpr, h: fr.h * dpr }));
+      }
+      scene.background = silBgTex;
+      updateFog();
+      ['silFacets', 'silTexture'].forEach(id => $(id + '-val').innerText = id === 'silFacets' ? $(id).value : num(id).toFixed(2));
+    }
+
+    $('silModels').addEventListener('change', () => models.forEach(M => setSilhouette(M, $('silModels').checked)));
+    $('silColor').addEventListener('input', () => silMat.color.set($('silColor').value));
+    $('silBackground').addEventListener('change', refreshSilBackground);
+    ['silBgColor', 'silShade', 'silFacets', 'silTexture'].forEach(id => $(id).addEventListener('input', refreshSilBackground));
+    $('silReroll').addEventListener('click', () => { silSeed = 1 + Math.floor(Math.random() * 100000); refreshSilBackground(); });
+    $('aspect').addEventListener('change', () => { if ($('silBackground').checked) refreshSilBackground(); });
+
     // ================= EXPORT =================
     // Renders exactly what's inside the frame guide at print size, then paints the character layers on top.
     function exportCard() {
@@ -1717,7 +1812,10 @@
       const boxWas = selBox.visible;
       selBox.visible = false;
       updateModelFx(Math.min(outW, outH) / outH);
+      const liveBg = scene.background, cardBg = $('silBackground').checked ? new THREE.CanvasTexture(silBackgroundCanvas(outW, outH, { x: 0, y: 0, w: outW, h: outH })) : null;
+      if (cardBg) scene.background = cardBg;
       renderer.render(scene, camera);
+      if (cardBg) { scene.background = liveBg; cardBg.dispose(); }
       selBox.visible = boxWas;
 
       const c = document.createElement('canvas');
@@ -1725,7 +1823,7 @@
       const g = c.getContext('2d');
       g.drawImage(renderer.domElement, 0, 0);
       if ($('includeLayers').checked) drawLayers(g, { x: 0, y: 0, w: outW, h: outH }, false);
-      drawFrost(g, { x: 0, y: 0, w: outW, h: outH }, num('frost'));
+      drawFrost(g, { x: 0, y: 0, w: outW, h: outH }, $('silBackground').checked ? 0 : num('frost'));
       drawBorder(g, { x: 0, y: 0, w: outW, h: outH });
 
       camera.fov = oldFov;

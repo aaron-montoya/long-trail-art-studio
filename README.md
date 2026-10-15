@@ -11,7 +11,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 | **Gear** | Items: Snack, Booties, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
 | **Borders** | Fair Isle knit borders: stack bands of motifs (peeries, OXO, snowflakes, 8-point stars, reindeer, spruce trees, paw prints and more), pick a 4-color palette and a stitch (knit, cross-stitch, low-poly tiles, flat). Makes a card frame with mitered corners, a strip, or an all-over card back |
 | **Banners** | Text banners: ribbon with folded tails, notched strip, plaque or hanging banner, with arch bend, hand-cut edges, low-poly facets, outline, fonts and an optional Fair Isle trim |
-| **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, and card-frame export |
+| **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, a **Silhouette Card** mode (all-black models on a low-poly white background), and card-frame export |
 
 ## Making a card
 
@@ -25,6 +25,13 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
    focus lines, sunburst and rings behind the model and sparkles in front, all centered on the card frame and sized to it, so they stay put however close you zoom. Each model has its own settings; the looks
    (Sticker, Sparkle, Action, Legendary, Night) match the Gear tab's card styles, and **Use on all models** copies them.
 5. Pick the card frame in the top bar and click **Save Card PNG**. 1500 px wide is 600 dpi on a 2.5" × 3.5" poker card.
+
+## Silhouette cards
+
+In the Scenes tab, open **Silhouette Card**: **Models all black** turns every placed dog, musher and gear item into a flat
+silhouette (any color), and **Low-poly white background** swaps the trail, sky and weather for a faceted white background.
+Set the facet shade, how many facets cross the card and the texture, or click **New facet layout**. Outlines, effects,
+borders and banners all still work on top, and **Save Card PNG** saves it.
 
 ## Borders and banners
 
