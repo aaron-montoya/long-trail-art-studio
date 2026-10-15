@@ -1,7 +1,8 @@
 // Sidebar helpers for the Long Trail tools. Each <details data-cat="..."> section is color coded by what it
 // changes (see studio.css), and the panel gets a find bar under its header: a search box that shows only the
 // matching settings, colored chips that jump to each section, and expand / collapse all.
-// The open and closed sections are remembered per tab.
+// The open and closed sections are remembered per tab. Every drop-down menu gets small up/down buttons that step
+// to the previous / next choice, so you can flick through coat patterns, hats and so on without opening the menu.
 (function () {
   const CATS = {
     shape: 'Shape', color: 'Look & colors', text: 'Text', card: 'Card & effects', scene: 'Scene & light', placed: 'Placed items'
@@ -14,9 +15,51 @@
     set(v) { try { localStorage.setItem(storeKey, JSON.stringify(v)); } catch (e) {} }
   };
 
+  // ---- up/down steppers beside every drop-down ----
+  function addStepper(sel) {
+    if (sel.dataset.stepper || sel.multiple || sel.size > 1 || !sel.parentNode) return; // list boxes scroll on their own
+    sel.dataset.stepper = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'sel-step';
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    const btns = document.createElement('div');
+    btns.className = 'step-btns';
+    [['prev', 'Previous choice', 'M6 15l6-6 6 6'], ['next', 'Next choice', 'M6 9l6 6 6-6']].forEach(([dir, title, d]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.title = title;
+      b.setAttribute('aria-label', title);
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+      b.addEventListener('click', () => step(sel, dir === 'next' ? 1 : -1));
+      btns.appendChild(b);
+    });
+    wrap.appendChild(btns);
+  }
+  // move to the next usable option (wrapping around) and tell the tool, just as if it had been picked
+  function step(sel, d) {
+    const n = sel.options.length;
+    if (!n || sel.disabled) return;
+    let i = sel.selectedIndex;
+    for (let k = 0; k < n; k++) {
+      i = (i + d + n) % n;
+      if (!sel.options[i].disabled) break;
+    }
+    if (i === sel.selectedIndex) return;
+    sel.selectedIndex = i;
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function init() {
     const panel = document.getElementById('ui-panel');
     if (!panel) return;
+    panel.querySelectorAll('select').forEach(addStepper);
+    // tools that build menus later (the border bands, item styles) get steppers too
+    new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (n.tagName === 'SELECT') addStepper(n); else n.querySelectorAll && n.querySelectorAll('select').forEach(addStepper);
+    }))).observe(panel, { childList: true, subtree: true });
     const sections = [...panel.querySelectorAll('details[data-cat]')];
     if (!sections.length) return;
     const titleOf = d => d.dataset.chip || d.querySelector('summary').textContent.trim();

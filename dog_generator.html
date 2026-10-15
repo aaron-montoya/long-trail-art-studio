@@ -203,6 +203,7 @@
         <div class="control-group"><label>Beard &amp; Brows <span class="val-display" id="beard-val">0.00</span></label><input type="range" id="beard" min="0" max="1" step="0.05" value="0" title="Schnauzer whiskers and bushy eyebrows"></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="curly"> Curly coat (tight curls instead of shag)</label></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="poodleClip"> Poodle clip pompoms</label></div>
+        <div class="control-group" id="pomSizeGroup"><label>Pompom Size <span class="val-display" id="pomSize-val">1.00</span></label><input type="range" id="pomSize" min="0.4" max="1.8" step="0.05" value="1" title="How big the poodle clip pompoms are"></div>
         <div class="control-group"><label>Back Tufts <span class="val-display" id="furBody-val">0.20</span></label><input type="range" id="furBody" min="0" max="1" step="0.05" value="0.2"></div>
       </div>
     </details>
@@ -390,7 +391,7 @@
       foreHead: 1, stopDepth: 0.5, skullW: 1, muzzleW: 1, muzzleTip: 1, muzzleD: 1, eyeSize: 1,
       legScale: 1.2, boneThick: 0.15,
       tailBase: 0.5, tailLen: 1.0, tailCurl: 0.3,
-      bodyWidth: 1, dogSize: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0,
+      bodyWidth: 1, dogSize: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0, pomSize: 1,
       furShag: 0.3, furRuff: 0.5, furCheek: 0.3, furTail: 0.5, furLegs: 0.3, furBody: 0.2
     };
 
@@ -838,7 +839,7 @@
       if (document.getElementById('poodleClip').checked) {
         let k = 0;
         const pom = (parent, frame, region, r, pos, extra) => {
-          const mesh = coat(createBone(sphere, matCoat, parent, r, pos), region, frame, extra);
+          const mesh = coat(createBone(sphere, matCoat, parent, r.map(v => v * p.pomSize), pos), region, frame, extra);
           shagMesh(mesh, 0.28, 'radial', (k++) * 3.7, null, null, 4.5);
           return mesh;
         };
@@ -1788,7 +1789,7 @@
     }
 
     // --- UI LOGIC ---
-    const inputs = ['bodyWidth', 'dogSize', 'neckThick', 'tailThick', 'earWidth', 'beard', 'bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'foreHead', 'stopDepth', 'skullW', 'muzzleW', 'muzzleTip', 'muzzleD', 'eyeSize', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
+    const inputs = ['pomSize', 'bodyWidth', 'dogSize', 'neckThick', 'tailThick', 'earWidth', 'beard', 'bodyLen', 'chestSize', 'pelvisSize', 'neckLen', 'headSize', 'snoutLen', 'foreHead', 'stopDepth', 'skullW', 'muzzleW', 'muzzleTip', 'muzzleD', 'eyeSize', 'earSize', 'earDroop', 'legScale', 'boneThick', 'tailBase', 'tailLen', 'tailCurl', 'furShag', 'furRuff', 'furCheek', 'furTail', 'furLegs', 'furBody'];
 
     function readPoseInputs() {
       poseInputs.forEach(id => {
@@ -1821,6 +1822,8 @@
     ['colorMain', 'colorSec', 'colorAcc', 'colorEye', 'furVary'].forEach(id => document.getElementById(id).addEventListener('input', updateColors));
     document.getElementById('fineFacets').addEventListener('change', buildDog);
     ['curly', 'poodleClip'].forEach(id => document.getElementById(id).addEventListener('change', buildDog));
+    const syncPom = () => document.getElementById('pomSizeGroup').style.display = document.getElementById('poodleClip').checked ? '' : 'none';
+    document.getElementById('poodleClip').addEventListener('change', syncPom);
 
     // Cosmetics: fill the menus, rebuild on any change (colors wait for the next frame so dragging stays smooth)
     for (const id in COSMETICS) for (const key in COSMETICS[id]) document.getElementById(id).add(new Option(COSMETICS[id][key], key));
@@ -1962,7 +1965,7 @@
     function applyCharacterState(state) {
       if (state.type !== 'dog') { alert(`That file is a ${state.type || 'different'} file, not a dog.`); return; }
       // files saved before a setting existed get its normal value (not whatever is on screen)
-      Object.entries({ dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0 }).forEach(([id, v]) => document.getElementById(id).value = v);
+      Object.entries({ dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0, pomSize: 1 }).forEach(([id, v]) => document.getElementById(id).value = v);
       ['curly', 'poodleClip'].forEach(id => document.getElementById(id).checked = false);
       for (const id in state.values) {
         const el = document.getElementById(id);
@@ -1976,6 +1979,7 @@
       document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[document.getElementById('pattern').value].uses;
       updateScene();
       refreshCard();
+      syncPom();
       updateFromInputs();
     }
 
@@ -2096,13 +2100,14 @@
       document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[pr.pattern].uses;
 
       // sliders a preset leaves out go back to normal, so switching breeds never keeps a Chihuahua's size
-      const base = { dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0 };
+      const base = { dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0, pomSize: 1 };
       const vals = { ...base, ...pr.p };
       for(let key in vals) {
         if(document.getElementById(key)) document.getElementById(key).value = vals[key];
       }
       document.getElementById('curly').checked = !!pr.curly;
       document.getElementById('poodleClip').checked = !!pr.clip;
+      syncPom();
       updateFromInputs();
       fitCamera(); // a Chihuahua and a Malamute both fill the view
       return;
@@ -2110,6 +2115,7 @@
     };
 
     updateScene();
+    syncPom();
     applyPose('stand');
 
     // --- SILHOUETTE CARD ---
