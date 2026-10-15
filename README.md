@@ -29,6 +29,7 @@ jump to a section, or use **Expand** / **Collapse**. Each tab remembers which se
    Line up the shot with **W A S D** (move), **E / Q** (up / down), **arrow keys** (look around) and **Shift** (faster).
    Click a model and press **.** to frame it: dragging then orbits around that model (the arrow keys still aim the view)
    until you click empty space or pick another model.
+   Click a model (or a 2D layer) and press **Delete** to remove it; clicking empty space first unpicks it, so nothing is deleted by accident.
    Drag to turn the view around the point you clicked, right-drag to pan, scroll to zoom. The camera bar under the
    view has **Reset View**, the preset viewpoints and the lens.
 4. To make a model stand out, use **Outline & effects** under the model sliders: an outline in any color, plus glow,

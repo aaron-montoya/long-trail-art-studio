@@ -242,7 +242,7 @@
       <span class="sep"></span>
       <label>Lens <input type="range" id="fov" min="20" max="75" step="1" value="45"> <span class="val-display" id="fov-val">45</span></label>
       <span class="grow"></span>
-      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan &middot; <b>.</b> focus on the picked model</span>
+      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan &middot; <b>.</b> focus on the picked model &middot; <b>Del</b> delete it</span>
     </div>
   </div>
 
@@ -1196,8 +1196,9 @@
       const r = canvasContainer.getBoundingClientRect(), i = layerAt(e.clientX - r.left, e.clientY - r.top);
       if (i < 0) {
         const m = modelAt(e);
-        if (m < 0) { if (focusOn) clickOff = { x: e.clientX, y: e.clientY }; return; } // a click off the model ends focus (a drag still orbits)
+        if (m < 0) { clickOff = { x: e.clientX, y: e.clientY }; return; } // a click on empty space ends focus and unpicks (a drag still orbits)
         if (focusOn && models[m] !== focusOn.M) endFocus();
+        picked = 'model';
         selModel = m;
         dragModel = m;
         refreshModelUI();
@@ -1206,6 +1207,7 @@
         return;
       }
       selected = i;
+      picked = 'layer';
       dragging = { i, sx: e.clientX, sy: e.clientY, ox: layers[i].x, oy: layers[i].y };
       refreshLayerUI();
       e.stopPropagation();
@@ -1225,7 +1227,7 @@
     });
     window.addEventListener('pointerup', e => {
       dragging = null; dragModel = null;
-      if (clickOff && Math.hypot(e.clientX - clickOff.x, e.clientY - clickOff.y) < 5) endFocus();
+      if (clickOff && Math.hypot(e.clientX - clickOff.x, e.clientY - clickOff.y) < 5) { endFocus(); picked = null; }
       clickOff = null;
     });
     canvasContainer.addEventListener('wheel', e => {
@@ -1319,6 +1321,7 @@
     scene.add(modelGroup);
     const models = [];
     let selModel = -1, dragModel = null;
+    let picked = null; // what was last clicked in the view ('model' or 'layer'), for the Delete key
     const selBox = new THREE.BoxHelper(undefined, 0x818cf8);
     selBox.visible = false;
     selBox.renderOrder = 1e6; // after the models' effects, so a glow never hides it
@@ -1926,6 +1929,15 @@
       if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) return;
       if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
       if (e.key === '.' || e.code === 'NumpadDecimal') focusSelected();
+      // Delete (or Backspace) removes the model or 2D layer you last clicked in the view
+      if ((e.key === 'Delete' || e.key === 'Backspace') && picked && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) {
+        const item = picked === 'model' ? models[selModel] : layers[selected];
+        if (!item) return;
+        e.preventDefault();
+        $(picked === 'model' ? 'modelRemove' : 'layerRemove').click();
+        picked = null;
+        try { if (window.parent !== window && window.parent.studioToast) window.parent.studioToast(`Deleted ${item.name}`); } catch (err) {}
+      }
     });
 
     fitRenderer();
