@@ -542,7 +542,7 @@
       const body = (mesh, shag = { mode: 'radial', amt: 1 }) => coat(mesh, 'body', torso, { pelvisOffset, shag });
       // Dogs are deep and narrow through the chest, not round: these shapes are shared with the fur tufts
       const chestC = new THREE.Vector3(0, p.chestSize*0.12, p.bodyLen/2), chestR = [p.chestSize*0.62, p.chestSize*0.74, p.chestSize*0.95];
-      const pelvisC = new THREE.Vector3(0, pelvisOffset, -p.bodyLen/2), pelvisR = [p.pelvisSize*0.68, p.pelvisSize*0.72, p.pelvisSize*0.95];
+      const pelvisC = new THREE.Vector3(0, pelvisOffset, -p.bodyLen/2), pelvisR = [p.pelvisSize*0.62, p.pelvisSize*0.7, p.pelvisSize*0.5];
       // One sculpted torso lofted from the tail to the forechest. Each ring is a cross-section with its own bumps:
       // a spine ridge, shoulder blades and withers, elbows, a keeled brisket, hip points and heavy haunches.
       // The topline rises from the croup to the withers, and the belly tucks up at the waist. It's two pieces
@@ -552,11 +552,12 @@
       const R = (z, w, top, bot, wy, e, bumps) => ({ z, w, cy: wy, t: top - wy, b: bot - wy, e, bumps });
       const lerp = THREE.MathUtils.lerp, backTop = t => lerp(po + 0.8 * P, 0.9 * cS, t), belly = t => lerp(po - 0.45 * P, -0.6 * cS, t);
       const torsoSt = [
-        R(-L / 2 - 0.95 * P, 0.24 * P, po + 0.55 * P, po - 0.08 * P, po + 0.25 * P, 0.85),                                    // tail set
-        R(-L / 2 - 0.7 * P, 0.54 * P, po + 0.7 * P, po - 0.45 * P, po + 0.08 * P, 0.85, [[2.0, 0.12 * P, 0.45]]),             // buttocks
-        R(-L / 2 - 0.3 * P, 0.66 * P, po + 0.8 * P, po - 0.58 * P, po + 0.05 * P, 0.85,
-          [[0, 0.04 * P, 0.15], [0.75, 0.08 * P, 0.25], [1.9, 0.15 * P, 0.5]]),                                                // croup, hip points, haunches
-        R(-L / 2 + 0.15 * P, 0.58 * P, po + 0.8 * P, po - 0.32 * P, po + 0.18 * P, 0.85, [[0, 0.03 * P, 0.15], [2.0, 0.12 * P, 0.45]]), // flank and thigh
+        // the rear ends just behind the tail: the croup slopes down to the tail and the buttocks drop below it
+        R(-L / 2 - 0.45 * P, 0.3 * P, po + 0.42 * P, po - 0.2 * P, po + 0.12 * P, 0.9),                                       // under the tail
+        R(-L / 2 - 0.3 * P, 0.52 * P, po + 0.62 * P, po - 0.42 * P, po + 0.08 * P, 0.85, [[2.0, 0.08 * P, 0.4]]),             // buttocks
+        R(-L / 2, 0.62 * P, po + 0.78 * P, po - 0.5 * P, po + 0.08 * P, 0.85,
+          [[0, 0.04 * P, 0.15], [0.75, 0.08 * P, 0.25], [1.95, 0.12 * P, 0.45]]),                                             // croup, hip points, haunches
+        R(-L / 2 + 0.35 * P, 0.56 * P, po + 0.8 * P, po - 0.28 * P, po + 0.2 * P, 0.85, [[0, 0.03 * P, 0.15], [2.0, 0.08 * P, 0.45]]), // flank and thigh
         R(-L / 4, 0.42 * avg, backTop(0.3), belly(0.3) + 0.5 * avg, lerp(po, 0.05 * cS, 0.3) + 0.22 * avg, 0.9, [[0, 0.025 * avg, 0.15]]), // waist, tucked up
         R(0, 0.55 * cS, backTop(0.5) - 0.03 * cS, belly(0.55) + 0.32 * cS, lerp(po, 0.05 * cS, 0.5) + 0.14 * cS, 0.88, [[0, 0.025 * cS, 0.15]]), // loin
         R(L / 2 - 0.45 * cS, 0.62 * cS, 0.86 * cS, -0.62 * cS, 0.1 * cS, 0.85, [[0, 0.02 * cS, 0.15], [Math.PI, 0.04 * cS, 0.3]]),   // ribcage
@@ -564,7 +565,7 @@
           [[0, 0.05 * cS, 0.2], [0.55, 0.1 * cS, 0.25], [1.75, 0.1 * cS, 0.35], [Math.PI, 0.08 * cS, 0.25]]),                  // withers, shoulder blades, elbows, brisket
         R(L / 2 + 0.3 * cS, 0.54 * cS, 0.8 * cS, -0.6 * cS, 0.1 * cS, 0.85, [[1.25, 0.1 * cS, 0.3], [Math.PI, 0.12 * cS, 0.25]]),   // points of the shoulder, keel
         R(L / 2 + 0.68 * cS, 0.32 * cS, 0.56 * cS, -0.42 * cS, 0.1 * cS, 0.9, [[Math.PI, 0.1 * cS, 0.3]])];                      // forechest
-      const torsoN = document.getElementById('fineFacets').checked ? 22 : 16, shagAxis = { mode: 'axis', amt: 1, st: torsoSt };
+      const torsoN = document.getElementById('fineFacets').checked ? 22 : 16, shagAxis = { mode: 'axis', amt: 1, st: torsoSt, offset: 3.7 }; // one noise for both halves, so they stay joined
       tag(body(createBone(loftGeo(torsoSt.slice(0, 6), torsoN, true, false), matCoat, torso, [1, 1, 1], [0, 0, 0]), shagAxis), 'rear');
       tag(body(createBone(loftGeo(torsoSt.slice(5), torsoN, false, true), matCoat, torso, [1, 1, 1], [0, 0, 0]), shagAxis), 'front');
 
@@ -595,7 +596,7 @@
       const muzzleSt = [skullSt[5],
         S(zs + 0.35 * m, 0.215 * h, 0.175 * h, -0.14 * h, 0.7), S(zs + 0.75 * m, 0.19 * h, 0.155 * h, -0.10 * h, 0.66),
         S(zs + m, 0.155 * h, 0.13 * h, -0.07 * h, 0.65)];
-      coat(createBone(loftGeo(skullSt, ringN, true, false), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35 } });
+      coat(createBone(loftGeo(skullSt, ringN, true, false), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'head', headJoint, { shag: { mode: 'radial', amt: 0.35, fadeZ: [zs - 0.22 * h, zs] } }); // smooth toward the muzzle
       coat(createBone(loftGeo(muzzleSt, ringN, false, true), matCoat, headJoint, [1, 1, 1], [0, 0, 0]), 'muzzle', headJoint, { mz0: zs, mzLen: m });
 
       // Lower jaw hinges open for panting / howling
@@ -1059,11 +1060,13 @@
     }
 
     // Push vertices in/out with smooth noise. Same position -> same push, so faces never crack apart.
-    function shagMesh(mesh, amp, mode, offset, st) {
+    // fadeZ [from, to]: the push fades to nothing between those depths (where a piece meets an unshagged one)
+    function shagMesh(mesh, amp, mode, offset, st, fadeZ) {
       const pos = mesh.geometry.attributes.position;
       for (let k = 0; k < pos.count; k++) {
         const x = pos.getX(k), y = pos.getY(k), z = pos.getZ(k);
-        const f = 1 + (noise3(x * 2.7 + offset, y * 2.7, z * 2.7, 4242) - 0.5) * 2 * amp;
+        const fade = fadeZ ? THREE.MathUtils.clamp((fadeZ[1] - z) / (fadeZ[1] - fadeZ[0]), 0, 1) : 1;
+        const f = 1 + (noise3(x * 2.7 + offset, y * 2.7, z * 2.7, 4242) - 0.5) * 2 * amp * fade;
         if (mode === 'axis') { // lofted torso: push out from its center line, which rises and falls along z
           let i = 0;
           while (i < st.length - 2 && st[i + 1].z < z) i++;
@@ -1086,7 +1089,7 @@
       const amp = 0.35 * p.furShag;
       if (amp > 0) coatMeshes.forEach((m, k) => {
         const s = m.userData.coat.shag;
-        if (s) shagMesh(m, amp * s.amt, s.mode, k * 7.3, s.st);
+        if (s) shagMesh(m, amp * s.amt, s.mode, s.offset !== undefined ? s.offset : k * 7.3, s.st, s.fadeZ);
       });
 
       // 2. Neck ruff: over the front of the chest, plus a ring around the base of the neck
