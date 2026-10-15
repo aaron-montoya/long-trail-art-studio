@@ -344,63 +344,48 @@
         }
       },
 
-      gloves: {
-        label: 'Gloves', colors: { glove: ['Glove', '#C8423B'], cuff: ['Cuff', '#1D1F26'], patch: ['Palm patch / stripe', '#E6B84C'] },
-        variants: ['Standing (fingers spread)', 'Pair', 'Lying back on the snow', 'Mittens on a string'],
+      mittens: {
+        label: 'Mittens', colors: { mitten: ['Mitten', '#C8423B'], cuff: ['Cuff', '#F2EEE3'], stripe: ['Stripe', '#1E2D4A'] },
+        variants: ['Single', 'Pair', 'On a string', 'Lying back'],
         build(g, c, v) {
-          // Built upright, palm toward +z, cuff at the bottom. The fingers fan out with clear gaps and the thumb
-          // sticks well out to the side, so even a solid black silhouette reads as a glove.
-          const glove = mat(c.glove, { roughness: 0.9 }), cuffM = mat(c.cuff, { roughness: 0.95 }), patchM = mat(c.patch, { roughness: 0.7 });
-          const digit = (parent, x, y, ang, len, r) => {   // a finger or thumb: a rounded tube tilted by ang
-            const f = new THREE.Group();
-            f.position.set(x, y, 0); f.rotation.z = ang;
-            add(f, cyl(r, r * 1.08, len, 6), glove, [0, len / 2, 0], [0, 0, 0], [1, 1, 0.85]);
-            add(f, ico(r, 1), glove, [0, len, 0], [0, 0, 0], [1, 1, 0.85]);
-            parent.add(f);
-          };
-          const cuffPart = G => {   // flared gauntlet cuff with a strap
-            add(G, cyl(0.05, 0.064, 0.07, 7), cuffM, [0, 0.035, 0], [0, 0, 0], [1, 1, 0.55]);
-            add(G, cyl(0.052, 0.052, 0.014, 7), glove, [0, 0.072, 0], [0, 0, 0], [1, 1, 0.62]);
-          };
-          const makeGlove = () => {
-            const G = new THREE.Group();
-            cuffPart(G);
-            add(G, cyl(0.05, 0.047, 0.095, 6), glove, [0, 0.125, 0], [0, Math.PI / 6, 0], [1, 1, 0.4]);   // palm
-            add(G, box(0.06, 0.05, 0.004), patchM, [0.004, 0.122, 0.019]);                                 // palm patch
-            [[-0.031, 0.069, 0.2], [-0.01, 0.079, 0.06], [0.011, 0.074, -0.08], [0.031, 0.058, -0.24]]   // index to pinky
-              .forEach(([x, len, ang]) => digit(G, x, 0.165, ang, len, 0.0105));
-            digit(G, -0.04, 0.105, 0.95, 0.06, 0.0125);                                                   // thumb
-            return G;
-          };
+          // Built upright, palm toward +z, cuff at the bottom, thumb on the left. The thumb angles well out from
+          // the hand with a clear V between them, so the shape reads as a mitten even as a tiny black icon.
+          const knit = mat(c.mitten, { roughness: 1 }), cuffM = mat(c.cuff, { roughness: 1 }), stripeM = mat(c.stripe, { roughness: 1 });
+          const flat = 0.44; // mittens are flatter front to back than they are wide
           const makeMitten = () => {
-            const G = new THREE.Group();
-            cuffPart(G);
-            add(G, cyl(0.048, 0.046, 0.095, 8), glove, [0, 0.125, 0], [0, 0, 0], [1, 1, 0.42]);
-            add(G, ico(1, 1), glove, [0, 0.172, 0], [0, 0, 0], [0.048, 0.05, 0.021]);                    // rounded top
-            add(G, cyl(0.0485, 0.0485, 0.016, 8), patchM, [0, 0.105, 0], [0, 0, 0], [1, 1, 0.45]);        // stripe
-            digit(G, -0.04, 0.1, 0.8, 0.055, 0.0145);                                                     // thumb
-            return G;
+            const M = new THREE.Group();
+            // slightly flared cuff; its facets read as ribbing and keep a clean edge in silhouette
+            add(M, cyl(0.054, 0.06, 0.062, 12), cuffM, [0, 0.031, 0], [0, 0, 0], [1, 1, flat + 0.06]);
+            // hand: a rounded body with a domed top
+            add(M, cyl(0.05, 0.048, 0.1, 10), knit, [0, 0.112, 0], [0, 0, 0], [1, 1, flat]);
+            add(M, ico(1, 1), knit, [0, 0.162, 0], [0, 0, 0], [0.05, 0.058, 0.05 * flat]);
+            add(M, cyl(0.0505, 0.0505, 0.016, 10), stripeM, [0, 0.088, 0], [0, 0, 0], [1, 1, flat + 0.01]);   // stripe
+            // thumb: from the side of the palm, angled out ~37 degrees, rounded tip
+            const T = new THREE.Group();
+            T.position.set(-0.04, 0.084, 0); T.rotation.z = 0.65;
+            add(T, cyl(0.016, 0.019, 0.06, 8), knit, [0, 0.03, 0], [0, 0, 0], [1, 1, 0.8]);
+            add(T, ico(0.016, 1), knit, [0, 0.06, 0], [0, 0, 0], [1, 1, 0.8]);
+            M.add(T);
+            return M;
           };
           const face = 0.64;   // turn the palm toward the default camera
-          if (v === 'Standing (fingers spread)') {
-            const G = makeGlove(); G.rotation.y = face; g.add(G);
-          } else if (v === 'Pair') {   // left and right, leaning apart like a wave
+          if (v === 'Single') {   // the icon pose: leaning a touch to the right, thumb out to the left
+            const M = makeMitten(); M.rotation.z = -0.1;
+            const H = new THREE.Group(); H.add(M); H.rotation.y = face; g.add(H);
+          } else if (v === 'Pair' || v === 'On a string') {
             const P = new THREE.Group();
             [-1, 1].forEach(s => {
-              const G = makeGlove();
-              G.scale.x = -s;   // the left glove is a mirror image of the right
-              G.position.x = s * 0.075; G.rotation.z = -s * 0.18;
-              P.add(G);
+              const M = makeMitten();
+              M.scale.x = -s;   // the right mitten is a mirror image, so both thumbs point out
+              M.position.x = s * 0.085; M.rotation.z = -s * 0.12;
+              P.add(M);
             });
+            if (v === 'On a string') // a cord between the cuffs, drooping onto the snow
+              add(P, tube([[-0.09, 0.02, 0], [-0.05, 0.006, 0.02], [0, 0.004, 0.03], [0.05, 0.006, 0.02], [0.09, 0.02, 0]], 0.004, 24, 5), stripeM);
             P.rotation.y = face; g.add(P);
-          } else if (v === 'Lying back on the snow') {   // leaning back, palm up toward the camera so the whole hand shows
-            const G = makeGlove(); G.rotation.set(-0.97, 0, 0.12);
-            const H = new THREE.Group(); H.add(G); H.rotation.y = face; g.add(H);
-          } else {   // two mittens joined by a cord that droops onto the snow between them
-            const P = new THREE.Group();
-            [-1, 1].forEach(s => { const M = makeMitten(); M.scale.x = -s; M.position.x = s * 0.09; M.rotation.z = -s * 0.1; P.add(M); });
-            add(P, tube([[-0.09, 0.02, 0], [-0.05, 0.006, 0.02], [0, 0.004, 0.03], [0.05, 0.006, 0.02], [0.09, 0.02, 0]], 0.004, 24, 5), cuffM);
-            P.rotation.y = face; g.add(P);
+          } else {   // dropped on its back, palm up toward the camera (tick "Sitting in a snow drift" for snow)
+            const M = makeMitten(); M.rotation.set(-0.97, 0, 0.12);
+            const H = new THREE.Group(); H.add(M); H.rotation.y = face; g.add(H);
           }
         }
       },

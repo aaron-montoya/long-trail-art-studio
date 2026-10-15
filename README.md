@@ -8,7 +8,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 |---|---|
 | **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
 | **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
-| **Gear** | Items: Snack, Booties, Gloves, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
+| **Gear** | Items: Snack, Booties, Mittens, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
 | **Borders** | Fair Isle knit borders: stack bands of motifs (peeries, OXO, snowflakes, 8-point stars, reindeer, spruce trees, paw prints and more), pick a 4-color palette and a stitch (knit, cross-stitch, low-poly tiles, flat). Makes a card frame with mitered corners, a strip, or an all-over card back |
 | **Banners** | Text banners: ribbon with folded tails, notched strip, plaque or hanging banner, with arch bend, hand-cut edges, low-poly facets, outline, fonts and an optional Fair Isle trim |
 | **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, a **Silhouette Card** mode (all-black models on a low-poly white background), and card-frame export |
@@ -32,8 +32,8 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
   background and card frame** puts it on a textured, faceted white card, fits the dog into the frame and adds
   **Save Card PNG** to the top bar. Save PNG gives the silhouette on a see-through background.
 - **Gear tab:** tick **Silhouette** under Display, or click the **Silhouette** card style in card mode (background
-  **Low-poly white (textured)**, colors 1 and 2 are the white and the facet shade). The new **Gloves** item is built so
-  its silhouette reads at a glance.
+  **Low-poly white (textured)**, colors 1 and 2 are the white and the facet shade). The **Mittens** item is built so
+  its silhouette reads at a glance, even as a small icon.
 - Export 3D and Send to Scene always keep the real colors.
 
 The Scenes tab has the same look for everything placed in a scene: open **Silhouette Card** there. **Models all black** turns every placed dog, musher and gear item into a flat
