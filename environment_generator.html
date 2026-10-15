@@ -261,7 +261,7 @@
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6 }); // WASD + Q/E
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6, refDist: 30, refFov: 45 }); // WASD + Q/E
     // drag turns around the point you clicked, or around the focused model (press . with a model picked)
     enableClickOrbit(camera, controls, () => [env, modelGroup, cloudGroup], { pivot: () => focusOn ? focusCenter() : null });
 

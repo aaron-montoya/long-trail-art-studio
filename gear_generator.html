@@ -206,7 +206,7 @@
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    const cameraKeys = enableCameraKeys(camera, controls, { speed: 0.6 }); // WASD + Q/E
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 0.6, refDist: 1.1, refFov: 35 }); // WASD + Q/E
     enableClickOrbit(camera, controls, () => [itemGroup]); // drag turns around the point you clicked
     controls.target.set(0, 0.1, 0);
 

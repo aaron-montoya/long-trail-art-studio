@@ -1,11 +1,12 @@
 // Camera controls shared by the Long Trail tools.
 //   Keys:  W/S forward and back, A/D left and right, E up, Q down, arrow keys look around;
-//          hold Shift to go faster.
+//          hold Shift to go faster. Both slow down as you zoom in (scroll closer or a longer lens),
+//          so small adjustments up close stay easy; refDist / refFov are the normal framing's distance and lens.
 //   Mouse: left-drag turns the view around the point you clicked (or the current center when
 //          you click empty sky); right-drag pans; scroll zooms.
 // OrbitControls still handles pan and zoom; its target is kept in front of the camera so the two agree.
 
-function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {}) {
+function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2, refDist = 5, refFov = 45 } = {}) {
   const held = new Set();
   const KEYS = ['w', 'a', 's', 'd', 'q', 'e'];
   const ARROWS = ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'];
@@ -56,12 +57,16 @@ function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {})
     move.set(0, 0, 0);
     if (!held.size) return;
     const fast = held.has('shift') ? 2.5 : 1;
+    // zoom: how close the view's center is compared with the normal framing, and how long the lens is
+    const near = THREE.MathUtils.clamp(camera.position.distanceTo(controls.target) / refDist, 0.04, 3);
+    const lens = THREE.MathUtils.clamp(camera.fov / refFov, 0.15, 1.3);
+    const lookK = THREE.MathUtils.clamp(Math.sqrt(near), 0.3, 1) * lens;
 
     // Arrow keys: turn the view in place (left/right, up/down), keeping the orbit center ahead
-    const yaw = ((held.has('arrowleft') ? 1 : 0) - (held.has('arrowright') ? 1 : 0)) * lookSpeed * dt * fast;
-    const pitch = ((held.has('arrowup') ? 1 : 0) - (held.has('arrowdown') ? 1 : 0)) * lookSpeed * dt * fast;
+    const yaw = ((held.has('arrowleft') ? 1 : 0) - (held.has('arrowright') ? 1 : 0)) * lookSpeed * lookK * dt * fast;
+    const pitch = ((held.has('arrowup') ? 1 : 0) - (held.has('arrowdown') ? 1 : 0)) * lookSpeed * lookK * dt * fast;
     if (yaw || pitch) {
-      const dist = Math.max(0.5, camera.position.distanceTo(controls.target));
+      const dist = Math.max(0.04 * refDist, camera.position.distanceTo(controls.target)); // keep the zoom you had
       camera.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
       const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
       camera.getWorldDirection(fwd);
@@ -83,7 +88,7 @@ function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {})
     if (held.has('e')) move.y += 1;
     if (held.has('q')) move.y -= 1;
     if (!move.lengthSq()) return;
-    move.normalize().multiplyScalar(speed * dt * (fast > 1 ? 3 : 1));
+    move.normalize().multiplyScalar(speed * near * dt * (fast > 1 ? 3 : 1));
     camera.position.add(move);
     controls.target.add(move);
   };

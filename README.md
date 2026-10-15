@@ -26,7 +26,7 @@ jump to a section, or use **Expand** / **Collapse**. Each tab remembers which se
 1. Build a dog, musher or gear item.
 2. Click **Send to Scene**. The 3D model appears on the trail in the Scenes tab with the scene's lighting and shadows.
 3. Drag it into place (scroll over it to turn it; Turn, Tilt, Roll and Raise sliders set any angle), pick the scene, event or time of day, and camera.
-   Line up the shot with **W A S D** (move), **E / Q** (up / down), **arrow keys** (look around) and **Shift** (faster).
+   Line up the shot with **W A S D** (move), **E / Q** (up / down), **arrow keys** (look around) and **Shift** (faster). The keys slow down as you zoom in (and arrows with a longer lens), so fine adjustments up close are easy.
    Click a model and press **.** to frame it: dragging then orbits around that model (the arrow keys still aim the view)
    until you click empty space or pick another model.
    Click a model (or a 2D layer) and press **Delete** to remove it; clicking empty space first unpicks it, so nothing is deleted by accident.
