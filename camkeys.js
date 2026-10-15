@@ -1,11 +1,12 @@
 // Camera controls shared by the Long Trail tools.
-//   Keys:  W/S forward and back, A/D left and right, E up, Q down, arrow keys look around;
+//   Keys:  W/S forward and back, A/D left and right, E up, Q down, arrow keys look around
+//          (or orbit around pivot() when a page gives one, e.g. a model you've focused on);
 //          hold Shift to go faster.
 //   Mouse: left-drag turns the view around the point you clicked (or the current center when
 //          you click empty sky); right-drag pans; scroll zooms.
 // OrbitControls still handles pan and zoom; its target is kept in front of the camera so the two agree.
 
-function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {}) {
+function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2, pivot = null } = {}) {
   const held = new Set();
   const KEYS = ['w', 'a', 's', 'd', 'q', 'e'];
   const ARROWS = ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'];
@@ -60,7 +61,19 @@ function enableCameraKeys(camera, controls, { speed = 5, lookSpeed = 1.2 } = {})
     // Arrow keys: turn the view in place (left/right, up/down), keeping the orbit center ahead
     const yaw = ((held.has('arrowleft') ? 1 : 0) - (held.has('arrowright') ? 1 : 0)) * lookSpeed * dt * fast;
     const pitch = ((held.has('arrowup') ? 1 : 0) - (held.has('arrowdown') ? 1 : 0)) * lookSpeed * dt * fast;
-    if (yaw || pitch) {
+    const center = (yaw || pitch) && pivot ? pivot() : null;
+    if (center) {
+      // orbiting: left/right swing the camera around the center, up raises it to look down on it, down lowers it
+      // (never straight overhead or underneath)
+      const offset = camera.position.clone().sub(center);
+      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -yaw);
+      const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), offset).normalize();
+      const tipped = offset.clone().applyAxisAngle(side, -pitch);
+      if (Math.abs(tipped.clone().normalize().y) < 0.97) offset.copy(tipped);
+      camera.position.copy(center).add(offset);
+      camera.lookAt(center);
+      controls.target.copy(center);
+    } else if (yaw || pitch) {
       const dist = Math.max(0.5, camera.position.distanceTo(controls.target));
       camera.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw));
       const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);

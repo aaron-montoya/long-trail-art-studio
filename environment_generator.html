@@ -261,7 +261,7 @@
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6 }); // WASD + Q/E
+    const cameraKeys = enableCameraKeys(camera, controls, { speed: 6, pivot: () => focusOn ? focusCenter() : null }); // WASD + Q/E; arrows orbit a focused model
     // drag turns around the point you clicked, or around the focused model (press . with a model picked)
     enableClickOrbit(camera, controls, () => [env, modelGroup, cloudGroup], { pivot: () => focusOn ? focusCenter() : null });
 
@@ -1813,6 +1813,15 @@
         controls.target.lerpVectors(focusOn.fromT, c, k);
         if (focusOn.t === 1) { buildSnow(); buildFx(); } // snow and glints are built around the camera
       } else controls.target.copy(c);
+      // orbiting low never takes the camera under the snow: lift it along its orbit, keeping the distance
+      const floor = terrainH(camera.position.x, camera.position.z) + 0.15;
+      if (camera.position.y < floor) {
+        const off = camera.position.clone().sub(c), dist = off.length(), oy = floor - c.y, flat = Math.hypot(off.x, off.z);
+        if (dist > Math.abs(oy) && flat > 1e-6) {
+          const k = Math.sqrt(dist * dist - oy * oy) / flat;
+          camera.position.set(c.x + off.x * k, floor, c.z + off.z * k);
+        } else camera.position.y = floor;
+      }
     }
 
     // ================= EXPORT =================
