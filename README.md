@@ -8,7 +8,7 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 |---|---|
 | **Dogs** | Sled dogs: breed presets, body shape, 11 coat patterns, fur, ears, 11 poses (including Sore Paw and Distracted) |
 | **Mushers** | Racers: presets for the Veteran, Rookie, Vet and Sprinter, hair, headwear, outfits, race bib, dog sled |
-| **Gear** | Items: Snack, Booties, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
+| **Gear** | Items: Snack, Booties, Gloves, Dog Food, Snow Hook, Headlamp, Sled Basket, Bivy Sack, Wax the Runners, Whistle, Hot Broth, Red Lantern, Golden Harness, Gangline (laid out or tangled), plus Wildlife: Moose and Squirrel, each with variants and colors |
 | **Borders** | Fair Isle knit borders: stack bands of motifs (peeries, OXO, snowflakes, 8-point stars, reindeer, spruce trees, paw prints and more), pick a 4-color palette and a stitch (knit, cross-stitch, low-poly tiles, flat). Makes a card frame with mitered corners, a strip, or an all-over card back |
 | **Banners** | Text banners: ribbon with folded tails, notched strip, plaque or hanging banner, with arch bend, hand-cut edges, low-poly facets, outline, fonts and an optional Fair Isle trim |
 | **Scenes** | Trail backgrounds: Snowfield, Spruce Forest, Mountain Pass, River Ice, Deep Powder, Exposed Ridge, with time of day, weather, one-click **Events** (Clear Skies, Northern Lights, Fresh Snow, Bitter Cold, Blizzard, Whiteout, Tailwind, Overflow) outline and card effects for placed models, a **Silhouette Card** mode (all-black models on a low-poly white background), and card-frame export |
@@ -28,7 +28,15 @@ Open `index.html` (or the GitHub Pages site) to use all the tools in one place:
 
 ## Silhouette cards
 
-In the Scenes tab, open **Silhouette Card**: **Models all black** turns every placed dog, musher and gear item into a flat
+- **Dog tab:** open **Silhouette Card**. **Silhouette** draws the dog in one flat color (black by default); **Low-poly white
+  background and card frame** puts it on a textured, faceted white card, fits the dog into the frame and adds
+  **Save Card PNG** to the top bar. Save PNG gives the silhouette on a see-through background.
+- **Gear tab:** tick **Silhouette** under Display, or click the **Silhouette** card style in card mode (background
+  **Low-poly white (textured)**, colors 1 and 2 are the white and the facet shade). The new **Gloves** item is built so
+  its silhouette reads at a glance.
+- Export 3D and Send to Scene always keep the real colors.
+
+The Scenes tab has the same look for everything placed in a scene: open **Silhouette Card** there. **Models all black** turns every placed dog, musher and gear item into a flat
 silhouette (any color), and **Low-poly white background** swaps the trail, sky and weather for a faceted white background.
 Set the facet shade, how many facets cross the card and the texture, or click **New facet layout**. Outlines, effects,
 borders and banners all still work on top, and **Save Card PNG** saves it.
@@ -63,6 +71,7 @@ Placed models and scene settings aren't saved between visits, so keep your `.jso
 - `index.html`: the studio (tabs)
 - `dog_generator.html`, `musher_generator.html`, `gear_generator.html`, `environment_generator.html`, `border_generator.html`, `banner_generator.html`: the tools; each also works on its own
 - `fairisle.js`: Fair Isle motifs and the stitch painter, shared by the Borders and Banners tabs
+- `silhouette.js`: the silhouette render and the textured low-poly background, shared by the Dog, Gear and Scenes tabs
 - `camkeys.js`, `studio.css`: shared camera controls and layout
 - `icons.js`: shared SVG icons
 

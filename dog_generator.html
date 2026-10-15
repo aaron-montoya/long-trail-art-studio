@@ -47,12 +47,22 @@
     .pattern-row { display: flex; gap: 6px; }
     select { flex: 1; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
     .hint { font-size: 0.72rem; color: #8a8aa0; margin-top: 5px; }
+    label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .fx-row { display: grid; grid-template-columns: 1fr 46px; gap: 8px; align-items: end; }
+    .fx-row input[type=color] { height: 28px; margin-bottom: 12px; }
+    /* silhouette card: a frame guide over the view, and the card controls in the top bar */
+    #frameGuide { position: absolute; inset: 0; pointer-events: none; display: none !important; }
+    body.card #frameGuide { display: block !important; }
+    .card-only { display: none !important; }
+    body.card .card-only { display: inline-flex !important; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
   <script src="camkeys.js"></script>
+  <script src="silhouette.js"></script>
   <link rel="stylesheet" href="studio.css">
 </head>
 <body>
@@ -175,6 +185,23 @@
       </div>
     </details>
 
+    <!-- SILHOUETTE CARD -->
+    <details open>
+      <summary>Silhouette Card</summary>
+      <div class="details-content">
+        <div class="fx-row"><div class="control-group"><label class="check"><input type="checkbox" id="silhouette"> Silhouette (all one color)</label></div><input type="color" id="silColor" value="#000000" title="Silhouette color"></div>
+        <div class="control-group"><label class="check"><input type="checkbox" id="silBackground"> Low-poly white background and card frame</label></div>
+        <div class="color-grid">
+          <div class="control-group"><label>Background</label><input type="color" id="silBgColor" value="#FFFFFF"></div>
+          <div class="control-group"><label>Facet shade</label><input type="color" id="silShade" value="#C9D2DC"></div>
+        </div>
+        <div class="control-group"><label>Facets across the card <span class="val-display" id="silFacets-val">6</span></label><input type="range" id="silFacets" min="3" max="14" step="1" value="6"></div>
+        <div class="control-group"><label>Texture <span class="val-display" id="silTexture-val">0.50</span></label><input type="range" id="silTexture" min="0" max="1" step="0.05" value="0.5"></div>
+        <button id="silReroll" style="width: 100%;"><i data-icon="dice"></i>New facet layout</button>
+        <div class="hint">Save PNG keeps the silhouette with a see-through background; Save Card PNG (top bar) adds the background. Export 3D and Send to Scene keep the dog's real colors.</div>
+      </div>
+    </details>
+
     <!-- SCENE & LIGHTING -->
     <details>
       <summary>Background & Sun</summary>
@@ -201,9 +228,21 @@
         <option value="1">1× screen</option><option value="2" selected>2× screen</option><option value="3">3× screen</option>
       </select>
       <button id="export3d" title="3D model for the scene tool or Blender (.glb)"><i data-icon="cube"></i>Export 3D</button>
+      <span class="sep card-only"></span>
+      <label class="card-only">Card frame
+        <select id="cardAspect">
+          <option value="5:7" selected>Portrait card (2.5 × 3.5)</option>
+          <option value="7:5">Landscape card (3.5 × 2.5)</option>
+          <option value="1:1">Square</option>
+          <option value="4:3">Art box 4:3</option>
+        </select>
+      </label>
+      <label class="card-only" title="1500 px wide = 600 dpi on a 2.5 inch poker card">Width <input type="number" id="cardWidth" value="1500" min="300" max="4000" step="50" style="width: 76px;"> px</label>
+      <button class="primary card-only" id="saveCard"><i data-icon="image"></i>Save Card PNG</button>
       <input type="file" id="loadCharFile" accept=".json,application/json" style="display: none;">
     </div>
     <div id="canvas-container">
+      <canvas id="frameGuide"></canvas>
       <div class="viewbar">
         <button id="centerCam" title="Frame the dog in the view"><i data-icon="target"></i>Center</button>
         <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan</span>
@@ -215,7 +254,8 @@
   <script>
     // --- SCENE SETUP ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x8ba6b5);
+    const dogBg = new THREE.Color(0x8ba6b5);
+    scene.background = dogBg;
 
     const canvasContainer = document.getElementById('canvas-container');
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
@@ -234,6 +274,7 @@
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      if (document.getElementById('silBackground').checked) refreshCard(); // the background follows the card frame
     }
     fitRenderer();
     new ResizeObserver(fitRenderer).observe(canvasContainer);
@@ -268,7 +309,7 @@
       keyLight.color.set(document.getElementById('sunColor').value);
       keyLight.intensity = parseFloat(document.getElementById('sunInt').value);
       ambientLight.intensity = parseFloat(document.getElementById('ambInt').value);
-      scene.background.set(document.getElementById('bgColor').value);
+      dogBg.set(document.getElementById('bgColor').value);
       ['sunAz', 'sunEl'].forEach(id => document.getElementById(`${id}-val`).innerText = document.getElementById(id).value);
       ['sunInt', 'ambInt'].forEach(id => document.getElementById(`${id}-val`).innerText = parseFloat(document.getElementById(id).value).toFixed(2));
     }
@@ -1067,7 +1108,17 @@
 
     function centerCamera() {
       dogRig.updateMatrixWorld(true);
-      const c = new THREE.Box3().setFromObject(dogRig).getCenter(new THREE.Vector3());
+      const box3 = new THREE.Box3().setFromObject(dogRig), c = box3.getCenter(new THREE.Vector3());
+      if (document.getElementById('silBackground').checked) {
+        // card mode: keep the viewing angle, back up until the dog fills about 80% of the card's height
+        const sp = box3.getBoundingSphere(new THREE.Sphere()), fr = cardFrameRect(), dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        const d = sp.radius * canvasContainer.clientHeight / (0.8 * fr.h * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+        camera.position.copy(sp.center).addScaledVector(dir, -d);
+        controls.target.copy(sp.center);
+        controls.update();
+        return;
+      }
       camera.position.add(c.clone().sub(controls.target));
       controls.target.copy(c);
     }
@@ -1154,7 +1205,7 @@
 
       scene.background = null; // transparent: the renderer has an alpha channel
       renderer.setPixelRatio(oldRatio * scale);
-      renderer.render(scene, camera);
+      renderView();
       const url = cropToContent(renderer.domElement).toDataURL('image/png');
 
       scene.background = oldBg;
@@ -1226,6 +1277,7 @@
       if (state.patternSeed !== undefined) patternSeed = state.patternSeed;
       document.getElementById('patternHint').innerText = 'Uses: ' + PATTERNS[document.getElementById('pattern').value].uses;
       updateScene();
+      refreshCard();
       updateFromInputs();
     }
 
@@ -1326,13 +1378,100 @@
     updateScene();
     applyPose('stand');
 
+    // --- SILHOUETTE CARD ---
+    // Silhouette draws the dog in one flat color, only while rendering, so exports of the 3D model keep its
+    // real colors. The card background is a textured low-poly white laid out on a card frame in the middle
+    // of the view; Save Card PNG renders exactly what's inside the frame. (var: fitRenderer can run first.)
+    var silSeed = 3, silBgTex = null;
+    const byId = id => document.getElementById(id);
+    function renderView() {
+      if (byId('silhouette').checked) Silhouette.render(renderer, scene, camera, dogRig, byId('silColor').value);
+      else renderer.render(scene, camera);
+    }
+    const cardOn = () => byId('silBackground').checked;
+    const cardAspect = () => byId('cardAspect').value.split(':').map(Number);
+    function cardFrameRect() { // CSS pixels inside the 3D view
+      const cw = canvasContainer.clientWidth, ch = canvasContainer.clientHeight, [aw, ah] = cardAspect(), m = 24;
+      let h = ch - m * 2, w = h * aw / ah;
+      if (w > cw - m * 2) { w = cw - m * 2; h = w * ah / aw; }
+      return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+    }
+    const bgOptions = () => ({ color: byId('silBgColor').value, shade: byId('silShade').value, facets: +byId('silFacets').value, texture: +byId('silTexture').value, seed: silSeed });
+    function backgroundTexture(w, h, fr) {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      Silhouette.drawBackground(c.getContext('2d'), fr, bgOptions());
+      return new THREE.CanvasTexture(c);
+    }
+    function refreshCard() {
+      const on = cardOn();
+      document.body.classList.toggle('card', on);
+      if (silBgTex) { silBgTex.dispose(); silBgTex = null; }
+      if (on) {
+        const dpr = window.devicePixelRatio, fr = cardFrameRect();
+        silBgTex = backgroundTexture(Math.round(canvasContainer.clientWidth * dpr), Math.round(canvasContainer.clientHeight * dpr), { x: fr.x * dpr, y: fr.y * dpr, w: fr.w * dpr, h: fr.h * dpr });
+      }
+      scene.background = on ? silBgTex : dogBg;
+      byId('silFacets-val').innerText = byId('silFacets').value;
+      byId('silTexture-val').innerText = (+byId('silTexture').value).toFixed(2);
+    }
+    // dim everything outside the card so the shot is easy to line up
+    function drawFrameGuide() {
+      const c = byId('frameGuide'), dpr = window.devicePixelRatio, cw = canvasContainer.clientWidth, ch = canvasContainer.clientHeight;
+      if (c.width !== Math.round(cw * dpr) || c.height !== Math.round(ch * dpr)) {
+        c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr);
+        c.style.width = cw + 'px'; c.style.height = ch + 'px';
+      }
+      const g = c.getContext('2d'), fr = cardFrameRect();
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, cw, ch);
+      g.fillStyle = 'rgba(10, 10, 16, 0.6)';
+      g.beginPath(); g.rect(0, 0, cw, ch); g.rect(fr.x, fr.y + fr.h, fr.w, -fr.h); g.fill('evenodd');
+      g.strokeStyle = 'rgba(255, 255, 255, 0.7)'; g.lineWidth = 1;
+      g.strokeRect(fr.x + 0.5, fr.y + 0.5, fr.w - 1, fr.h - 1);
+    }
+    // Render what's inside the frame at print size, with the background drawn for exactly the card
+    function renderCardPNG() {
+      const [aw, ah] = cardAspect(), outW = Math.round(THREE.MathUtils.clamp(+byId('cardWidth').value || 1500, 300, 4000)), outH = Math.round(outW * ah / aw);
+      const fr = cardFrameRect(), ch = canvasContainer.clientHeight, oldFov = camera.fov, oldRatio = renderer.getPixelRatio();
+      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(oldFov) / 2) * fr.h / ch));
+      camera.aspect = outW / outH;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(1);
+      renderer.setSize(outW, outH, false);
+      const tex = backgroundTexture(outW, outH, { x: 0, y: 0, w: outW, h: outH }), live = scene.background;
+      scene.background = tex;
+      renderView();
+      const out = document.createElement('canvas');
+      out.width = outW; out.height = outH;
+      out.getContext('2d').drawImage(renderer.domElement, 0, 0);
+      scene.background = live;
+      tex.dispose();
+      camera.fov = oldFov;
+      renderer.setPixelRatio(oldRatio);
+      fitRenderer();
+      return out;
+    }
+    byId('silBackground').addEventListener('change', () => { refreshCard(); if (cardOn()) centerCamera(); }); // fit the dog into the card
+    ['silBgColor', 'silShade', 'silFacets', 'silTexture'].forEach(id => byId(id).addEventListener('input', refreshCard));
+    byId('cardAspect').addEventListener('change', () => { refreshCard(); centerCamera(); });
+    byId('silReroll').addEventListener('click', () => { silSeed = 1 + Math.floor(Math.random() * 100000); refreshCard(); });
+    byId('saveCard').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = `${fileBase()}-card.png`;
+      link.href = renderCardPNG().toDataURL('image/png');
+      link.click();
+    });
+    refreshCard();
+
     // --- RENDER LOOP ---
     function animate() {
       requestAnimationFrame(animate);
       if (window.studioPaused) return; // hidden tab in the Art Studio
       cameraKeys();
       controls.update();
-      renderer.render(scene, camera);
+      renderView();
+      if (cardOn()) drawFrameGuide();
     }
     animate();
 

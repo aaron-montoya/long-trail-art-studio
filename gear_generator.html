@@ -51,6 +51,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
   <script src="icons.js"></script>
   <script src="camkeys.js"></script>
+  <script src="silhouette.js"></script>
   <link rel="stylesheet" href="studio.css">
 </head>
 <body>
@@ -77,6 +78,7 @@
           <div class="control-group"><label>Background</label>
             <select id="cardBg">
               <option value="facets">Low-poly facets</option>
+              <option value="lowpoly">Low-poly white (textured)</option>
               <option value="snow">Snowy</option>
               <option value="radial">Radial glow</option>
               <option value="paper">Paper</option>
@@ -117,6 +119,7 @@
     <details open>
       <summary>Display</summary>
       <div class="details-content">
+        <div class="fx-row"><div class="control-group"><label class="check"><input type="checkbox" id="silhouette"> Silhouette (all one color)</label></div><input type="color" id="silColor" value="#000000" title="Silhouette color"></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="snowBase"> Sitting in a snow drift</label></div>
         <div class="control-group"><label>Turn <span class="val-display" id="turn-val">0</span></label><input type="range" id="turn" min="-180" max="180" step="1" value="0"></div>
       </div>
@@ -233,6 +236,11 @@
     // --- BUILDING BLOCKS (units are meters) ---
     const itemGroup = new THREE.Group();
     scene.add(itemGroup);
+    // Every render goes through here: with Silhouette on, the item draws in one flat color (just for the render)
+    function renderView() {
+      if ($('silhouette').checked) Silhouette.render(renderer, scene, camera, itemGroup, $('silColor').value);
+      else renderer.render(scene, camera);
+    }
 
     const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.8, ...opts });
     // part-metal: with no surroundings to reflect, fully metallic surfaces render nearly black
@@ -333,6 +341,67 @@
           else if (v === 'Pair') { bootie([-0.05, 0, 0], [0, 0.4, 0]); bootie([0.06, 0.035, 0.01], [0, -0.5, 1.45]); }
           else if (v === 'Set of four') [[-0.13, 0, 0, 0.3, 0], [-0.04, 0, -0.03, -0.2, 0], [0.05, 0.035, 0.02, 0.6, 1.45], [0.15, 0.035, -0.05, -0.4, 1.5]]
                  .forEach(([x, y, z, ry, rz]) => bootie([x, y, z], [0, ry, rz]));
+        }
+      },
+
+      gloves: {
+        label: 'Gloves', colors: { glove: ['Glove', '#C8423B'], cuff: ['Cuff', '#1D1F26'], patch: ['Palm patch / stripe', '#E6B84C'] },
+        variants: ['Standing (fingers spread)', 'Pair', 'Lying back on the snow', 'Mittens on a string'],
+        build(g, c, v) {
+          // Built upright, palm toward +z, cuff at the bottom. The fingers fan out with clear gaps and the thumb
+          // sticks well out to the side, so even a solid black silhouette reads as a glove.
+          const glove = mat(c.glove, { roughness: 0.9 }), cuffM = mat(c.cuff, { roughness: 0.95 }), patchM = mat(c.patch, { roughness: 0.7 });
+          const digit = (parent, x, y, ang, len, r) => {   // a finger or thumb: a rounded tube tilted by ang
+            const f = new THREE.Group();
+            f.position.set(x, y, 0); f.rotation.z = ang;
+            add(f, cyl(r, r * 1.08, len, 6), glove, [0, len / 2, 0], [0, 0, 0], [1, 1, 0.85]);
+            add(f, ico(r, 1), glove, [0, len, 0], [0, 0, 0], [1, 1, 0.85]);
+            parent.add(f);
+          };
+          const cuffPart = G => {   // flared gauntlet cuff with a strap
+            add(G, cyl(0.05, 0.064, 0.07, 7), cuffM, [0, 0.035, 0], [0, 0, 0], [1, 1, 0.55]);
+            add(G, cyl(0.052, 0.052, 0.014, 7), glove, [0, 0.072, 0], [0, 0, 0], [1, 1, 0.62]);
+          };
+          const makeGlove = () => {
+            const G = new THREE.Group();
+            cuffPart(G);
+            add(G, cyl(0.05, 0.047, 0.095, 6), glove, [0, 0.125, 0], [0, Math.PI / 6, 0], [1, 1, 0.4]);   // palm
+            add(G, box(0.06, 0.05, 0.004), patchM, [0.004, 0.122, 0.019]);                                 // palm patch
+            [[-0.031, 0.069, 0.2], [-0.01, 0.079, 0.06], [0.011, 0.074, -0.08], [0.031, 0.058, -0.24]]   // index to pinky
+              .forEach(([x, len, ang]) => digit(G, x, 0.165, ang, len, 0.0105));
+            digit(G, -0.04, 0.105, 0.95, 0.06, 0.0125);                                                   // thumb
+            return G;
+          };
+          const makeMitten = () => {
+            const G = new THREE.Group();
+            cuffPart(G);
+            add(G, cyl(0.048, 0.046, 0.095, 8), glove, [0, 0.125, 0], [0, 0, 0], [1, 1, 0.42]);
+            add(G, ico(1, 1), glove, [0, 0.172, 0], [0, 0, 0], [0.048, 0.05, 0.021]);                    // rounded top
+            add(G, cyl(0.0485, 0.0485, 0.016, 8), patchM, [0, 0.105, 0], [0, 0, 0], [1, 1, 0.45]);        // stripe
+            digit(G, -0.04, 0.1, 0.8, 0.055, 0.0145);                                                     // thumb
+            return G;
+          };
+          const face = 0.64;   // turn the palm toward the default camera
+          if (v === 'Standing (fingers spread)') {
+            const G = makeGlove(); G.rotation.y = face; g.add(G);
+          } else if (v === 'Pair') {   // left and right, leaning apart like a wave
+            const P = new THREE.Group();
+            [-1, 1].forEach(s => {
+              const G = makeGlove();
+              G.scale.x = -s;   // the left glove is a mirror image of the right
+              G.position.x = s * 0.075; G.rotation.z = -s * 0.18;
+              P.add(G);
+            });
+            P.rotation.y = face; g.add(P);
+          } else if (v === 'Lying back on the snow') {   // leaning back, palm up toward the camera so the whole hand shows
+            const G = makeGlove(); G.rotation.set(-0.97, 0, 0.12);
+            const H = new THREE.Group(); H.add(G); H.rotation.y = face; g.add(H);
+          } else {   // two mittens joined by a cord that droops onto the snow between them
+            const P = new THREE.Group();
+            [-1, 1].forEach(s => { const M = makeMitten(); M.scale.x = -s; M.position.x = s * 0.09; M.rotation.z = -s * 0.1; P.add(M); });
+            add(P, tube([[-0.09, 0.02, 0], [-0.05, 0.006, 0.02], [0, 0.004, 0.03], [0.05, 0.006, 0.02], [0.09, 0.02, 0]], 0.004, 24, 5), cuffM);
+            P.rotation.y = face; g.add(P);
+          }
         }
       },
 
@@ -852,7 +921,7 @@
       camera.lookAt(sphere.center);
       scene.background = null;
       renderer.setPixelRatio(oldRatio * scale);
-      renderer.render(scene, camera);
+      renderView();
       const url = cropToContent(renderer.domElement).toDataURL('image/png');
       scene.background = oldBg;
       renderer.setPixelRatio(oldRatio);
@@ -1018,6 +1087,12 @@
       const c1 = $('cardC1').value, c2 = $('cardC2').value, style = $('cardBg').value;
       const { x, y, w, h } = fr, unit = Math.min(w, h);
       if (style === 'solid') { g.fillStyle = c1; g.fillRect(x, y, w, h); return; }
+      if (style === 'lowpoly') { // color 1 shading toward color 2, with a paper grain (the silhouette card look)
+        g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip();
+        Silhouette.drawBackground(g, fr, { color: c1, shade: c2, facets: 6, texture: 0.5, seed: cardSeed });
+        g.restore();
+        return;
+      }
       if (style === 'radial') {
         const grad = g.createRadialGradient(x + w / 2, y + h * 0.45, 0, x + w / 2, y + h * 0.45, Math.hypot(w, h) * 0.6);
         grad.addColorStop(0, c1); grad.addColorStop(1, c2);
@@ -1222,7 +1297,7 @@
       camera.updateProjectionMatrix();
       renderer.setPixelRatio(1);
       renderer.setSize(outW, outH, false);
-      renderer.render(scene, camera);
+      renderView();
       const c = document.createElement('canvas');
       c.width = outW; c.height = outH;
       composeCard(c.getContext('2d'), { x: 0, y: 0, w: outW, h: outH }, renderer.domElement, { x: 0, y: 0, w: outW, h: outH }, projectItem(camera, outW, outH), 1);
@@ -1234,12 +1309,13 @@
 
     // One-click looks to start from; every value can be adjusted afterwards
     const CARD_STYLES = {
-      clean:     { label: 'Clean', cardBg: 'facets', cardC1: '#DCE8F2', cardC2: '#93AFC6', fxOutline: 0.5, fxOutlineColor: '#FFFFFF', fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0.25, fxBorder: 0.4, fxBorderColor: '#FFFFFF', cardShadow: true },
-      sparkle:   { label: 'Sparkle', cardBg: 'snow', cardC1: '#EAF3FB', cardC2: '#9EBEDB', fxOutline: 0.4, fxOutlineColor: '#FFFFFF', fxGlow: 0.7, fxGlowColor: '#FFFFFF', fxSparkle: 0.8, fxSparkleColor: '#FFFFFF', fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0.2, fxBorder: 0.4, fxBorderColor: '#FFFFFF', cardShadow: true },
-      action:    { label: 'Action', cardBg: 'radial', cardC1: '#FFF4D6', cardC2: '#E5482F', fxOutline: 0.7, fxOutlineColor: '#1D1F26', fxGlow: 0.3, fxGlowColor: '#FFFFFF', fxSparkle: 0, fxFocus: 0.8, fxFocusColor: '#1D1F26', fxBurst: 0, fxRings: 0, fxVignette: 0.3, fxBorder: 0.5, fxBorderColor: '#1D1F26', cardShadow: false },
-      legendary: { label: 'Legendary', cardBg: 'radial', cardC1: '#FFF1C2', cardC2: '#B8862A', fxOutline: 0.6, fxOutlineColor: '#FFF6D8', fxGlow: 0.8, fxGlowColor: '#FFE08A', fxSparkle: 0.7, fxSparkleColor: '#FFF6D8', fxFocus: 0, fxBurst: 0.8, fxBurstColor: '#FFFFFF', fxRings: 0, fxVignette: 0.35, fxBorder: 0.7, fxBorderColor: '#D4A837', cardShadow: false },
-      night:     { label: 'Night', cardBg: 'night', cardC1: '#1B2A4D', cardC2: '#040817', fxOutline: 0.4, fxOutlineColor: '#9FD8FF', fxGlow: 0.6, fxGlowColor: '#7FD3C6', fxSparkle: 0.5, fxSparkleColor: '#CFF5FF', fxFocus: 0, fxBurst: 0, fxRings: 0.5, fxRingsColor: '#7FD3C6', fxVignette: 0.3, fxBorder: 0.4, fxBorderColor: '#7FD3C6', cardShadow: false },
-      paper:     { label: 'Field Guide', cardBg: 'paper', cardC1: '#EFE3C8', cardC2: '#8C5A35', fxOutline: 0.5, fxOutlineColor: '#3A2A1E', fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0.35, fxRingsColor: '#8C5A35', fxVignette: 0.15, fxBorder: 0.5, fxBorderColor: '#3A2A1E', cardShadow: true }
+      clean:     { label: 'Clean', cardBg: 'facets', cardC1: '#DCE8F2', cardC2: '#93AFC6', fxOutline: 0.5, fxOutlineColor: '#FFFFFF', fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0.25, fxBorder: 0.4, fxBorderColor: '#FFFFFF', cardShadow: true, silhouette: false },
+      sparkle:   { label: 'Sparkle', cardBg: 'snow', cardC1: '#EAF3FB', cardC2: '#9EBEDB', fxOutline: 0.4, fxOutlineColor: '#FFFFFF', fxGlow: 0.7, fxGlowColor: '#FFFFFF', fxSparkle: 0.8, fxSparkleColor: '#FFFFFF', fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0.2, fxBorder: 0.4, fxBorderColor: '#FFFFFF', cardShadow: true, silhouette: false },
+      action:    { label: 'Action', cardBg: 'radial', cardC1: '#FFF4D6', cardC2: '#E5482F', fxOutline: 0.7, fxOutlineColor: '#1D1F26', fxGlow: 0.3, fxGlowColor: '#FFFFFF', fxSparkle: 0, fxFocus: 0.8, fxFocusColor: '#1D1F26', fxBurst: 0, fxRings: 0, fxVignette: 0.3, fxBorder: 0.5, fxBorderColor: '#1D1F26', cardShadow: false, silhouette: false },
+      legendary: { label: 'Legendary', cardBg: 'radial', cardC1: '#FFF1C2', cardC2: '#B8862A', fxOutline: 0.6, fxOutlineColor: '#FFF6D8', fxGlow: 0.8, fxGlowColor: '#FFE08A', fxSparkle: 0.7, fxSparkleColor: '#FFF6D8', fxFocus: 0, fxBurst: 0.8, fxBurstColor: '#FFFFFF', fxRings: 0, fxVignette: 0.35, fxBorder: 0.7, fxBorderColor: '#D4A837', cardShadow: false, silhouette: false },
+      night:     { label: 'Night', cardBg: 'night', cardC1: '#1B2A4D', cardC2: '#040817', fxOutline: 0.4, fxOutlineColor: '#9FD8FF', fxGlow: 0.6, fxGlowColor: '#7FD3C6', fxSparkle: 0.5, fxSparkleColor: '#CFF5FF', fxFocus: 0, fxBurst: 0, fxRings: 0.5, fxRingsColor: '#7FD3C6', fxVignette: 0.3, fxBorder: 0.4, fxBorderColor: '#7FD3C6', cardShadow: false, silhouette: false },
+      silhouette:{ label: 'Silhouette', cardBg: 'lowpoly', cardC1: '#FFFFFF', cardC2: '#C9D2DC', fxOutline: 0, fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0, fxVignette: 0, fxBorder: 0.35, fxBorderColor: '#1D1F26', cardShadow: false, silhouette: true },
+      paper:     { label: 'Field Guide', cardBg: 'paper', cardC1: '#EFE3C8', cardC2: '#8C5A35', fxOutline: 0.5, fxOutlineColor: '#3A2A1E', fxGlow: 0, fxSparkle: 0, fxFocus: 0, fxBurst: 0, fxRings: 0.35, fxRingsColor: '#8C5A35', fxVignette: 0.15, fxBorder: 0.5, fxBorderColor: '#3A2A1E', cardShadow: true, silhouette: false }
     };
 
     function applyCardStyle(key) {
@@ -1296,7 +1372,7 @@
       if (window.studioPaused) return; // hidden tab in the Art Studio
       cameraKeys();
       controls.update();
-      renderer.render(scene, camera);
+      renderView();
       if (cardOn()) drawCardPreview();   // same frame, while the 3D image is still in the canvas
     }
     animate();
