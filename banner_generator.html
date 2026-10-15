@@ -64,7 +64,7 @@
       <button id="hide-panel" title="Hide controls (H)"><i data-icon="close"></i>Hide</button>
     </div>
 
-    <div class="btn-grid4" id="shapeBtns"></div>
+    <div class="btn-grid4" id="shapeBtns" style="grid-template-columns: repeat(5, 1fr);"></div>
     <div class="action-row">
       <button id="randomLook"><i data-icon="palette"></i>Random Colors</button>
       <button id="reroll" title="New hand-cut edges and facets"><i data-icon="dice"></i>Reroll Edges</button>
@@ -94,6 +94,7 @@ gain +1 speed.</textarea></div>
         <div class="control-group"><label>Facets <span class="val-display" id="facet-val">0.60</span></label><input type="range" id="facet" min="0" max="1.5" step="0.05" value="0.6"></div>
         <div class="control-group"><label>Outline <span class="val-display" id="outlineW-val">0.50</span></label><input type="range" id="outlineW" min="0" max="1" step="0.05" value="0.5"></div>
         <div class="control-group hanging-only"><label class="check"><input type="checkbox" id="hangString" checked> Hanging string</label></div>
+        <div class="control-group flag-only"><label class="check"><input type="checkbox" id="flagLeft"> Tail on the left</label></div>
         <div class="control-group"><label class="check"><input type="checkbox" id="shadow" checked> Drop shadow</label></div>
       </div>
     </details>
@@ -156,7 +157,8 @@ gain +1 speed.</textarea></div>
       ribbon:  { label: 'Ribbon', aspect: 4.2, notch: 0.55 },
       strip:   { label: 'Strip', aspect: 4.6, notch: 0.5 },
       plaque:  { label: 'Plaque', aspect: 3, notch: 0.45 },
-      hanging: { label: 'Hanging', aspect: 0.8, notch: 0.6 }
+      hanging: { label: 'Hanging', aspect: 0.8, notch: 0.6 },
+      flag:    { label: 'Flag', aspect: 3.4, notch: 0.5 }
     };
     const FONTS = {
       baloo:   { label: 'Rounded bold (Baloo)', css: '800 1px "Baloo 2", "Arial Rounded MT Bold", "Segoe UI", sans-serif' },
@@ -219,13 +221,14 @@ gain +1 speed.</textarea></div>
       document.querySelectorAll('[data-shape]').forEach(b => b.classList.toggle('active', b.dataset.shape === shape));
       document.querySelectorAll('.ribbon-only').forEach(e => e.style.display = shape === 'ribbon' ? '' : 'none');
       document.querySelectorAll('.hanging-only').forEach(e => e.style.display = shape === 'hanging' ? '' : 'none');
+      document.querySelectorAll('.flag-only').forEach(e => e.style.display = shape === 'flag' ? '' : 'none');
       $('notchLabel').firstChild.textContent = shape === 'plaque' ? 'Corner cut ' : 'Notch ';
       SLIDERS.forEach(id => $(id + '-val').innerText = (+$(id).value).toFixed(2));
       draw();
     }
     SLIDERS.forEach(id => $(id).addEventListener('input', syncUI));
     [...COLOR_IDS, 'text', 'exportWidth'].forEach(id => $(id).addEventListener('input', draw));
-    ['font', 'shadow', 'hangString', 'trim', 'trimMotif', 'trimWhere', 'trimStyle'].forEach(id => $(id).addEventListener('change', draw));
+    ['font', 'shadow', 'hangString', 'flagLeft', 'trim', 'trimMotif', 'trimWhere', 'trimStyle'].forEach(id => $(id).addEventListener('change', draw));
     $('backdrop').addEventListener('change', () => { $('canvas-container').className = 'bg-' + $('backdrop').value; });
     $('randomLook').addEventListener('click', () => { const keys = Object.keys(LOOKS); applyLook(keys[Math.floor(Math.random() * keys.length)]); });
     $('reroll').addEventListener('click', () => { seed = 1 + Math.floor(Math.random() * 1e5); draw(); });
@@ -254,6 +257,13 @@ gain +1 speed.</textarea></div>
         const nd = n * 0.45 * H;
         body = [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2 - nd, 0], [W / 2, H / 2], [-W / 2, H / 2], [-W / 2 + nd, 0]];
         text = { x0: -W / 2 + nd + 0.12 * H, x1: W / 2 - nd - 0.12 * H, y0: -H / 2 + 0.1 * H, y1: H / 2 - 0.1 * H };
+      } else if (shape === 'flag') { // square at one end, a swallowtail notch at the other
+        const nd = n * 0.45 * H, d = $('flagLeft').checked ? -1 : 1;
+        body = [[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2 - nd, 0], [W / 2, H / 2], [-W / 2, H / 2]].map(([x, y]) => [d * x, y]);
+        if (d < 0) body.reverse(); // keep the same winding
+        const tail = nd + 0.08 * H, flat = 0.16 * H;
+        text = d > 0 ? { x0: -W / 2 + flat, x1: W / 2 - tail, y0: -H / 2 + 0.1 * H, y1: H / 2 - 0.1 * H }
+                     : { x0: -W / 2 + tail, x1: W / 2 - flat, y0: -H / 2 + 0.1 * H, y1: H / 2 - 0.1 * H };
       } else if (shape === 'plaque') {
         const c = (0.05 + n * 0.3) * H;
         body = [[-W / 2 + c, -H / 2], [W / 2 - c, -H / 2], [W / 2, -H / 2 + c], [W / 2, H / 2 - c], [W / 2 - c, H / 2], [-W / 2 + c, H / 2], [-W / 2, H / 2 - c], [-W / 2, -H / 2 + c]];

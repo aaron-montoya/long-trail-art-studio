@@ -41,6 +41,7 @@
     label.check { justify-content: flex-start; gap: 8px; cursor: pointer; }
     input[type=range] { width: 100%; accent-color: #4f46e5; height: 4px; }
     input[type=color] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: transparent; }
+    #ui-panel input[type=text] { width: 100%; box-sizing: border-box; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
     select { width: 100%; background: #2a2a38; color: #fff; border: 1px solid #556; border-radius: 4px; padding: 6px; font-size: 0.85rem; }
     .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
     .group-label { grid-column: 1 / -1; font-size: 0.72rem; color: #8a8aa0; text-transform: uppercase; letter-spacing: 0.04em; margin: 6px 0 0; }
@@ -73,6 +74,7 @@
       <summary id="styleTitle">Style</summary>
       <div class="details-content">
         <div class="control-group" id="variantGroup"><label>Variant</label><select id="variant"></select></div>
+        <div class="control-group" id="textGroup"><label>Sign text</label><input type="text" id="itemText" maxlength="18"></div>
         <div class="color-grid" id="colorGrid"></div>
         <div class="control-group" id="glowGroup"><label class="check"><input type="checkbox" id="glow" checked> Light on (glows)</label></div>
         <div class="control-group" id="steamGroup"><label class="check"><input type="checkbox" id="steam" checked> Steam</label></div>
@@ -224,9 +226,17 @@
     scene.add(fillLight);
 
     const bgColor = new THREE.Color();
+    let lightDist = 6; // big items (the finish gate) push the sun back and widen its shadow
+    function fitShadow(radius) {
+      const e = Math.max(1.6, radius * 1.15);
+      Object.assign(keyLight.shadow.camera, { left: -e, right: e, top: e, bottom: -e, far: Math.max(30, radius * 8) });
+      keyLight.shadow.camera.updateProjectionMatrix();
+      lightDist = Math.max(6, radius * 2.5);
+      keyLight.target.position.set(0, Math.min(radius * 0.5, 2), 0);
+    }
     function updateScene() {
       const az = THREE.MathUtils.degToRad(+$('sunAz').value), el = THREE.MathUtils.degToRad(+$('sunEl').value);
-      keyLight.position.set(6 * Math.cos(el) * Math.sin(az), 0.1 + 6 * Math.sin(el), 6 * Math.cos(el) * Math.cos(az));
+      keyLight.position.set(lightDist * Math.cos(el) * Math.sin(az), 0.1 + lightDist * Math.sin(el), lightDist * Math.cos(el) * Math.cos(az));
       keyLight.color.set($('sunColor').value);
       keyLight.intensity = +$('sunInt').value;
       ambientLight.intensity = +$('ambInt').value;
@@ -287,6 +297,58 @@
     function rng(seed) {
       let a = seed;
       return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    }
+
+    // A waving flag on the plane x-y, attached along its left edge at x = 0 (dir < 0 flips it to blow left)
+    function flagGeo(w, h, dir) {
+      const geo = new THREE.PlaneGeometry(w, h, 6, 2), p = geo.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i) + w / 2, t = x / w;
+        p.setXYZ(i, Math.sign(dir) * x, p.getY(i) - t * t * h * 0.15, Math.sin(t * Math.PI * 1.6) * 0.08 * t);
+      }
+      geo.computeVertexNormals();
+      return geo;
+    }
+    // A string of triangle pennants hanging between two points with a little sag
+    function bunting(parent, a, b, sag, colors, offset = 0) {
+      const pts = [];
+      for (let i = 0; i <= 16; i++) { const t = i / 16; pts.push(new THREE.Vector3().lerpVectors(a, b, t).add(V(0, -sag * 4 * t * (1 - t), 0))); }
+      const curve = new THREE.CatmullRomCurve3(pts);
+      add(parent, new THREE.TubeGeometry(curve, 32, 0.008, 4, false), mat('#3A2A1E'));
+      const n = Math.max(2, Math.round(curve.getLength() / 0.3)), pw = 0.2, ph = 0.26;
+      for (let k = 0; k < n; k++) {
+        const t = (k + 0.5) / n, p = curve.getPoint(t), tan = curve.getTangent(t);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute([-pw / 2, 0, 0, pw / 2, 0, 0, 0, -ph, 0], 3));
+        geo.computeVertexNormals();
+        const m = add(parent, geo, mat(colors[(k + offset) % colors.length], { side: THREE.DoubleSide, roughness: 0.8 }), [p.x, p.y, p.z]);
+        m.rotation.set(Math.sin(k * 2.3) * 0.2, -Math.atan2(tan.z, tan.x), Math.atan2(tan.y, Math.hypot(tan.x, tan.z))); // follow the string, swing a little
+        m.rotation.order = 'YZX';
+      }
+    }
+    // The sign's painted face: planks with a little grain, and the words fitted to the board
+    function signTexture(text, bg, ink) {
+      const c = document.createElement('canvas');
+      c.width = 1024; c.height = 256;
+      const g = c.getContext('2d'), r = rng(9);
+      g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
+      g.strokeStyle = 'rgba(60, 40, 20, 0.12)'; g.lineWidth = 3;
+      for (let k = 0; k < 14; k++) { const y = r() * c.height; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(300, y + (r() - 0.5) * 20, 700, y + (r() - 0.5) * 20, 1024, y); g.stroke(); }
+      g.fillStyle = 'rgba(60, 40, 20, 0.25)'; g.fillRect(0, c.height / 2 - 2, c.width, 4); // two planks
+      const words = (text || '').trim().toUpperCase();
+      if (words) {
+        let size = 170;
+        g.font = `900 ${size}px "Arial Black", "Segoe UI Black", Impact, sans-serif`;
+        size = Math.min(size, size * 900 / g.measureText(words).width);
+        g.font = `900 ${size}px "Arial Black", "Segoe UI Black", Impact, sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillStyle = 'rgba(255, 255, 255, 0.35)'; g.fillText(words, c.width / 2 + 3, c.height / 2 + 5);
+        g.fillStyle = ink; g.fillText(words, c.width / 2, c.height / 2);
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.encoding = THREE.sRGBEncoding;
+      t.anisotropy = 4;
+      return t;
     }
 
     // --- THE ITEMS ---
@@ -677,6 +739,74 @@
         }
       },
 
+      finishLine: {
+        label: 'Finish Line', group: 'Trail Props', text: 'FINISH',
+        colors: { wood: ['Logs', '#7A5230'], sign: ['Sign', '#E8D2A8'], letters: ['Letters', '#3A2A1E'], flagL: ['Left flag', '#2E8B57'],
+                  flagR: ['Right flag', '#2F5FA8'], bunting: ['Bunting', '#D9482B'], bunting2: ['Bunting 2', '#F2C12E'], lantern: ['Lantern', '#B8322A'] },
+        variants: ['Flags & bunting', 'Gate & flags', 'Plain gate'], glow: true,
+        build(g, c, v, o) {
+          // a log gate wide enough for a team and sled: two posts, a crossbeam with knee braces, and a hanging sign
+          const W = 2.1, postH = 4.2, beamY = 3.85, wood = mat(c.wood, { roughness: 0.95 });
+          const woodDark = mat(new THREE.Color(c.wood).multiplyScalar(0.78), { roughness: 0.95 });
+          const endGrain = mat(new THREE.Color(c.wood).lerp(new THREE.Color('#E8D2A8'), 0.55), { roughness: 0.9 });
+          const rope = mat('#4A3A2A', { roughness: 1 });
+          const r = rng(77);
+          [-1, 1].forEach(s => {
+            add(g, cyl(0.15, 0.18, postH, 8), wood, [s * W, postH / 2, 0], [0, r() * 3, 0]);
+            add(g, cyl(0.15, 0.15, 0.02, 8), endGrain, [s * W, postH + 0.01, 0]);
+            for (let k = 0; k < 3; k++) add(g, ico(1, 0), woodDark, [s * W + (r() - 0.5) * 0.2, 0.6 + k * 1.1 + r() * 0.4, 0.15], [r() * 3, r() * 3, 0], [0.04, 0.05, 0.03]); // knots
+            limb(g, woodDark, V(s * W, beamY - 0.95, 0), V(s * (W - 0.9), beamY - 0.05, 0), 0.075); // knee brace
+            add(g, ico(1, 1), mat('#F2F6FA', { roughness: 1 }), [s * W, 0, 0], [0, r() * 3, 0], [0.42, 0.16, 0.38]); // snow piled at the foot
+          });
+          add(g, cyl(0.15, 0.15, 2 * W + 1.1, 8), wood, [0, beamY, 0], [0, 0, Math.PI / 2]);
+          [-1, 1].forEach(s => add(g, cyl(0.15, 0.15, 0.02, 8), endGrain, [s * (W + 0.56), beamY, 0], [0, 0, Math.PI / 2]));
+
+          // the sign: a framed board with the words painted on both faces, hung on two ropes
+          const sw = 2.3, sh = 0.62, sy = 2.95, sd = 0.07;
+          const S = new THREE.Group();
+          S.position.set(0, sy, 0);
+          g.add(S);
+          add(S, box(sw, sh, sd), mat(c.sign, { roughness: 0.9 }));
+          [[0, sh / 2, sw + 0.08, 0.07], [0, -sh / 2, sw + 0.08, 0.07]].forEach(([x, y, w, h]) => add(S, box(w, h, sd + 0.03), woodDark, [x, y, 0]));
+          [-1, 1].forEach(s => add(S, box(0.07, sh + 0.08, sd + 0.03), woodDark, [s * sw / 2, 0, 0]));
+          const tex = signTexture(o.text, c.sign, c.letters);
+          const face = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
+          [1, -1].forEach(s => { // the back face is turned around so it reads right from behind too
+            const p = add(S, new THREE.PlaneGeometry(sw - 0.02, sh - 0.08), face, [0, 0, s * (sd / 2 + 0.002)], [0, s > 0 ? 0 : Math.PI, 0]);
+            p.castShadow = false;
+          });
+          [-1, 1].forEach(s => add(g, tube([[s * 0.8, beamY - 0.13, 0], [s * 0.8, sy + sh / 2 + 0.02, 0]], 0.012, 4, 5), rope));
+
+          if (v !== 'Plain gate') {
+            // flags on poles above each post, both blowing the same way
+            [[-1, c.flagL], [1, c.flagR]].forEach(([s, col]) => {
+              add(g, cyl(0.025, 0.03, 1.0, 6), woodDark, [s * W, postH + 0.5, 0]);
+              add(g, ico(0.045, 0), metal('#D4A837'), [s * W, postH + 1.02, 0]);
+              add(g, flagGeo(0.62, 0.4, s * 1.7), mat(col, { side: THREE.DoubleSide, roughness: 0.8 }), [s * W + 0.03, postH + 0.75, 0]);
+            });
+            // the red lantern on an iron bracket on the right post
+            const iron = metal('#2B2B30');
+            add(g, box(0.5, 0.035, 0.035), iron, [W - 0.36, 2.55, 0.12]);
+            limb(g, iron, V(W - 0.15, 2.3, 0.12), V(W - 0.45, 2.55, 0.12), 0.012);
+            const L = new THREE.Group();
+            ITEMS.redLantern.build(L, { metal: c.lantern, glow: '#FFB347' }, 'Standing', o);
+            L.scale.setScalar(2);
+            L.position.set(W - 0.56, 2.53 - 0.27 * 2, 0.12);
+            g.add(L);
+          }
+          if (v === 'Flags & bunting') {
+            const colors = [c.bunting, c.bunting2, c.flagL, c.flagR];
+            bunting(g, V(-W + 0.1, beamY - 0.08, 0.2), V(W - 0.1, beamY - 0.08, 0.2), 0.14, colors, 0);  // along the front of the beam
+            bunting(g, V(-W + 0.1, beamY - 0.08, -0.2), V(W - 0.1, beamY - 0.08, -0.2), 0.14, colors, 2); // and the back
+            [-1, 1].forEach(s => { // out to a short pole on each side
+              add(g, cyl(0.04, 0.05, 2.6, 6), woodDark, [s * (W + 2.4), 1.3, 0]);
+              add(g, ico(0.07, 0), woodDark, [s * (W + 2.4), 2.62, 0]);
+              bunting(g, V(s * (W + 0.05), beamY + 0.12, 0), V(s * (W + 2.4), 2.5, 0), 0.4, colors, s > 0 ? 1 : 3);
+            });
+          }
+        }
+      },
+
       moose: {
         label: 'Moose', group: 'Wildlife', colors: { coat: ['Coat', '#4A3526'], legs: ['Lower legs', '#8C7B6A'], antlers: ['Antlers', '#C9B08A'] },
         variants: ['Bull with antlers', 'Bull, head lowered', 'Cow'],
@@ -786,6 +916,7 @@
         const def = ITEMS[key], colors = {};
         for (const k in def.colors) colors[k] = def.colors[k][1];
         itemState[key] = { variant: def.variants[0], colors };
+        if (def.text !== undefined) itemState[key].text = def.text;
       }
       return itemState[key];
     }
@@ -794,7 +925,7 @@
       while (itemGroup.children.length) itemGroup.remove(itemGroup.children[0]);
       const def = ITEMS[currentItem], st = stateOf(currentItem);
       const holder = new THREE.Group();
-      def.build(holder, st.colors, st.variant, { glow: $('glow').checked, steam: $('steam').checked });
+      def.build(holder, st.colors, st.variant, { glow: $('glow').checked, steam: $('steam').checked, text: st.text });
       holder.rotation.y = THREE.MathUtils.degToRad(+$('turn').value);
       itemGroup.add(holder);
 
@@ -802,6 +933,8 @@
       itemGroup.updateMatrixWorld(true);
       const box3 = new THREE.Box3().setFromObject(holder);
       holder.position.y -= box3.min.y;
+      fitShadow(box3.getBoundingSphere(new THREE.Sphere()).radius);
+      updateScene();
       if ($('snowBase').checked) {
         const size = box3.getSize(new THREE.Vector3()), R = Math.max(size.x, size.z) * 0.75 + 0.05;
         const drift = add(itemGroup, ico(1, 2), mat('#F2F6FA', { roughness: 1 }), [0, -R * 0.12, 0], [0, 0.5, 0], [R, R * 0.2, R * 0.85]);
@@ -821,6 +954,8 @@
       $('variantGroup').style.display = def.variants.length > 1 ? '' : 'none';
       $('glowGroup').style.display = def.glow ? '' : 'none';
       $('steamGroup').style.display = def.steam ? '' : 'none';
+      $('textGroup').style.display = def.text !== undefined ? '' : 'none';
+      if (def.text !== undefined) $('itemText').value = st.text;
       const grid = $('colorGrid');
       grid.innerHTML = '';
       for (const k in def.colors) {
@@ -866,6 +1001,7 @@
         $('itemButtons').appendChild(b);
       });
     }
+    $('itemText').addEventListener('input', () => { stateOf(currentItem).text = $('itemText').value; buildItem(); });
     $('variant').addEventListener('change', () => { stateOf(currentItem).variant = $('variant').value; buildItem(); frameItem(); });
     ['glow', 'steam', 'snowBase'].forEach(id => $(id).addEventListener('change', buildItem));
     $('turn').addEventListener('input', () => { $('turn-val').innerText = $('turn').value; buildItem(); });
