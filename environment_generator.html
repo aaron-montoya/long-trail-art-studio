@@ -138,6 +138,10 @@
       <div class="details-content">
         <div class="control-group"><input type="file" id="modelFiles" accept=".glb,.gltf" multiple style="width: 100%; color: #aaa; font-size: 0.8rem;"></div>
         <div class="control-group"><select id="modelList" size="4"></select></div>
+        <div class="row" style="margin-bottom: 12px;">
+          <button id="modelLock" title="A locked model can't be dragged, turned, resized or deleted (L)"><i data-icon="lock"></i>Lock</button>
+          <button id="modelLockAll"><i data-icon="lock"></i>Lock all</button>
+        </div>
         <div class="control-group"><label>Size <span class="val-display" id="modelScale-val">1.00</span></label><input type="range" id="modelScale" min="0.3" max="3" step="0.05" value="1"></div>
         <div class="control-group"><label>Turn <span class="val-display" id="modelTurn-val">0</span></label><input type="range" id="modelTurn" min="0" max="360" step="1" value="0"></div>
         <div class="control-group"><label>Tilt <span class="val-display" id="modelTilt-val">0</span></label><input type="range" id="modelTilt" min="-180" max="180" step="1" value="0"></div>
@@ -242,7 +246,7 @@
       <span class="sep"></span>
       <label>Lens <input type="range" id="fov" min="20" max="75" step="1" value="45"> <span class="val-display" id="fov-val">45</span></label>
       <span class="grow"></span>
-      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan &middot; <b>.</b> focus on the picked model &middot; <b>Del</b> delete it</span>
+      <span class="keys"><b>W A S D</b> move &middot; <b>E</b>/<b>Q</b> up, down &middot; <b>Arrows</b> look &middot; <b>Drag</b> orbit &middot; <b>Right-drag</b> pan &middot; <b>.</b> focus on the picked model &middot; <b>L</b> lock it &middot; <b>Del</b> delete it</span>
     </div>
   </div>
 
@@ -1200,8 +1204,9 @@
         if (focusOn && models[m] !== focusOn.M) endFocus();
         picked = 'model';
         selModel = m;
-        dragModel = m;
         refreshModelUI();
+        if (models[m].locked) return; // locked: the drag orbits the camera around it instead of moving it
+        dragModel = m;
         e.stopPropagation();
         e.preventDefault();
         return;
@@ -1234,7 +1239,7 @@
       const r = canvasContainer.getBoundingClientRect(), i = layerAt(e.clientX - r.left, e.clientY - r.top);
       if (i < 0) {
         const m = modelAt(e);
-        if (m < 0) return;
+        if (m < 0 || models[m].locked) return;
         const M = models[m];
         M.turn = ((M.turn + Math.sign(e.deltaY) * 8) % 360 + 360) % 360;
         selModel = m;
@@ -1436,10 +1441,15 @@
     function refreshModelUI() {
       const list = $('modelList');
       list.innerHTML = '';
-      models.forEach((M, i) => list.add(new Option(`${M.name} (${M.type})`, i)));
+      models.forEach((M, i) => list.add(new Option(`${M.name} (${M.type})${M.locked ? ' \u2013 locked' : ''}`, i)));
       list.value = selModel >= 0 ? String(selModel) : '';
       const M = models[selModel];
-      ['modelScale', 'modelTurn', 'modelTilt', 'modelRoll', 'modelLift', 'modelToTrail', 'modelDuplicate', 'modelRemove'].forEach(id => $(id).disabled = !M);
+      ['modelScale', 'modelTurn', 'modelTilt', 'modelRoll', 'modelLift', 'modelToTrail', 'modelRemove'].forEach(id => $(id).disabled = !M || !!M.locked);
+      $('modelDuplicate').disabled = $('modelLock').disabled = !M;
+      setIconButton($('modelLock'), M && M.locked ? ['unlock', 'Unlock'] : ['lock', 'Lock']);
+      const allLocked = models.length > 0 && models.every(o => o.locked);
+      $('modelLockAll').disabled = !models.length;
+      setIconButton($('modelLockAll'), allLocked ? ['unlock', 'Unlock all'] : ['lock', 'Lock all']);
       if (M) {
         $('modelScale').value = M.userScale; $('modelScale-val').innerText = M.userScale.toFixed(2);
         $('modelTurn').value = M.turn; $('modelTurn-val').innerText = M.turn;
@@ -1449,6 +1459,25 @@
       }
       refreshModelFxUI();
     }
+
+    function setIconButton(b, [icon, text]) {
+      if (b.dataset.shows === icon + text) return;
+      b.dataset.shows = icon + text;
+      b.innerHTML = `<i data-icon="${icon}"></i>${text}`;
+      renderIcons(b);
+    }
+    function toggleLock(M) {
+      if (!M) return;
+      M.locked = !M.locked;
+      if (M.locked && dragModel !== null && models[dragModel] === M) dragModel = null;
+      refreshModelUI();
+    }
+    $('modelLock').addEventListener('click', () => toggleLock(models[selModel]));
+    $('modelLockAll').addEventListener('click', () => {
+      const lock = !models.every(M => M.locked);
+      models.forEach(M => M.locked = lock);
+      refreshModelUI();
+    });
 
     const raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2();
     function pickRay(e) {
@@ -1484,7 +1513,7 @@
       const copy = M.object.clone(true);
       modelGroup.add(copy);
       copy.position.x += 1.2;
-      models.push({ ...M, object: copy, fxSeed: 0 });
+      models.push({ ...M, object: copy, fxSeed: 0, locked: false }); // unlocked, so it can be moved off the original
       prepareModelFx(models[models.length - 1]); // its own outline and effects, starting from the original's settings
       [M, models[models.length - 1]].forEach(m => setSilhouette(m, $('silModels').checked));
       selModel = models.length - 1;
@@ -1963,11 +1992,20 @@
       if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text')) return;
       if (e.key === 'h' || e.key === 'H') setPanelVisible($('ui-panel').classList.contains('hidden'));
       if (e.key === '.' || e.code === 'NumpadDecimal') focusSelected();
+      if ((e.key === 'l' || e.key === 'L') && picked === 'model' && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) {
+        const M = models[selModel];
+        toggleLock(M);
+        try { if (M && window.parent !== window && window.parent.studioToast) window.parent.studioToast(`${M.locked ? 'Locked' : 'Unlocked'} ${M.name}`); } catch (err) {}
+      }
       // Delete (or Backspace) removes the model or 2D layer you last clicked in the view
       if ((e.key === 'Delete' || e.key === 'Backspace') && picked && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) {
         const item = picked === 'model' ? models[selModel] : layers[selected];
         if (!item) return;
         e.preventDefault();
+        if (item.locked) {
+          try { if (window.parent !== window && window.parent.studioToast) window.parent.studioToast(`${item.name} is locked (press L to unlock)`); } catch (err) {}
+          return;
+        }
         $(picked === 'model' ? 'modelRemove' : 'layerRemove').click();
         picked = null;
         try { if (window.parent !== window && window.parent.studioToast) window.parent.studioToast(`Deleted ${item.name}`); } catch (err) {}
@@ -1995,7 +2033,10 @@
       const dir = sun.userData.dir || new THREE.Vector3(0, 1, 0);
       sun.target.position.copy(controls.target);
       sun.position.copy(controls.target).addScaledVector(dir, 250);
-      if (models[selModel]) { selBox.setFromObject(models[selModel].object); selBox.visible = true; } else selBox.visible = false;
+      if (models[selModel]) {
+        selBox.setFromObject(models[selModel].object); selBox.visible = true;
+        selBox.material.color.set(models[selModel].locked ? 0xfbbf24 : 0x818cf8); // amber = locked
+      } else selBox.visible = false;
       const fr = frameRect();
       updateModelFx(Math.min(fr.w, fr.h) / canvasContainer.clientHeight);
       renderer.render(scene, camera);

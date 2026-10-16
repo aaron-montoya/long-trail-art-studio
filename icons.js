@@ -22,6 +22,8 @@
     person: `<circle cx="12" cy="7.5" r="3.5"/><path d="M5 20.5c0-3.9 3.1-6.5 7-6.5s7 2.6 7 6.5"/>`,
     mountain: `<path d="M2.5 19.5l7-11.5 4.2 6.8 2.3-3.3 5.5 8z"/><path d="M7.4 11.5l2.1 1.4 1.8-1.4"/>`,
     chevron: `<path d="M9.5 6.5l5.5 5.5-5.5 5.5"/>`,
+    lock: `<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>${dot(12, 15.5)}`,
+    unlock: `<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.7-1.5"/>${dot(12, 15.5)}`,
     reset: `<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/>`,
     snowflake: `<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.5 4l2.5 2.5L14.5 4M9.5 20l2.5-2.5 2.5 2.5"/>`,
     ribbon: `<path d="M5 6.5h14v7H5z"/><path d="M5 9H2l1.5 2.5L2 14h3M19 9h3l-1.5 2.5L22 14h-3"/>`,
