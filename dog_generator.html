@@ -154,9 +154,14 @@
         <div class="control-group"><label>Muzzle Tip <span class="val-display" id="muzzleTip-val">1.00</span></label><input type="range" id="muzzleTip" min="0.6" max="1.3" step="0.05" value="1" title="Pointed and foxy to blunt and boxy"></div>
         <div class="control-group"><label>Muzzle Depth <span class="val-display" id="muzzleD-val">1.00</span></label><input type="range" id="muzzleD" min="0.7" max="1.5" step="0.05" value="1" title="Slim to deep and jowly"></div>
         <div class="control-group"><label>Eye Size <span class="val-display" id="eyeSize-val">1.00</span></label><input type="range" id="eyeSize" min="0.7" max="1.8" step="0.05" value="1"></div>
+        <div class="control-group"><label>Ear Type</label>
+          <select id="earType" title="The ear's outline; Ear Floppiness sets how far it folds or hangs">
+            <option value="pointed">Pointed (upright, or folded over)</option>
+            <option value="floppy">Rounded (floppy, hanging)</option>
+          </select></div>
         <div class="control-group"><label>Ear Size <span class="val-display" id="earSize-val">0.40</span></label><input type="range" id="earSize" min="0.15" max="1.3" step="0.05" value="0.4"></div>
         <div class="control-group"><label>Ear Width <span class="val-display" id="earWidth-val">1.00</span></label><input type="range" id="earWidth" min="0.5" max="1.5" step="0.05" value="1" title="Narrow and pointed (Doberman) to broad"></div>
-        <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0"></div>
+        <div class="control-group"><label>Ear Floppiness <span class="val-display" id="earDroop-val">0.00</span></label><input type="range" id="earDroop" min="0" max="1" step="0.05" value="0" title="Pointed: upright, then the tip folds over, then the whole flap folds forward. Rounded: upright, then a button fold, then hanging."></div>
       </div>
     </details>
 
@@ -489,13 +494,13 @@
     // Flat ear piece covering ear-length fraction u0..u1. Outline blends from a pointed
     // triangle (flop=0) to a rounded hanging leaf (flop=1). Origin sits at u=origin, ear grows along +Y.
     // A negative u0 adds a root below the origin that gets buried in the skull.
-    function earGeo(flop, L, w, u0, u1, thick, origin = u0) {
+    function earGeo(shape, L, w, u0, u1, thick, origin = u0) { // shape: 0 = pointed triangle, 1 = rounded leaf
       const N = 5, pts = [];
       const halfW = u => {
         const pointy = (w / 2) * (1 - Math.abs(u)); // root (u<0) tapers back in so it stays inside the skull
         const f = u * 1.05;
         const leaf = w * 0.5 * Math.sqrt(Math.max(0, 1 - ((f - 0.5) / 0.55) ** 2));
-        return pointy + (leaf - pointy) * flop;
+        return pointy + (leaf - pointy) * shape;
       };
       for (let i = 0; i <= N; i++) { const u = u0 + (u1 - u0) * i / N; pts.push(new THREE.Vector2(halfW(u), (u - origin) * L)); }
       for (let i = N; i >= 0; i--) {
@@ -726,31 +731,34 @@
         });
       }
 
-      // Ears: two flat pieces (base + tip) on a hinge. As floppiness rises the tip folds
-      // over (button ear), then the whole ear swings down and turns flat against the cheek.
-      const flop = p.earDroop;
+      // Ears: two flat pieces (base + tip) on a hinge. Ear Type picks the outline and Floppiness how far it gives:
+      //  rounded: the tip folds over (button ear), then the whole ear swings down and hangs flat against the cheek
+      //  pointed: the tip folds forward, then the fold drops lower until the triangle lies folded over toward the eye
+      const flop = p.earDroop, rounded = document.getElementById('earType').value === 'floppy';
       const earL = p.earSize * 1.5 * (1 + 0.1 * flop);
       const earW = p.earSize * p.earWidth * (1 + 0.1 * flop);
       const earThick = p.earSize * 0.15;
-      const swing = 0.2 + 2.75 * smoothstep((flop - 0.25) / 0.75);
-      const fold = flop < 0.8 ? 1.4 * Math.sin(Math.PI * flop / 0.8) : 0;
-      const twist = (Math.PI / 2) * smoothstep((flop - 0.3) / 0.7);
+      const shape = rounded ? 1 : 0, split = rounded ? 0.5 : 0.5 - 0.14 * smoothstep((flop - 0.3) / 0.7); // pointed ears fold lower as they flop
+      const swing = rounded ? 0.2 + 2.75 * smoothstep((flop - 0.25) / 0.75) : 0.2 + 0.75 * smoothstep((flop - 0.45) / 0.55);
+      const fold = rounded ? (flop < 0.8 ? 1.4 * Math.sin(Math.PI * flop / 0.8) : 0) : 2.5 * smoothstep(flop / 0.8);
+      const twist = rounded ? (Math.PI / 2) * smoothstep((flop - 0.3) / 0.7) : 0.35 * smoothstep((flop - 0.5) / 0.5);
+      const seatFlop = rounded ? flop : 0.25 * flop; // hanging ears sit lower and further back on the skull
       [1, -1].forEach(side => {
         const hinge = new THREE.Group();
         // Hinge sits just inside the low-poly skull surface so the ear root is buried, not perched on top
-        const hx = p.headSize * (0.27 + 0.07 * flop) * p.skullW, hz = -p.headSize * (0.08 + 0.04 * flop);
+        const hx = p.headSize * (0.27 + 0.07 * seatFlop) * p.skullW, hz = -p.headSize * (0.08 + 0.04 * seatFlop);
         let seat = surfaceAt(skullSt, hz, 0);
         for (let k = 1; k <= 40; k++) { const q = surfaceAt(skullSt, hz, k / 40 * Math.PI / 2); if (q.x >= hx) { seat = q; break; } }
         hinge.position.set(side * hx, skullCY + (seat.y - skullCY) * 0.9, hz); // root just inside the surface
         hinge.rotation.set(-0.15 - ps.poseEars, -side * twist, -side * swing, 'XZY');
         headJoint.add(hinge);
-        const base = coat(new THREE.Mesh(earGeo(flop, earL, earW, -0.05 - 0.25 * (1 - flop), 0.5, earThick, 0), matCoat), 'ear', hinge, { L: earL, uOff: 0, side });
+        const base = coat(new THREE.Mesh(earGeo(shape, earL, earW, -0.05 - 0.25 * (1 - seatFlop), split, earThick, 0), matCoat), 'ear', hinge, { L: earL, uOff: 0, side });
         hinge.add(base);
         const tipJoint = new THREE.Group();
-        tipJoint.position.y = earL * 0.5;
+        tipJoint.position.y = earL * split;
         tipJoint.rotation.x = fold;
         hinge.add(tipJoint);
-        const tip = coat(new THREE.Mesh(earGeo(flop, earL, earW, 0.5, 1, earThick), matCoat), 'ear', tipJoint, { L: earL, uOff: 0.5, side });
+        const tip = coat(new THREE.Mesh(earGeo(shape, earL, earW, split, 1, earThick), matCoat), 'ear', tipJoint, { L: earL, uOff: split, side });
         tipJoint.add(tip);
         [base, tip].forEach(m => { m.castShadow = true; m.receiveShadow = true; });
       });
@@ -1868,7 +1876,7 @@
     document.getElementById('centerCam').addEventListener('click', centerCamera);
     ['colorMain', 'colorSec', 'colorAcc', 'colorEye', 'furVary'].forEach(id => document.getElementById(id).addEventListener('input', updateColors));
     document.getElementById('fineFacets').addEventListener('change', buildDog);
-    ['curly', 'poodleClip'].forEach(id => document.getElementById(id).addEventListener('change', buildDog));
+    ['curly', 'poodleClip', 'earType'].forEach(id => document.getElementById(id).addEventListener('change', buildDog));
     const syncPom = () => document.getElementById('pomSizeGroup').style.display = document.getElementById('poodleClip').checked ? '' : 'none';
     document.getElementById('poodleClip').addEventListener('change', syncPom);
 
@@ -2014,6 +2022,7 @@
       // files saved before a setting existed get its normal value (not whatever is on screen)
       Object.entries({ dogSize: 1, bodyWidth: 1, neckThick: 1, tailThick: 1, earWidth: 1, beard: 0, pomSize: 1 }).forEach(([id, v]) => document.getElementById(id).value = v);
       ['curly', 'poodleClip'].forEach(id => document.getElementById(id).checked = false);
+      if (!state.values || state.values.earType === undefined) document.getElementById('earType').value = +((state.values || {}).earDroop || 0) >= 0.7 ? 'floppy' : 'pointed';
       for (const id in state.values) {
         const el = document.getElementById(id);
         if (!el || el.type === 'file') continue;
@@ -2099,6 +2108,7 @@
         const el = document.getElementById(id);
         el.value = (Math.random() * (parseFloat(el.max) - parseFloat(el.min)) + parseFloat(el.min)).toFixed(2);
       });
+      document.getElementById('earType').value = Math.random() < 0.5 ? 'pointed' : 'floppy';
       randomizeColors();
       updateFromInputs();
     });
@@ -2127,9 +2137,9 @@
         hound:    { c1: "#a8682f", c2: "#f3ece0", c3: "#1f1b18", pattern: 'tricolor', p: { bodyLen: 1.9, chestSize: 1.1, pelvisSize: 0.75, neckLen: 0.8, headSize: 0.85, snoutLen: 1.0, foreHead: 1.15, stopDepth: 0.35, skullW: 0.85, muzzleW: 1.05, muzzleTip: 1.15, muzzleD: 1.4, eyeSize: 1.1, earSize: 0.6, earDroop: 1.0, legScale: 1.3, boneThick: 0.15, tailBase: -0.3, tailLen: 1.4, tailCurl: -0.2, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0 } },
         chihuahua:  { c1: "#D9A066", c2: "#F5E6CC", c3: "#2B2420", pattern: 'twoTone', p: { dogSize: 0.38, bodyWidth: 0.9, bodyLen: 1.25, chestSize: 0.62, pelvisSize: 0.5, neckLen: 0.45, neckThick: 0.55, headSize: 1.25, snoutLen: 0.3, foreHead: 1.6, stopDepth: 1.0, skullW: 1.15, muzzleW: 0.8, muzzleTip: 0.7, muzzleD: 0.8, eyeSize: 1.7, earSize: 0.72, earWidth: 1.35, earDroop: 0.0, legScale: 0.8, boneThick: 0.07, tailBase: 1.0, tailLen: 0.8, tailThick: 0.35, tailCurl: 0.6, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
         schnauzer:  { c1: "#5E6066", c2: "#D8D8D4", c3: "#1D1F22", pattern: 'furnishings', p: { dogSize: 0.62, bodyWidth: 0.9, bodyLen: 1.5, chestSize: 0.85, pelvisSize: 0.7, neckLen: 0.7, neckThick: 0.85, headSize: 0.9, snoutLen: 0.9, foreHead: 0.85, stopDepth: 0.35, skullW: 0.85, muzzleW: 1.15, muzzleTip: 1.3, muzzleD: 1.1, eyeSize: 0.85, earSize: 0.4, earWidth: 1.0, earDroop: 0.35, legScale: 1.2, boneThick: 0.13, tailBase: 1.1, tailLen: 0.25, tailThick: 0.8, tailCurl: 0, furShag: 0.35, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0.55, furBody: 0, beard: 0.9 } },
-        pug:        { c1: "#D8B88A", c2: "#EFE0C4", c3: "#1E1A18", pattern: 'blackMask', p: { dogSize: 0.5, bodyWidth: 1.2, bodyLen: 1.25, chestSize: 0.88, pelvisSize: 0.75, neckLen: 0.3, neckThick: 1.1, headSize: 1.15, snoutLen: 0.1, foreHead: 1.4, stopDepth: 1.0, skullW: 1.25, muzzleW: 1.35, muzzleTip: 1.3, muzzleD: 1.2, eyeSize: 1.6, earSize: 0.32, earWidth: 1.2, earDroop: 0.4, legScale: 0.55, boneThick: 0.13, tailBase: 1.3, tailLen: 0.55, tailThick: 0.8, tailCurl: 1.8, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        pug:        { c1: "#D8B88A", c2: "#EFE0C4", c3: "#1E1A18", ears: 'pointed', pattern: 'blackMask', p: { dogSize: 0.5, bodyWidth: 1.2, bodyLen: 1.25, chestSize: 0.88, pelvisSize: 0.75, neckLen: 0.3, neckThick: 1.1, headSize: 1.15, snoutLen: 0.1, foreHead: 1.4, stopDepth: 1.0, skullW: 1.25, muzzleW: 1.35, muzzleTip: 1.3, muzzleD: 1.2, eyeSize: 1.6, earSize: 0.32, earWidth: 1.2, earDroop: 0.75, legScale: 0.55, boneThick: 0.13, tailBase: 1.3, tailLen: 0.55, tailThick: 0.8, tailCurl: 1.8, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
         pomeranian: { c1: "#E08A3A", c2: "#F6D9A8", c3: "#3A2412", pattern: 'twoTone', p: { dogSize: 0.42, bodyWidth: 1.0, bodyLen: 1.1, chestSize: 0.8, pelvisSize: 0.6, neckLen: 0.35, neckThick: 0.9, headSize: 1.0, snoutLen: 0.3, foreHead: 1.4, stopDepth: 0.9, skullW: 1.1, muzzleW: 0.8, muzzleTip: 0.7, muzzleD: 0.8, eyeSize: 1.4, earSize: 0.3, earWidth: 0.9, earDroop: 0, legScale: 0.75, boneThick: 0.09, tailBase: 1.3, tailLen: 0.9, tailThick: 1.0, tailCurl: 1.3, furShag: 0.9, furRuff: 1.0, furCheek: 1.0, furTail: 1.0, furLegs: 0.8, furBody: 1.0, beard: 0 } },
-        bulldog:    { c1: "#C08A55", c2: "#F4EEE4", c3: "#3A2A1E", pattern: 'piebald', p: { dogSize: 0.7, bodyWidth: 1.5, bodyLen: 1.45, chestSize: 0.95, pelvisSize: 0.65, neckLen: 0.4, neckThick: 1.3, headSize: 1.3, snoutLen: 0.12, foreHead: 1.1, stopDepth: 1.0, skullW: 1.3, muzzleW: 1.4, muzzleTip: 1.3, muzzleD: 1.5, eyeSize: 1.0, earSize: 0.28, earWidth: 1.1, earDroop: 0.35, legScale: 0.6, boneThick: 0.22, tailBase: -0.4, tailLen: 0.2, tailThick: 1.2, tailCurl: 0.4, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        bulldog:    { c1: "#C08A55", c2: "#F4EEE4", c3: "#3A2A1E", ears: 'pointed', pattern: 'piebald', p: { dogSize: 0.7, bodyWidth: 1.5, bodyLen: 1.45, chestSize: 0.95, pelvisSize: 0.65, neckLen: 0.4, neckThick: 1.3, headSize: 1.3, snoutLen: 0.12, foreHead: 1.1, stopDepth: 1.0, skullW: 1.3, muzzleW: 1.4, muzzleTip: 1.3, muzzleD: 1.5, eyeSize: 1.0, earSize: 0.28, earWidth: 1.1, earDroop: 0.7, legScale: 0.6, boneThick: 0.22, tailBase: -0.4, tailLen: 0.2, tailThick: 1.2, tailCurl: 0.4, furShag: 0.05, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
         poodle:     { c1: "#F2EEE6", c2: "#FFFFFF", c3: "#2B2B30", pattern: 'solid', curly: true, clip: true, p: { dogSize: 0.95, bodyWidth: 0.85, bodyLen: 1.6, chestSize: 0.85, pelvisSize: 0.65, neckLen: 1.0, neckThick: 0.8, headSize: 0.85, snoutLen: 1.0, foreHead: 1.1, stopDepth: 0.5, skullW: 0.85, muzzleW: 0.8, muzzleTip: 0.75, muzzleD: 0.8, eyeSize: 0.9, earSize: 0.7, earWidth: 1.1, earDroop: 1.0, legScale: 1.6, boneThick: 0.1, tailBase: 1.0, tailLen: 0.6, tailThick: 0.7, tailCurl: 0, furShag: 0.4, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
         corgi:      { c1: "#C8742E", c2: "#F4EEE4", c3: "#2B2420", pattern: 'socks', p: { dogSize: 0.62, bodyWidth: 1.1, bodyLen: 2.2, chestSize: 0.95, pelvisSize: 0.8, neckLen: 0.5, neckThick: 1.0, headSize: 0.95, snoutLen: 0.7, foreHead: 1.0, stopDepth: 0.5, skullW: 1.05, muzzleW: 0.85, muzzleTip: 0.7, muzzleD: 0.85, eyeSize: 1.0, earSize: 0.75, earWidth: 1.15, earDroop: 0, legScale: 0.45, boneThick: 0.14, tailBase: 0.3, tailLen: 0.15, tailThick: 1.0, tailCurl: 0, furShag: 0.3, furRuff: 0.5, furCheek: 0.3, furTail: 0.3, furLegs: 0.4, furBody: 0.2, beard: 0 } },
         doberman:   { c1: "#B0602A", c2: "#E0B080", c3: "#141214", pattern: 'tanPoints', p: { dogSize: 1.05, bodyWidth: 0.78, bodyLen: 1.8, chestSize: 1.05, pelvisSize: 0.68, neckLen: 1.0, neckThick: 0.8, headSize: 0.85, snoutLen: 1.1, foreHead: 0.85, stopDepth: 0.25, skullW: 0.8, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.95, eyeSize: 0.85, earSize: 0.7, earWidth: 0.6, earDroop: 0, legScale: 1.7, boneThick: 0.13, tailBase: 1.0, tailLen: 0.2, tailThick: 0.9, tailCurl: 0, furShag: 0.03, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
@@ -2138,8 +2148,8 @@
         shepherd:   { c1: "#C08A4A", c2: "#E8D2A8", c3: "#1E1A18", pattern: 'blackTan', p: { dogSize: 1.05, bodyWidth: 0.95, bodyLen: 2.0, chestSize: 1.1, pelvisSize: 0.8, neckLen: 0.85, neckThick: 1.0, headSize: 0.95, snoutLen: 1.0, foreHead: 0.95, stopDepth: 0.35, skullW: 1.0, muzzleW: 0.9, muzzleTip: 0.9, muzzleD: 0.95, eyeSize: 0.9, earSize: 0.7, earWidth: 1.1, earDroop: 0, legScale: 1.45, boneThick: 0.16, tailBase: -0.5, tailLen: 1.4, tailThick: 1.0, tailCurl: -0.2, furShag: 0.25, furRuff: 0.3, furCheek: 0.1, furTail: 0.6, furLegs: 0.3, furBody: 0.1, beard: 0 } },
         saintBernard: { c1: "#A4522A", c2: "#F7F2EA", c3: "#2A1B12", pattern: 'saintBernard', p: { dogSize: 1.25, bodyWidth: 1.25, bodyLen: 2.0, chestSize: 1.3, pelvisSize: 1.0, neckLen: 0.55, neckThick: 1.25, headSize: 1.2, snoutLen: 0.6, foreHead: 1.35, stopDepth: 0.9, skullW: 1.25, muzzleW: 1.35, muzzleTip: 1.3, muzzleD: 1.5, eyeSize: 0.85, earSize: 0.5, earWidth: 1.2, earDroop: 0.9, legScale: 1.3, boneThick: 0.24, tailBase: -1.45, tailLen: 1.3, tailThick: 1.3, tailCurl: -0.1, furShag: 0.35, furRuff: 0.5, furCheek: 0.3, furTail: 0.6, furLegs: 0.4, furBody: 0.2, beard: 0 } },
         dalmatian:  { c1: "#F4F2EE", c2: "#F7F5F0", c3: "#141416", pattern: 'dalmatian', fine: true, p: { dogSize: 1.0, bodyWidth: 0.9, bodyLen: 1.8, chestSize: 1.0, pelvisSize: 0.75, neckLen: 0.85, neckThick: 0.9, headSize: 0.9, snoutLen: 0.9, foreHead: 0.95, stopDepth: 0.45, skullW: 0.95, muzzleW: 0.95, muzzleTip: 1.0, muzzleD: 1.0, eyeSize: 0.95, earSize: 0.42, earWidth: 1.1, earDroop: 0.85, legScale: 1.5, boneThick: 0.14, tailBase: 0.2, tailLen: 1.3, tailThick: 0.7, tailCurl: 0.2, furShag: 0.03, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
-        greatDane:  { c1: "#C9A26B", c2: "#E8D2A8", c3: "#1E1A18", pattern: 'blackMask', p: { dogSize: 1.3, bodyWidth: 0.85, bodyLen: 1.9, chestSize: 1.2, pelvisSize: 0.75, neckLen: 0.9, neckThick: 0.95, headSize: 1.2, snoutLen: 1.0, foreHead: 1.05, stopDepth: 0.7, skullW: 0.9, muzzleW: 1.1, muzzleTip: 1.3, muzzleD: 1.35, eyeSize: 0.85, earSize: 0.42, earWidth: 1.0, earDroop: 0.6, legScale: 1.65, boneThick: 0.17, tailBase: -1.45, tailLen: 1.4, tailThick: 0.8, tailCurl: 0.35, furShag: 0.02, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
-        mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, foreHead: 1.45, stopDepth: 0.8, skullW: 1.05, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.9, eyeSize: 1.2, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
+        greatDane:  { c1: "#C9A26B", c2: "#E8D2A8", c3: "#1E1A18", ears: 'pointed', pattern: 'blackMask', p: { dogSize: 1.3, bodyWidth: 0.85, bodyLen: 1.9, chestSize: 1.2, pelvisSize: 0.75, neckLen: 0.9, neckThick: 0.95, headSize: 1.2, snoutLen: 1.0, foreHead: 1.05, stopDepth: 0.7, skullW: 0.9, muzzleW: 1.1, muzzleTip: 1.3, muzzleD: 1.35, eyeSize: 0.85, earSize: 0.42, earWidth: 1.0, earDroop: 0.75, legScale: 1.65, boneThick: 0.17, tailBase: -1.45, tailLen: 1.4, tailThick: 0.8, tailCurl: 0.35, furShag: 0.02, furRuff: 0, furCheek: 0, furTail: 0, furLegs: 0, furBody: 0, beard: 0 } },
+        mut:      { c1: "#a87140", c2: "#f1e6d2", c3: "#3a2a1e", pattern: 'piebald', ears: 'floppy', p: { bodyLen: 1.7, chestSize: 0.8, pelvisSize: 0.7, neckLen: 0.6, headSize: 0.8, snoutLen: 0.6, foreHead: 1.45, stopDepth: 0.8, skullW: 1.05, muzzleW: 0.9, muzzleTip: 0.85, muzzleD: 0.9, eyeSize: 1.2, earSize: 0.5, earDroop: 0.45, legScale: 1.0, boneThick: 0.14, tailBase: -0.2, tailLen: 0.8, tailCurl: 0.1, furShag: 0.7, furRuff: 0.4, furCheek: 0.7, furTail: 0.4, furLegs: 0.6, furBody: 0.6 } }
       };
 
       const pr = presets[type];
@@ -2155,6 +2165,7 @@
       for(let key in vals) {
         if(document.getElementById(key)) document.getElementById(key).value = vals[key];
       }
+      document.getElementById('earType').value = pr.ears || (vals.earDroop >= 0.7 ? 'floppy' : 'pointed');
       document.getElementById('curly').checked = !!pr.curly;
       document.getElementById('poodleClip').checked = !!pr.clip;
       if (pr.fine) document.getElementById('fineFacets').checked = true; // spots read best on smaller facets
