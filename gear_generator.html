@@ -326,6 +326,24 @@
         m.rotation.order = 'YZX';
       }
     }
+    // Plastic snow fence: one 0.5 m x 1 m tile of slats with rounded holes cut out (alpha), repeated along the fence
+    function fenceTexture(color) {
+      const c = document.createElement('canvas');
+      c.width = 128; c.height = 256;
+      const g = c.getContext('2d');
+      g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = 'rgba(0, 0, 0, 0.12)'; // a darker strand along each row of holes
+      for (let row = 0; row < 8; row++) g.fillRect(0, row * 32 + 14, c.width, 4);
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = '#000';
+      for (let row = 0; row < 8; row++) for (let col = 0; col < 3; col++) {
+        const x = col * 43 + 21, y = row * 32 + 16;
+        g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, Math.PI * 2); g.fill();
+      }
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = THREE.RepeatWrapping;
+      return t;
+    }
     // The sign's painted face: planks with a little grain, and the words fitted to the board
     function signTexture(text, bg, ink) {
       const c = document.createElement('canvas');
@@ -804,6 +822,51 @@
               bunting(g, V(s * (W + 0.05), beamY + 0.12, 0), V(s * (W + 2.4), 2.5, 0), 0.4, colors, s > 0 ? 1 : 3);
             });
           }
+        }
+      },
+
+      startChute: {
+        label: 'Starting Chute', group: 'Trail Props', text: 'START',
+        colors: { wood: ['Logs', '#7A5230'], sign: ['Sign', '#E8D2A8'], letters: ['Letters', '#3A2A1E'], flagL: ['Left flag', '#2E8B57'],
+                  flagR: ['Right flag', '#2F5FA8'], bunting: ['Bunting', '#D9482B'], bunting2: ['Bunting 2', '#F2C12E'], lantern: ['Lantern', '#B8322A'],
+                  fence: ['Fence', '#E8672A'], line: ['Start line', '#D9482B'] },
+        variants: ['Snow fence chute', 'Rope & pennant chute', 'Gate only'], glow: true,
+        build(g, c, v, o) {
+          // the finish line's log gate with flags and bunting, then a start line in the snow under it and a
+          // fenced lane running back from the gate (-z), where the team lines up before the countdown
+          ITEMS.finishLine.build(g, c, 'Flags & bunting', o);
+          const W = 2.1, half = 1.85, L = 7.5, z0 = -0.45;
+          const r = rng(41), stake = mat(new THREE.Color(c.wood).multiplyScalar(0.78), { roughness: 0.95 });
+          const snow = mat('#F2F6FA', { roughness: 1 });
+          add(g, box(2 * W - 0.3, 0.012, 0.16), mat(c.line, { roughness: 0.9 }), [0, 0.006, 0.28]);
+          if (v === 'Gate only') return;
+
+          const posts = Math.round(L / 1.5);
+          const postZ = k => z0 - (k / posts) * L;
+          [-1, 1].forEach(s => {
+            const x = s * half;
+            for (let k = 0; k <= posts; k++) {
+              add(g, cyl(0.04, 0.05, 1.35, 6), stake, [x + (r() - 0.5) * 0.04, 0.62, postZ(k)], [(r() - 0.5) * 0.06, r() * 3, (r() - 0.5) * 0.06]);
+              add(g, ico(1, 1), snow, [x, 0, postZ(k)], [0, r() * 3, 0], [0.16, 0.08, 0.15]);
+            }
+            if (v === 'Snow fence chute') {
+              // orange plastic snow fence: one long panel with the holes cut by the texture, on the inside of the stakes
+              const tex = fenceTexture(c.fence);
+              tex.repeat.set(L / 0.5, 1);
+              const fm = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.8 });
+              const m = add(g, new THREE.PlaneGeometry(L, 1.0), fm, [x - s * 0.06, 0.62, z0 - L / 2], [0, Math.PI / 2, 0]);
+              m.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5 }); // shadows keep the holes
+            } else {
+              // two ropes between the stakes, the top one strung with pennants
+              const rope = mat('#4A3A2A', { roughness: 1 });
+              const colors = [c.bunting, c.bunting2, c.flagL, c.flagR];
+              for (let k = 0; k < posts; k++) {
+                const a = postZ(k), b = postZ(k + 1);
+                bunting(g, V(x, 1.22, a), V(x, 1.22, b), 0.08, colors, k);
+                add(g, tube([[x, 0.62, a], [x, 0.58, (a + b) / 2], [x, 0.62, b]], 0.012, 8, 4), rope);
+              }
+            }
+          });
         }
       },
 
